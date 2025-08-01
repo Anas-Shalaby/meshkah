@@ -1,0 +1,15 @@
+@font-face {
+  font-family: 'Arabic';
+  src: url('/fonts/arabic-font.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+.pdf-content {
+  direction: rtl;
+  font-family: 'Arabic', sans-serif;
+}
+
+.pdf-hadith {
+  page-break-inside: avoid;
+}

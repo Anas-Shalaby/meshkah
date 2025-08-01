@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <title>مِشكاة - منصة الأحاديث الذكية</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="index.css" />
+  </head>
+  <body>
+    <div class="bg-pattern"></div>
+    <div class="main-content">
+      <div class="main-header">
+        <div class="title">مِشكاة - منصة الأحاديث الذكية</div>
+        <div class="subtitle">
+          ذكّر نفسك بالأحاديث النبوية وناقشها مع الذكاء الاصطناعي
+        </div>
+      </div>
+      <div class="main-tabs">
+        <button class="main-tab active" data-tab="home">الرئيسية</button>
+        <button class="main-tab" data-tab="reminders">مواعيد التذكير</button>
+        <button class="main-tab" data-tab="hadith">حديث اليوم</button>
+        <button class="main-tab" data-tab="ai">محادثة الذكاء الاصطناعي</button>
+      </div>
+      <main>
+        <section id="tab-home" class="tab-section active">
+          <div class="welcome-card">
+            <h1>مرحباً بك في منصة مشكاة للأحاديث الذكية</h1>
+            <p>
+              احصل على تذكيرات يومية بالأحاديث النبوية، وناقشها مع الذكاء
+              الاصطناعي، وحدد مواعيدك بسهولة.
+            </p>
+          </div>
+        </section>
+        <section id="tab-reminders" class="tab-section">
+          <!-- Reminder times UI will be rendered here by index.js -->
+        </section>
+        <section id="tab-hadith" class="tab-section">
+          <!-- Hadith of the day UI will be rendered here by index.js -->
+        </section>
+        <section id="tab-ai" class="tab-section">
+          <!-- AI chat UI will be rendered here by index.js -->
+        </section>
+      </main>
+    </div>
+    <script src="index.js"></script>
+  </body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ar">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Update font preloading -->
+    <style>
+      @font-face {
+        font-family: "MeshkahFont";
+        src: url("/fonts/Foda-Free-Font.ttf") format("truetype");
+        font-display: swap;
+        font-weight: normal;
+        font-style: normal;
+      }
+
+      @font-face {
+        font-family: "Modern";
+        src: url("/fonts/Ya-ModernPro-Bold.otf") format("opentype");
+        font-display: swap;
+        font-weight: normal;
+        font-style: normal;
+      }
+    </style>
+    <!-- Add font MIME type meta -->
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    <!-- Fix icon paths and add missing sizes -->
+    <link
+      rel="icon"
+      type="image/png"
+      href="assets/icons/32-32.png"
+      sizes="32×32"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      href="assets/icons/180×180.png"
+      sizes="180×180"
+    />
+
+    <link
+      rel="icon"
+      type="image/png"
+      href="assets/icons/192×192.png"
+      sizes="192×192"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      href="assets/icons/512-512-01.png"
+      sizes="512x512"
+    />
+
+    <!-- Fix Apple touch icons -->
+    <link rel="apple-touch-icon" href="assets/icons/32-32.png" sizes="32×32" />
+    <link rel="apple-touch-icon" href="assets/icons/512-512-01.png" />
+    <link
+      rel="apple-touch-icon"
+      href="assets/icons/192×192.png"
+      sizes="192×192"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="assets/icons/180×180.png"
+      sizes="180×180"
+    />
+
+    <!-- Add maskable icon -->
+    <link rel="mask-icon" href="/icons/512-512-01.png" color="#7440EA" />
+
+    <!-- Rest of your meta tags -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, initial-scale=1, user-scalable=no"
+    />
+    <meta name="theme-color" content="#7440EA" />
+    <meta name="screen-orientation" content="portrait" />
+    <meta http-equiv="ScreenOrientation" content="autoRotate:disabled" />
+    <link rel="manifest" href="/manifest.json" />
+    <title>مشكاة للأحاديث النبوية الشريفة</title>
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta
+      name="description"
+      content="تطبيق لاستعراض وفهم الأحاديث النبوية الشريفة"
+    />
+    <meta name="orientation" content="portrait" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
