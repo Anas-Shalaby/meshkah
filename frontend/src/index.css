@@ -1,0 +1,249 @@
+@import url("https://fonts.googleapis.com/css2?family=Cairo:wght@200;300;400;500;600;700;800;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "MeshkahFont";
+  src: url("/fonts/Foda-Free-Font.ttf") format("truetype");
+  font-display: swap;
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Modern";
+  src: url("/fonts/Ya-ModernPro-Bold.otf") format("opentype");
+  font-display: swap;
+  font-weight: normal;
+  font-style: normal;
+}
+.amiri-regular {
+  font-family: "Amiri", serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+.amiri-bold {
+  font-family: "Amiri", serif;
+  font-weight: 700;
+  font-style: normal;
+}
+
+.amiri-regular-italic {
+  font-family: "Amiri", serif;
+  font-weight: 400;
+  font-style: italic;
+}
+
+.amiri-bold-italic {
+  font-family: "Amiri", serif;
+  font-weight: 700;
+  font-style: italic;
+}
+
+/* Global styles with AI-inspired design */
+body {
+  @apply font-sans antialiased;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  direction: rtl;
+}
+
+/* RTL/LTR Support */
+html[dir="rtl"] {
+  direction: rtl;
+}
+
+html[dir="ltr"] {
+  direction: ltr;
+}
+
+html[dir="rtl"] body {
+  direction: rtl;
+  text-align: right;
+}
+
+html[dir="ltr"] body {
+  direction: ltr;
+  text-align: left;
+}
+
+/* RTL/LTR specific spacing utilities */
+html[dir="rtl"] .space-x-reverse > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+}
+
+html[dir="ltr"] .space-x-reverse > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+}
+
+/* RTL/LTR specific margin utilities */
+html[dir="rtl"] .mr-auto {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+html[dir="ltr"] .ml-auto {
+  margin-right: auto;
+  margin-left: 0;
+}
+
+/* RTL/LTR specific padding utilities */
+html[dir="rtl"] .pr-10 {
+  padding-left: 2.5rem;
+  padding-right: 0;
+}
+
+html[dir="ltr"] .pl-10 {
+  padding-right: 2.5rem;
+  padding-left: 0;
+}
+
+/* RTL/LTR specific positioning */
+html[dir="rtl"] .left-3 {
+  right: 0.75rem;
+  left: auto;
+}
+
+html[dir="ltr"] .right-3 {
+  left: 0.75rem;
+  right: auto;
+}
+
+/* Dark mode specific styles */
+.dark {
+  color-scheme: dark;
+  @apply bg-dark-background text-dark-text;
+}
+
+/* Smooth theme transition */
+body,
+.dark {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* AI-inspired scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-light-surface dark:bg-dark-surface;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-light-primary/50 dark:bg-dark-primary/50 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-light-primary dark:bg-dark-primary;
+}
+
+/* Subtle focus styles */
+*:focus {
+  @apply outline-none ring-2 ring-light-primary/50 dark:ring-dark-primary/50 rounded-lg;
+}
+
+/* Glassmorphism-inspired backdrop */
+.glassmorphic {
+  backdrop-filter: blur(12px);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark .glassmorphic {
+  background-color: rgba(26, 26, 26, 0.1);
+}
+
+/* React Select Custom Styles */
+:root {
+  --select-bg: white;
+  --select-border: #d1d5db;
+  --select-border-hover: #9ca3af;
+  --select-border-focus: #3b82f6;
+  --select-menu-bg: white;
+  --select-option-selected-bg: #3b82f6;
+  --select-option-hover-bg: #f3f4f6;
+  --select-option-active-bg: #e5e7eb;
+  --select-option-color: #1f2937;
+  --select-text-color: #1f2937;
+}
+
+.dark {
+  --select-bg: #374151;
+  --select-border: #4b5563;
+  --select-border-hover: #6b7280;
+  --select-border-focus: #3b82f6;
+  --select-menu-bg: #1f2937;
+  --select-option-selected-bg: #3b82f6;
+  --select-option-hover-bg: #374151;
+  --select-option-active-bg: #4b5563;
+  --select-option-color: #f9fafb;
+  --select-text-color: #f9fafb;
+}
+
+.select__control {
+  border-radius: 0.75rem !important;
+  min-height: 42px !important;
+}
+
+.select__menu {
+  z-index: 50 !important;
+  border-radius: 0.75rem !important;
+}
+
+.select__option {
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fadeIn {
+  animation: fadeIn 1.2s ease;
+}
+@keyframes gradientMove {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradientMove 3s linear infinite alternate;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-slideInUp {
+  animation: slideInUp 1s cubic-bezier(0.23, 1.01, 0.32, 1) both;
+}
+.delay-100 {
+  animation-delay: 0.1s;
+}
+.delay-300 {
+  animation-delay: 0.3s;
+}
+.delay-500 {
+  animation-delay: 0.5s;
+}

@@ -1,0 +1,52 @@
+/* Image Optimization Styles */
+.book-card-image {
+  will-change: opacity;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+.book-card-image-placeholder {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+/* Optimize image rendering */
+img {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
+
+/* Reduce layout shift */
+.book-card-container {
+  contain: layout style paint;
+}
+
+/* Smooth transitions */
+.image-transition {
+  transition: opacity 0.3s ease-in-out;
+}
+
+/* Loading animation */
+.loading-pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}

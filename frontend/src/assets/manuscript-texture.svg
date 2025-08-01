@@ -1,0 +1,15 @@
+<svg width="800" height="800" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <pattern id="manuscriptTexture" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
+      <rect width="100" height="100" fill="#FEF3C7" opacity="0.1"/>
+      <path d="M0 0h100v100h-100z" fill="url(#noise)"/>
+      <filter id="noise">
+        <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" result="noise"/>
+        <feColorMatrix type="matrix" values="0.3 0 0 0 0.7, 0 0.3 0 0 0.7, 0 0 0.3 0 0.7, 0 0 0 0.05 0" in="noise" result="coloredNoise"/>
+      </filter>
+      <path d="M25 0v100 M50 0v100 M75 0v100" stroke="#92400E" stroke-width="0.5" opacity="0.05"/>
+      <path d="M0 25h100 M0 50h100 M0 75h100" stroke="#92400E" stroke-width="0.5" opacity="0.05"/>
+    </pattern>
+  </defs>
+  <rect width="800" height="800" fill="url(#manuscriptTexture)"/>
+</svg>
