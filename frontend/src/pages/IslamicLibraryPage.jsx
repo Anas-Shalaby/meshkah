@@ -12,8 +12,12 @@ import {
 import { useNavigate, Link } from "react-router-dom";
 import BookCard from "../components/BookCard";
 import LanguageSelector from "../components/LanguageSelector";
+import IslamicLibraryStats from "../components/IslamicLibraryStats";
+import IslamicLibraryTutorial from "../components/IslamicLibraryTutorial";
+import FloatingHelpButton from "../components/FloatingHelpButton";
 import { getTranslation, getBookTranslation } from "../utils/translations";
 import { toast } from "react-toastify";
+import WelcomeBanner from "../components/WelcomeBanner";
 
 const IslamicLibraryPage = () => {
   const navigate = useNavigate();
@@ -31,6 +35,10 @@ const IslamicLibraryPage = () => {
   const [selectedCategory, setSelectedCategory] = useState("kutub_tisaa");
   const [language, setLanguage] = useState(() => {
     return localStorage.getItem("islamicLibraryLanguage") || "ar";
+  });
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [hasSeenTutorial, setHasSeenTutorial] = useState(() => {
+    return localStorage.getItem("hasSeenIslamicLibraryTutorial") === "true";
   });
 
   // Update document direction based on language
@@ -64,6 +72,27 @@ const IslamicLibraryPage = () => {
   const handleLanguageChange = (newLanguage) => {
     setLanguage(newLanguage);
     localStorage.setItem("islamicLibraryLanguage", newLanguage);
+  };
+
+  const handleStartTutorial = () => {
+    setShowTutorial(true);
+  };
+
+  const handleCompleteTutorial = () => {
+    setShowTutorial(false);
+    setHasSeenTutorial(true);
+    localStorage.setItem("hasSeenIslamicLibraryTutorial", "true");
+    toast.success(getTranslation(language, "tutorialCompleted"));
+  };
+
+  const handleSkipTutorial = () => {
+    setShowTutorial(false);
+    setHasSeenTutorial(true);
+    localStorage.setItem("hasSeenIslamicLibraryTutorial", "true");
+  };
+  const handleDismissWelcome = () => {
+    setHasSeenTutorial(true);
+    localStorage.setItem("hasSeenIslamicLibraryTutorial", "true");
   };
 
   const handleSearch = async (e) => {
@@ -245,6 +274,24 @@ const IslamicLibraryPage = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {/* Welcome Banner for First-time Users */}
+        {!hasSeenTutorial && (
+          <WelcomeBanner
+            language={language}
+            onStartTutorial={handleStartTutorial}
+            onDismiss={handleDismissWelcome}
+          />
+        )}
+
+        {/* Library Statistics */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 sm:mb-8"
+        >
+          <IslamicLibraryStats language={language} />
+        </motion.div>
+
         {/* Search and Filters */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -728,6 +775,21 @@ const IslamicLibraryPage = () => {
           </motion.div>
         )}
       </div>
+
+      {/* Tutorial System */}
+      {showTutorial && (
+        <IslamicLibraryTutorial
+          language={language}
+          onComplete={handleCompleteTutorial}
+          onSkip={handleSkipTutorial}
+        />
+      )}
+
+      {/* Floating Help Button */}
+      <FloatingHelpButton
+        language={language}
+        onStartTutorial={handleStartTutorial}
+      />
     </div>
   );
 };

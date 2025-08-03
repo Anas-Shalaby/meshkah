@@ -11,6 +11,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Brain,
 } from "lucide-react";
 import IslamicHadithCard from "../components/IslamicHadithCard";
 import LanguageSelector from "../components/LanguageSelector";
@@ -56,6 +57,8 @@ const IslamicChapterPage = () => {
   const [bookmarkModalHadith, setBookmarkModalHadith] = useState(null);
   const [collections, setCollections] = useState([]);
   const [bookmarkedHadiths, setBookmarkedHadiths] = useState(new Set());
+
+
 
   // Update document direction based on language
   useEffect(() => {
@@ -578,6 +581,7 @@ const IslamicChapterPage = () => {
             </div>
 
             <div className="flex items-center space-x-1 space-x-reverse">
+            
               <button
                 onClick={handleShare}
                 className="p-2 text-gray-400 hover:text-blue-600 transition-colors bg-white/50 rounded-xl"
@@ -842,6 +846,8 @@ const IslamicChapterPage = () => {
             : bookmarkModalHadith?.hadithEnglish
         }
       />
+
+
     </div>
   );
 };

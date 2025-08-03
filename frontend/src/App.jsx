@@ -124,8 +124,8 @@ function App() {
 
             {/* Main Content */}
             <main
-              className="flex-1 mt-20 font-cairo"
-              style={{ direction: "rtl" }}
+              className="flex-1  font-cairo"
+              style={{ direction: "rtl", marginTop: "4.1rem" }}
             >
               <div className="relative">
                 <Routes>
@@ -181,6 +181,7 @@ function App() {
                   <Route path="/create-card" element={<CreateCardPage />} />
 
                   <Route path="/anas" element={<Anas />} />
+                
 
                   {/* Islamic Library Routes */}
                   <Route

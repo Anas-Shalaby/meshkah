@@ -9,6 +9,7 @@ import {
   Hash,
   Share2,
   Eye,
+  Brain,
 } from "lucide-react";
 import LanguageSelector from "../components/LanguageSelector";
 import {
@@ -27,6 +28,8 @@ const IslamicBookPage = () => {
   const [language, setLanguage] = useState(() => {
     return localStorage.getItem("islamicLibraryLanguage") || "ar";
   });
+
+
 
   // Update document direction based on language
   useEffect(() => {
@@ -439,6 +442,7 @@ const IslamicBookPage = () => {
 
                       {viewMode === "list" && (
                         <div className="flex items-center space-x-2 space-x-reverse">
+                          
                           <button
                             onClick={(e) => {
                               e.preventDefault();
@@ -458,6 +462,7 @@ const IslamicBookPage = () => {
                 {viewMode === "grid" && (
                   <div className="mt-4 pt-4 border-t border-purple-100">
                     <div className="flex items-center justify-center space-x-4 space-x-reverse">
+                       
                       <button
                         onClick={(e) => {
                           e.preventDefault();
@@ -496,6 +501,8 @@ const IslamicBookPage = () => {
           </motion.div>
         )}
       </div>
+
+
     </div>
   );
 };

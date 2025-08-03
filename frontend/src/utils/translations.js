@@ -98,6 +98,75 @@ export const translations = {
     quickActions: "إجراءات سريعة",
     quickActionsDesc: "تصفح وبحث في الكتب",
     browseAll: "تصفح الكل",
+    
+    // Statistics
+    libraryStatistics: "إحصائيات المكتبة",
+    comprehensiveIslamicLibrary: "مكتبة إسلامية شاملة",
+    totalBooks: "إجمالي الكتب",
+    totalHadiths: "إجمالي الأحاديث",
+    totalChapters: "إجمالي الأبواب",
+    categories: "التصنيفات",
+    booksByCategory: "الكتب حسب التصنيف",
+    topBooks: "أفضل الكتب",
+    chapters: "الأبواب",
+    hadiths: "الأحاديث",
+    lastUpdated: "آخر تحديث",
+    errorLoadingStats: "خطأ في تحميل الإحصائيات",
+    tryAgainLater: "حاول مرة أخرى لاحقاً",
+    
+    // Tutorial System
+    tutorialWelcome: "مرحباً بك في المكتبة الإسلامية! 🎉",
+    tutorialWelcomeDesc: "دعنا نتعرف على كيفية استخدام المكتبة الإسلامية بسهولة ومرح. سنأخذك في جولة سريعة لاستكشاف جميع الميزات الرائعة.",
+    tutorialWelcomeAction: "ابدأ الجولة",
+    tutorialSearch: "البحث الذكي 🔍",
+    tutorialSearchDesc: "ابحث في آلاف الأحاديث بالعربية أو الإنجليزية أو الأردية. اكتب كلمات مفتاحية وستجد ما تبحث عنه بسرعة.",
+    tutorialSearchAction: "جرب البحث الآن",
+    tutorialFilters: "فلاتر متقدمة ⚡",
+    tutorialFiltersDesc: "استخدم الفلاتر للبحث في كتب محددة أو فصول أو درجات أحاديث (صحيح، حسن، ضعيف) للحصول على نتائج دقيقة.",
+    tutorialFiltersAction: "اكتشف الفلاتر",
+    tutorialCategories: "تصفح الفئات 📚",
+    tutorialCategoriesDesc: "تصفح الكتب حسب الفئات: كتب الأحاديث الكبيرة، الأربعينيات، كتب الأدب والآداب. كل فئة تحتوي على كتب موثوقة.",
+    tutorialCategoriesAction: "تصفح الفئات",
+    tutorialBookmarks: "حفظ المفضلة ⭐",
+    tutorialBookmarksDesc: "احفظ الأحاديث المهمة في مجموعات منظمة. أنشئ مجموعات جديدة واجمع الأحاديث التي تريد مراجعتها لاحقاً.",
+    tutorialBookmarksAction: "تعلم الحفظ",
+    tutorialShare: "مشاركة الأحاديث 📤",
+    tutorialShareDesc: "شارك الأحاديث مع الأصدقاء والعائلة عبر وسائل التواصل الاجتماعي أو البريد الإلكتروني أو انسخ الرابط.",
+    tutorialShareAction: "جرب المشاركة",
+    tutorialComplete: "أحسنت! 🎊",
+    tutorialCompleteDesc: "لقد أكملت جولة المكتبة الإسلامية! الآن يمكنك الاستمتاع بجميع الميزات. لا تتردد في العودة للجولة مرة أخرى.",
+    tutorialCompleteAction: "ابدأ الاستكشاف",
+    
+    // Quick Help
+    quickHelp: "مساعدة سريعة",
+    quickHelpDesc: "نصائح سريعة لاستخدام المكتبة",
+    quickTipSearch: "البحث السريع",
+    quickTipSearchDesc: "اكتب كلمات مفتاحية في شريط البحث للعثور على الأحاديث",
+    quickTipFilter: "فلاتر متقدمة",
+    quickTipFilterDesc: "استخدم الفلاتر للبحث في كتب أو فصول محددة",
+    quickTipBookmark: "حفظ المفضلة",
+    quickTipBookmarkDesc: "احفظ الأحاديث المهمة في مجموعات منظمة",
+    quickTipShare: "مشاركة الأحاديث",
+    quickTipShareDesc: "شارك الأحاديث مع الآخرين عبر وسائل التواصل",
+    
+    // Tutorial Navigation
+    step: "خطوة",
+    of: "من",
+    previous: "السابق",
+    next: "التالي",
+    skipTutorial: "تخطي الجولة",
+    finishTutorial: "إنهاء الجولة",
+    startTutorial: "ابدأ الجولة التعليمية",
+    tutorialCompleted: "تم إكمال الجولة التعليمية بنجاح! 🎉",
+    
+    // Welcome Banner
+    welcomeToLibrary: "مرحباً بك في المكتبة الإسلامية! 🎉",
+    welcomeBannerDesc: "اكتشف آلاف الأحاديث الموثوقة مع ميزات بحث ذكية وحفظ المفضلة. ابدأ رحلتك في التعلم الإسلامي الآن!",
+    thousandsOfHadiths: "آلاف الأحاديث",
+    smartSearch: "بحث ذكي",
+    saveFavorites: "حفظ المفضلة",
+    takeTour: "خذ جولة",
+    exploreNow: "استكشف الآن",
     englishTranslationNotAvailable: "الترجمة الإنجليزية غير متوفرة",
     searchBooks: "البحث في الكتب",
     numberOfPages: "عدد الصفحات",
@@ -414,6 +483,75 @@ export const translations = {
     "Imam Khatib at-Tabrizi": "Imam Khatib at-Tabrizi",
     "الإمام يحيى بن شرف النووي": "Imam Yahya ibn Sharaf al-Nawawi",
     "مجموعة من العلماء": "A Collection of Scholars",
+    
+    // Statistics
+    libraryStatistics: "Library Statistics",
+    comprehensiveIslamicLibrary: "Comprehensive Islamic Library",
+    totalBooks: "Total Books",
+    totalHadiths: "Total Hadiths",
+    totalChapters: "Total Chapters",
+    categories: "Categories",
+    booksByCategory: "Books by Category",
+    topBooks: "Top Books",
+    chapters: "Chapters",
+    hadiths: "Hadiths",
+    lastUpdated: "Last Updated",
+    errorLoadingStats: "Error Loading Statistics",
+    tryAgainLater: "Please try again later",
+    
+    // Tutorial System
+    tutorialWelcome: "Welcome to the Islamic Library! 🎉",
+    tutorialWelcomeDesc: "Let's learn how to use the Islamic Library easily and joyfully. We'll take you on a quick tour to explore all the amazing features.",
+    tutorialWelcomeAction: "Start the Tour",
+    tutorialSearch: "Smart Search 🔍",
+    tutorialSearchDesc: "Search through thousands of hadiths in Arabic, English, or Urdu. Type keywords and find what you're looking for quickly.",
+    tutorialSearchAction: "Try Search Now",
+    tutorialFilters: "Advanced Filters ⚡",
+    tutorialFiltersDesc: "Use filters to search in specific books, chapters, or hadith grades (Sahih, Hasan, Da'eef) for precise results.",
+    tutorialFiltersAction: "Discover Filters",
+    tutorialCategories: "Browse Categories 📚",
+    tutorialCategoriesDesc: "Browse books by categories: Major Hadith Books, Forty Hadith Collections, Books of Etiquette. Each category contains trusted books.",
+    tutorialCategoriesAction: "Browse Categories",
+    tutorialBookmarks: "Save Favorites ⭐",
+    tutorialBookmarksDesc: "Save important hadiths in organized collections. Create new collections and gather hadiths you want to review later.",
+    tutorialBookmarksAction: "Learn to Save",
+    tutorialShare: "Share Hadiths 📤",
+    tutorialShareDesc: "Share hadiths with friends and family through social media, email, or copy the link.",
+    tutorialShareAction: "Try Sharing",
+    tutorialComplete: "Well Done! 🎊",
+    tutorialCompleteDesc: "You've completed the Islamic Library tour! Now you can enjoy all the features. Feel free to take the tour again anytime.",
+    tutorialCompleteAction: "Start Exploring",
+    
+    // Quick Help
+    quickHelp: "Quick Help",
+    quickHelpDesc: "Quick tips for using the library",
+    quickTipSearch: "Quick Search",
+    quickTipSearchDesc: "Type keywords in the search bar to find hadiths",
+    quickTipFilter: "Advanced Filters",
+    quickTipFilterDesc: "Use filters to search in specific books or chapters",
+    quickTipBookmark: "Save Favorites",
+    quickTipBookmarkDesc: "Save important hadiths in organized collections",
+    quickTipShare: "Share Hadiths",
+    quickTipShareDesc: "Share hadiths with others through social media",
+    
+    // Tutorial Navigation
+    step: "Step",
+    of: "of",
+    previous: "Previous",
+    next: "Next",
+    skipTutorial: "Skip Tour",
+    finishTutorial: "Finish Tour",
+    startTutorial: "Start Tutorial",
+    tutorialCompleted: "Tutorial completed successfully! 🎉",
+    
+    // Welcome Banner
+    welcomeToLibrary: "Welcome to the Islamic Library! 🎉",
+    welcomeBannerDesc: "Discover thousands of trusted hadiths with smart search features and save favorites. Start your Islamic learning journey now!",
+    thousandsOfHadiths: "Thousands of Hadiths",
+    smartSearch: "Smart Search",
+    saveFavorites: "Save Favorites",
+    takeTour: "Take a Tour",
+    exploreNow: "Explore Now",
 
     // Chapters
     chapters: "Chapters",
@@ -680,6 +818,75 @@ export const translations = {
     "Imam Khatib at-Tabrizi": "امام خطیب تبریزی",
     "الإمام يحيى بن شرف النووي": "الإمام يحيى بن شرف النووي",
     "مجموعة من العلماء": "مجموعة من العلماء",
+    
+    // Statistics
+    libraryStatistics: "لائبریری کی شماریات",
+    comprehensiveIslamicLibrary: "جامع اسلامی لائبریری",
+    totalBooks: "کل کتابیں",
+    totalHadiths: "کل احادیث",
+    totalChapters: "کل ابواب",
+    categories: "زمرے",
+    booksByCategory: "زمرے کے مطابق کتابیں",
+    topBooks: "بہترین کتابیں",
+    chapters: "ابواب",
+    hadiths: "احادیث",
+    lastUpdated: "آخری اپ ڈیٹ",
+    errorLoadingStats: "شماریات لوڈ کرنے میں خرابی",
+    tryAgainLater: "براہ کرم بعد میں دوبارہ کوشش کریں",
+    
+    // Tutorial System
+    tutorialWelcome: "اسلامی لائبریری میں خوش آمدید! 🎉",
+    tutorialWelcomeDesc: "آئیے اسلامی لائبریری کو آسانی اور خوشی سے استعمال کرنا سیکھیں۔ ہم آپ کو تمام شاندار خصوصیات کو دریافت کرنے کے لیے ایک مختصر ٹور پر لے جائیں گے۔",
+    tutorialWelcomeAction: "ٹور شروع کریں",
+    tutorialSearch: "ذہین تلاش 🔍",
+    tutorialSearchDesc: "عربی، انگریزی یا اردو میں ہزاروں احادیث میں تلاش کریں۔ کلیدی الفاظ ٹائپ کریں اور جلد ہی اپنی مطلوبہ چیز تلاش کریں۔",
+    tutorialSearchAction: "ابھی تلاش آزمائیں",
+    tutorialFilters: "اعلی درجے کے فلٹرز ⚡",
+    tutorialFiltersDesc: "مخصوص نتائج کے لیے مخصوص کتابوں، ابواب یا حدیث کے درجات (صحیح، حسن، ضعیف) میں تلاش کے لیے فلٹرز استعمال کریں۔",
+    tutorialFiltersAction: "فلٹرز دریافت کریں",
+    tutorialCategories: "زمرے براؤز کریں 📚",
+    tutorialCategoriesDesc: "زمرے کے مطابق کتابیں براؤز کریں: بڑی حدیث کی کتابیں، چالیس حدیث کے مجموعے، آداب کی کتابیں۔ ہر زمرے میں معتبر کتابیں شامل ہیں۔",
+    tutorialCategoriesAction: "زمرے براؤز کریں",
+    tutorialBookmarks: "پسندیدہ محفوظ کریں ⭐",
+    tutorialBookmarksDesc: "منظم مجموعوں میں اہم احادیث محفوظ کریں۔ نئے مجموعے بنائیں اور ان احادیث کو جمع کریں جنہیں آپ بعد میں دیکھنا چاہتے ہیں۔",
+    tutorialBookmarksAction: "محفوظ کرنا سیکھیں",
+    tutorialShare: "احادیث شیئر کریں 📤",
+    tutorialShareDesc: "سوشل میڈیا، ای میل یا لنک کاپی کر کے دوستوں اور خاندان کے ساتھ احادیث شیئر کریں۔",
+    tutorialShareAction: "شیئرنگ آزمائیں",
+    tutorialComplete: "بہت اچھا! 🎊",
+    tutorialCompleteDesc: "آپ نے اسلامی لائبریری کا ٹور مکمل کر لیا ہے! اب آپ تمام خصوصیات سے لطف اندوز ہو سکتے ہیں۔ کسی بھی وقت ٹور دوبارہ لینے میں کوئی حرج نہیں۔",
+    tutorialCompleteAction: "دریافت شروع کریں",
+    
+    // Quick Help
+    quickHelp: "فوری مدد",
+    quickHelpDesc: "لائبریری استعمال کرنے کے لیے فوری نکات",
+    quickTipSearch: "فوری تلاش",
+    quickTipSearchDesc: "احادیث تلاش کرنے کے لیے سرچ بار میں کلیدی الفاظ ٹائپ کریں",
+    quickTipFilter: "اعلی درجے کے فلٹرز",
+    quickTipFilterDesc: "مخصوص کتابوں یا ابواب میں تلاش کے لیے فلٹرز استعمال کریں",
+    quickTipBookmark: "پسندیدہ محفوظ کریں",
+    quickTipBookmarkDesc: "منظم مجموعوں میں اہم احادیث محفوظ کریں",
+    quickTipShare: "احادیث شیئر کریں",
+    quickTipShareDesc: "سوشل میڈیا کے ذریعے دوسروں کے ساتھ احادیث شیئر کریں",
+    
+    // Tutorial Navigation
+    step: "قدم",
+    of: "از",
+    previous: "پچھلا",
+    next: "اگلا",
+    skipTutorial: "ٹور چھوڑیں",
+    finishTutorial: "ٹور ختم کریں",
+    startTutorial: "ٹیوٹوریل شروع کریں",
+    tutorialCompleted: "ٹیوٹوریل کامیابی سے مکمل ہو گیا! 🎉",
+    
+    // Welcome Banner
+    welcomeToLibrary: "اسلامی لائبریری میں خوش آمدید! 🎉",
+    welcomeBannerDesc: "ذہین تلاش کی خصوصیات اور پسندیدہ محفوظ کرنے کے ساتھ ہزاروں معتبر احادیث دریافت کریں۔ ابھی اپنی اسلامی تعلیم کی سفر شروع کریں!",
+    thousandsOfHadiths: "ہزاروں احادیث",
+    smartSearch: "ذہین تلاش",
+    saveFavorites: "پسندیدہ محفوظ کریں",
+    takeTour: "ٹور لیں",
+    exploreNow: "ابھی دریافت کریں",
 
     // ابواب
     chapters: "ابواب",
