@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import "react-toastify/dist/ReactToastify.css";
@@ -691,7 +691,7 @@ const IslamicHadithPage = () => {
             {/* Enhanced Metadata */}
             <div className="space-y-4 sm:space-y-6">
               {/* Status and Book Info */}
-              <div className="flex flex-wrap gap-2 sm:gap-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 {hadithDetails.status && (
                   <span
                     className={`px-3 sm:px-4 py-2 sm:py-3 rounded-xl text-sm sm:text-base font-semibold shadow-md ${
@@ -709,6 +709,7 @@ const IslamicHadithPage = () => {
                   </span>
                 )}
                 {hadithDetails.book && (
+                 <Link to={`/islamic-library/${hadithDetails.book.isLocal ? "local-books" : "book"}/${hadithDetails.book.bookSlug}`} >
                   <span className="px-3 sm:px-4 py-2 sm:py-3 rounded-xl text-sm sm:text-base font-semibold bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 border border-blue-300 shadow-md">
                     {language === "ar"
                       ? getBookTranslation(
@@ -722,8 +723,10 @@ const IslamicHadithPage = () => {
                           hadithDetails.book.bookName
                         )}
                   </span>
+                  </Link>
                 )}
                 {hadithDetails.chapter && (
+                  <Link to={`/islamic-library/${hadithDetails.book.isLocal ? "local-books" : "book"}/${hadithDetails.book.bookSlug}/chapter/${hadithDetails.chapter.chapterNumber}`}>
                   <span className="px-3 sm:px-4 py-2 sm:py-3 rounded-xl text-sm sm:text-base font-semibold bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 border border-purple-300 shadow-md">
                     {language === "ar"
                       ? hadithDetails.chapter.chapterArabic ||
@@ -732,7 +735,7 @@ const IslamicHadithPage = () => {
                       ? hadithDetails.chapter.chapterEnglish ||
                         hadithDetails.chapter.english
                       : hadithDetails.chapter.chapterUrdu}
-                  </span>
+                  </span></Link>
                 )}
               </div>
 

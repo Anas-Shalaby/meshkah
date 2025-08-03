@@ -47,7 +47,8 @@ router.get("/dawah-cards", authMiddleware, async (req, res) => {
             'text', ch.custom_hadith,
             'notes', ch.notes
           )
-        ) as hadiths
+        ) as hadiths,
+        COUNT(ch.id) as total_hadiths
       FROM dawah_cards dc
       LEFT JOIN card_hadiths ch ON dc.id = ch.card_id
       WHERE dc.user_id = ?
@@ -58,6 +59,7 @@ router.get("/dawah-cards", authMiddleware, async (req, res) => {
     cards.forEach((card) => {
       if (card.hadiths[0].id === null) {
         card.hadiths = [];
+        card.total_hadiths = 0;
       }
     });
 
@@ -229,9 +231,8 @@ router.get("/cards/public", async (req, res) => {
         dc.share_link,
         dc.tags,
         dc.is_public,
+        
         dc.background_url,
-        dc.category,
-        dc.background_color,
         u.id as creator_id,
         u.username as creator_username,
         u.avatar_url as creator_avatar_url,

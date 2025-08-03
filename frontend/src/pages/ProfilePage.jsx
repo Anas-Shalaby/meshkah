@@ -1,74 +1,17 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useBookmarks } from "../context/BookmarkContext";
-import { Plus, Copy, Edit } from "lucide-react";
+import { Plus, Copy, Edit, Trash2, User, Calendar, Mail, BookOpen, Share2, Heart, Settings, Award, Clock } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Trash2 } from "lucide-react";
 import { useHadithCategories } from "../hooks/useHadithCategories";
 import { Dialog } from "@headlessui/react";
 import EditCardModal from "../components/EditCardModal";
 
-const useImageCache = (
-  originalUrl,
-  fallbackUrl = "https://hadith-shareef.com/default.jpg"
-) => {
-  const [cachedUrl, setCachedUrl] = useState(null);
 
-  useEffect(() => {
-    // Check if image is already cached in localStorage
-    const cachedImage = localStorage.getItem(`image_cache_${originalUrl}`);
 
-    if (cachedImage) {
-      setCachedUrl(cachedImage);
-      return;
-    }
-
-    // If not cached, attempt to fetch and cache the image
-    const cacheImage = async () => {
-      try {
-        const response = await fetch(originalUrl, {
-          method: "GET",
-          mode: "cors",
-          cache: "no-cache",
-        });
-
-        if (response.ok) {
-          const blob = await response.blob();
-          const reader = new FileReader();
-
-          reader.onloadend = () => {
-            const base64data = reader.result;
-            localStorage.setItem(`image_cache_${originalUrl}`, base64data);
-            setCachedUrl(base64data);
-          };
-
-          reader.readAsDataURL(blob);
-        } else {
-          // If fetch fails, use fallback
-          setCachedUrl(fallbackUrl);
-        }
-      } catch (error) {
-        console.error("Image caching error:", error);
-        setCachedUrl(fallbackUrl);
-      }
-    };
-
-    cacheImage();
-  }, [originalUrl, fallbackUrl]);
-
-  return cachedUrl || fallbackUrl;
-};
-
-const categoryColors = {
-  الصدق: "bg-green-100 text-green-800",
-  النية: "bg-yellow-100 text-yellow-800",
-  النصيحة: "bg-blue-100 text-blue-800",
-  الصبر: "bg-indigo-100 text-indigo-800",
-  الشكر: "bg-orange-100 text-orange-800",
-  التيسير: "bg-teal-100 text-teal-800",
-};
 
 const ProfilePage = () => {
   const { user, setUser } = useAuth();
@@ -324,349 +267,621 @@ const ProfilePage = () => {
   // Early return if user is not loaded
   if (!user) {
     return (
-      <div className="container mx-auto px-4 py-4 md:py-8">
-        <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
-          <p className="text-gray-600 dark:text-gray-300">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center"
+        >
+          <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <User className="w-8 h-8 text-white" />
+          </div>
+          <p className="text-gray-600 text-lg font-medium">
             يرجى تسجيل الدخول للوصول إلى الملف الشخصي
           </p>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   // Render main profile content
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white font-[Cairo,Amiri,sans-serif] text-right">
-      {/* بانر علوي */}
-      <section className="relative w-full flex flex-col items-center justify-center py-8 sm:py-12 mb-8 bg-gradient-to-br from-indigo-900/90 to-indigo-700/80 overflow-hidden">
-        <img
-          src={avatarUrl}
-          alt="avatar"
-          className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-indigo-300 shadow-lg z-10 mb-2 object-cover cursor-pointer transition-transform hover:scale-105"
-          onClick={() => setShowAvatarModal(true)}
-        />
-        <h2 className="text-2xl sm:text-3xl font-extrabold text-white drop-shadow mb-1 text-center">
-          {user?.username}
-        </h2>
-        <p className="text-indigo-200 text-base sm:text-lg mb-2 text-center">
-          {user?.motivation}
-        </p>
-        <div className="flex gap-6 mt-2 z-10 flex-wrap justify-center">
-          <div className="flex flex-col items-center">
-            <span className="text-xl sm:text-2xl font-bold text-white">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 font-[Cairo,Amiri,sans-serif] text-right">
+      {/* Hero Section with Animated Background */}
+      <motion.section 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="relative w-full flex flex-col items-center justify-center py-12 sm:py-16 mb-8 bg-gradient-to-br from-purple-900/90 via-indigo-800/90 to-blue-900/90 overflow-hidden"
+      >
+        {/* Animated Background Elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <motion.div
+            animate={{ 
+              rotate: 360,
+              scale: [1, 1.1, 1],
+            }}
+            transition={{ 
+              duration: 20,
+              repeat: Infinity,
+              ease: "linear"
+            }}
+            className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl"
+          />
+          <motion.div
+            animate={{ 
+              rotate: -360,
+              scale: [1, 1.2, 1],
+            }}
+            transition={{ 
+              duration: 25,
+              repeat: Infinity,
+              ease: "linear"
+            }}
+            className="absolute -bottom-40 -left-40 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl"
+          />
+        </div>
+
+        {/* Profile Avatar */}
+        <motion.div
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+          className="relative z-10"
+        >
+          <motion.img
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            src={avatarUrl}
+            alt="avatar"
+            className="w-28 h-28 sm:w-32 sm:h-32 rounded-full border-4 border-white/30 shadow-2xl object-contain cursor-pointer transition-all duration-300 hover:border-purple-300"
+            onClick={() => setShowAvatarModal(true)}
+          />
+          <motion.div
+            animate={{ 
+              scale: [1, 1.1, 1],
+              opacity: [0.5, 1, 0.5]
+            }}
+            transition={{ 
+              duration: 2,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            className="absolute inset-0 rounded-full border-4 border-purple-400/50"
+          />
+        </motion.div>
+
+        {/* User Info */}
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="text-center z-10 mt-4"
+        >
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-white drop-shadow-lg mb-2">
+            {user?.username}
+          </h2>
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+            className="text-purple-200 text-lg sm:text-xl mb-4 max-w-md mx-auto"
+          >
+            {user?.motivation || "مستخدم نشط في مجتمع الحديث الشريف"}
+          </motion.p>
+        </motion.div>
+
+        {/* Stats Cards */}
+        <motion.div 
+          initial={{ y: 30, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          className="flex gap-6 mt-6 z-10 flex-wrap justify-center"
+        >
+          <motion.div 
+            whileHover={{ scale: 1.05 }}
+            className="flex flex-col items-center bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20"
+          >
+            <motion.div
+              animate={{ rotate: [0, 10, -10, 0] }}
+              transition={{ duration: 2, repeat: Infinity, delay: 1 }}
+            >
+              <BookOpen className="w-6 h-6 text-purple-300 mb-2" />
+            </motion.div>
+            <span className="text-2xl sm:text-3xl font-bold text-white">
               {bookmarks.length}
             </span>
-            <span className="text-white text-xs">أحاديث محفوظة</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="text-xl sm:text-2xl font-bold text-white">
+            <span className="text-purple-200 text-sm">أحاديث محفوظة</span>
+          </motion.div>
+          
+          <motion.div 
+            whileHover={{ scale: 1.05 }}
+            className="flex flex-col items-center bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20"
+          >
+            <motion.div
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ duration: 2, repeat: Infinity, delay: 1.5 }}
+            >
+              <Share2 className="w-6 h-6 text-blue-300 mb-2" />
+            </motion.div>
+            <span className="text-2xl sm:text-3xl font-bold text-white">
               {cards.length}
             </span>
-            <span className="text-white text-xs">بطاقات دعوية</span>
-          </div>
-        </div>
-      </section>
-      {/* معلومات الحساب */}
-      <section className="max-w-2xl mx-auto bg-white rounded-2xl shadow flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6 px-4 sm:px-8 py-5 sm:py-6 mb-8 sm:mb-10 border border-gray-100">
-        <div className="flex-1 flex flex-col gap-2 items-center md:items-start text-center md:text-right">
-          <div className="text-base sm:text-lg font-bold text-indigo-900">
-            {user?.username}
-          </div>
-          <div className="text-gray-500 text-sm sm:text-base">
-            {user?.email}
-          </div>
-          <div className="text-gray-400 text-xs sm:text-sm">
-            تاريخ التسجيل:{" "}
-            {user?.created_at
-              ? new Date(user.created_at).toLocaleDateString("ar-EG")
-              : "تاريخ غير محدد"}
-          </div>
-        </div>
-        <button
-          className="px-4 sm:px-6 py-2 rounded bg-indigo-400 text-white font-bold hover:bg-indigo-500 transition flex items-center gap-2 shadow text-sm sm:text-base mt-3 md:mt-0"
-          onClick={() => {
-            setEditName(user?.username || "");
-            setEditImage(null);
-            setEditImagePreview(avatarUrl);
-            setShowEditModal(true);
-          }}
+            <span className="text-blue-200 text-sm">بطاقات دعوية</span>
+          </motion.div>
+        </motion.div>
+      </motion.section>
+
+      {/* Account Information Card */}
+      <motion.section 
+        initial={{ y: 30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.8 }}
+        className="max-w-4xl mx-auto px-4 sm:px-6 mb-8"
+      >
+        <motion.div 
+          whileHover={{ y: -5 }}
+          className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-purple-200/50 p-6 sm:p-8"
         >
-          <Edit className="w-5 h-5" /> تعديل الحساب
-        </button>
-      </section>
-      {/* الأحاديث المحفوظة
-      {bookmarkedHadiths.length > 0 && (
-        <section className="max-w-4xl mx-auto mb-10 sm:mb-12">
-          <h3 className="text-lg sm:text-xl font-bold text-indigo-900 mb-3 sm:mb-4 text-center sm:text-right">
-            الأحاديث المحفوظة
-          </h3>
-          <div className="mb-3 sm:mb-4 flex justify-end">
-            <select
-              value={selectedCollection}
-              onChange={(e) => setSelectedCollection(e.target.value)}
-              className="px-3 sm:px-4 py-2 rounded border border-gray-200 bg-white text-gray-700 shadow-sm focus:ring-2 focus:ring-indigo-100 focus:border-transparent transition-all text-sm sm:text-base"
-            >
-              {uniqueCollections.map((col) => (
-                <option key={col} value={col}>
-                  {col === "الكل" || col === "Default" || col === "الافتراضي"
-                    ? "كل المجموعات"
-                    : col}
-                </option>
-              ))}
-            </select>
-          </div>
-        
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-            {filteredHadiths.map((h) => (
-              <div
-                key={h.id}
-                className={`rounded-xl shadow border border-gray-100 px-4 sm:px-5 py-3 sm:py-4 flex flex-col gap-2 ${
-                  categoryColors[getCategoryName(h.categories)] ||
-                  "bg-gray-50 text-gray-800"
-                }`}
-                style={{ fontFamily: "Amiri, Cairo, serif" }}
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
+            <div className="flex-1 space-y-4">
+              <motion.div 
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 1 }}
+                className="flex items-center space-x-3 space-x-reverse"
               >
-                <div className="flex justify-between items-center mb-1 sm:mb-2">
-                  <span className="text-md text-gray-600 sm:text-sm font-bold">
-                    {getCategoryName(h.categories)}
-                  </span>
-                  <button
-                    onClick={() => openDeleteModal("hadith", h.id)}
-                    className="p-2 rounded-full bg-white/60 hover:bg-red-100 text-red-500 transition border border-gray-200"
+                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center">
+                  <User className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">{user?.username}</h3>
+                  <p className="text-gray-600">اسم المستخدم</p>
+                </div>
+              </motion.div>
+
+              <motion.div 
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 1.1 }}
+                className="flex items-center space-x-3 space-x-reverse"
+              >
+                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
+                  <Mail className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">{user?.email}</h3>
+                  <p className="text-gray-600">البريد الإلكتروني</p>
+                </div>
+              </motion.div>
+
+              <motion.div 
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 1.2 }}
+                className="flex items-center space-x-3 space-x-reverse"
+              >
+                <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center">
+                  <Calendar className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {user?.created_at
+                      ? new Date(user.created_at).toLocaleDateString("ar-EG")
+                      : "تاريخ غير محدد"}
+                  </h3>
+                  <p className="text-gray-600">تاريخ التسجيل</p>
+                </div>
+              </motion.div>
+            </div>
+
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setEditName(user?.username || "");
+                setEditImage(null);
+                setEditImagePreview(avatarUrl);
+                setShowEditModal(true);
+              }}
+              className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-2xl hover:from-purple-700 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
+            >
+              <Settings className="w-5 h-5" />
+              تعديل الحساب
+            </motion.button>
+          </div>
+        </motion.div>
+      </motion.section>
+
+      {/* Bookmarked Cards Section */}
+      {bookmarkedCards.length > 0 && (
+        <motion.section 
+          initial={{ y: 30, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 1 }}
+          className="max-w-6xl mx-auto px-4 sm:px-6 mb-8"
+        >
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.2 }}
+            className="text-center mb-6"
+          >
+            <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+              البطاقات الدعوية المحفوظة
+            </h3>
+            <div className="w-24 h-1 bg-gradient-to-r from-purple-500 to-blue-600 rounded-full mx-auto"></div>
+          </motion.div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {bookmarkedCards.map((card, index) => (
+              <motion.div
+                key={card.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.3 + index * 0.1 }}
+                whileHover={{ y: -5, scale: 1.02 }}
+                className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 border border-purple-200/50 shadow-lg hover:shadow-2xl transition-all duration-300"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <h4 className="font-bold text-xl text-gray-900 mb-2">
+                      {card.title}
+                    </h4>
+                    <p className="text-gray-600 text-sm mb-3">
+                      {card.description}
+                    </p>
+                    <div className="flex items-center space-x-2 space-x-reverse text-sm text-gray-500">
+                      <BookOpen className="w-4 h-4" />
+                      <span>{card.total_hadiths || 0} حديث</span>
+                    </div>
+                  </div>
+                  <motion.div
+                    whileHover={{ rotate: 360 }}
+                    transition={{ duration: 0.5 }}
+                    className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center"
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                    <Heart className="w-6 h-6 text-white" />
+                  </motion.div>
                 </div>
 
-                <Link
-                  to={`/hadiths/hadith/${h.id}`}
-                  className="text-lg sm:text-md leading-relaxed"
-                >
-                  {h.hadeeth}
-                </Link>
-              </div>
-            ))}
-          </div>
-        </section>
-      )} */}
-      {bookmarkedCards.length > 0 && (
-        <section className="max-w-5xl mx-auto mb-10 sm:mb-12">
-          <h3 className="text-lg sm:text-xl font-bold text-indigo-900 mb-3 sm:mb-4 text-center sm:text-right">
-            البطاقات الدعوية المحفوظة
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2  md:grid-cols-3 gap-4 sm:gap-6">
-            {bookmarkedCards.map((card) => (
-              <div
-                key={card.id}
-                className="rounded-2xl shadow border border-gray-100 bg-white p-4 sm:p-5 flex flex-col gap-2"
-              >
-                <div className="font-bold text-indigo-900 text-base sm:text-lg">
-                  {card.title}
-                </div>
-                <div className="text-gray-500 text-xs sm:text-sm mb-1">
-                  {card.description}
-                </div>
-                <div className="text-xs text-gray-400 mb-2">
-                  عدد الأحاديث: {card.hadiths?.length || 0}
-                </div>
-                <div className="flex gap-2 mt-auto flex-wrap">
-                  <button
+                <div className="flex gap-2 mt-4">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => copyToClipboard(card)}
-                    className="px-3 py-1 rounded bg-blue-50 text-blue-700 font-bold text-xs hover:bg-blue-100 transition flex items-center gap-1"
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-300 flex items-center justify-center gap-2"
                   >
-                    {" "}
-                    <Copy className="w-4 h-4" /> نسخ الرابط
-                  </button>
-                  <button
+                    <Copy className="w-4 h-4" />
+                    نسخ الرابط
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => openDeleteModal("card", card.id)}
-                    className="px-3 py-1 rounded bg-red-50 text-red-600 font-bold text-xs hover:bg-red-100 transition"
+                    className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-300"
                   >
-                    حذف
-                  </button>
+                    <Trash2 className="w-4 h-4" />
+                  </motion.button>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
-        </section>
+        </motion.section>
       )}
-      <section className="max-w-5xl mx-auto mb-16 ">
-        <div className="flex flex-col sm:flex-row items-center justify-between mb-3 sm:mb-4 gap-3 sm:gap-0">
-          <h3 className="text-lg sm:text-xl font-bold text-indigo-900 text-center sm:text-right">
-            بطاقاتي الدعوية
-          </h3>
-          <Link
-            to={`/create-card`}
-            className="flex items-center gap-1 px-4 sm:px-4 py-2 sm:py-2 rounded bg-indigo-900 text-white  text-base shadow hover:bg-indigo-800 transition w-[50%] sm:w-auto justify-center"
+
+      {/* My Dawah Cards Section */}
+      <motion.section 
+        initial={{ y: 30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 1.4 }}
+        className="max-w-6xl mx-auto px-4 sm:px-6 mb-16"
+      >
+        <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 1.5 }}
           >
-            <Plus className="w-6 h-6" /> إنشاء بطاقة جديدة
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
-          {cards.map((card) => (
-            <div
-              key={card.id}
-              className="rounded-2xl shadow border border-gray-100 bg-white p-4 sm:p-5 flex flex-col gap-2"
+            <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+              بطاقاتي الدعوية
+            </h3>
+            <div className="w-24 h-1 bg-gradient-to-r from-purple-500 to-blue-600 rounded-full"></div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 1.6 }}
+          >
+            <Link
+              to={`/create-card`}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-2xl hover:from-purple-700 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl"
             >
-              <div className="font-bold text-indigo-900 text-base sm:text-lg">
-                {card.title}
-              </div>
-              <div className="text-gray-500 text-xs sm:text-sm mb-1">
-                {card.description}
-              </div>
-              <div className="text-xs text-gray-400 mb-2">
-                عدد الأحاديث: {card.hadiths?.length || 0}
-              </div>
-              <div className="flex gap-2 mt-auto flex-wrap">
-                <button
-                  onClick={() => openDeleteModal("card", card.id)}
-                  className="px-3 py-1 rounded bg-red-50 text-red-600 font-bold text-xs hover:bg-red-100 transition"
+              <Plus className="w-6 h-6" />
+              إنشاء بطاقة جديدة
+            </Link>
+          </motion.div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {cards.map((card, index) => (
+            <motion.div
+              key={card.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.7 + index * 0.1 }}
+              whileHover={{ y: -5, scale: 1.02 }}
+              className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 border border-purple-200/50 shadow-lg hover:shadow-2xl transition-all duration-300"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <h4 className="font-bold text-xl text-gray-900 mb-2">
+                    {card.title}
+                  </h4>
+                  <p className="text-gray-600 text-sm mb-3">
+                    {card.description}
+                  </p>
+                  <div className="flex items-center space-x-2 space-x-reverse text-sm text-gray-500">
+                    <BookOpen className="w-4 h-4" />
+                    <span>{card.total_hadiths || 0} حديث</span>
+                  </div>
+                </div>
+                <motion.div
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.5 }}
+                  className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center"
                 >
-                  حذف
-                </button>
-                <button
+                  <Award className="w-6 h-6 text-white" />
+                </motion.div>
+              </div>
+
+              <div className="flex gap-2 mt-4 flex-wrap">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => openDeleteModal("card", card.id)}
+                  className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-300"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => {
                     setCardToEdit(card);
                     setShowCardEditModal(true);
                   }}
-                  className="px-3 py-1 rounded bg-yellow-50 text-yellow-700 font-bold text-xs hover:bg-yellow-100 transition flex items-center gap-1"
+                  className="px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-600 text-white font-semibold rounded-xl hover:from-yellow-600 hover:to-orange-700 transition-all duration-300 flex items-center gap-2"
                 >
-                  <Edit className="w-4 h-4" /> تعديل
-                </button>
+                  <Edit className="w-4 h-4" />
+                  تعديل
+                </motion.button>
                 <Link
                   to={`/shared-card/${card.share_link}`}
-                  className="px-3 py-1 rounded bg-blue-50 text-blue-700 font-bold text-xs hover:bg-blue-100 transition"
+                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-300"
                 >
                   معاينة
                 </Link>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
-      </section>
-      {/* Modal التأكيد */}
-      {deleteModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-lg p-6 w-80 max-w-full text-center">
-            <h3 className="text-lg font-bold mb-4 text-gray-800">
-              تأكيد الحذف
-            </h3>
-            <p className="mb-6 text-gray-600">هل أنت متأكد أنك تريد الحذف؟</p>
-            <div className="flex gap-4 justify-center">
-              <button
-                onClick={confirmDelete}
-                className="px-5 py-2 rounded bg-red-500 text-white font-bold hover:bg-red-600 transition"
-              >
-                تأكيد
-              </button>
-              <button
-                onClick={closeDeleteModal}
-                className="px-5 py-2 rounded bg-gray-200 text-gray-700 font-bold hover:bg-gray-300 transition"
-              >
-                إلغاء
-              </button>
+
+        {cards.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.8 }}
+            className="text-center py-12"
+          >
+            <div className="w-24 h-24 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <BookOpen className="w-12 h-12 text-purple-600" />
             </div>
-          </div>
-        </div>
-      )}
-      {/* Modal تعديل الحساب */}
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              لا توجد بطاقات دعوية بعد
+            </h3>
+            <p className="text-gray-600 mb-6">
+              ابدأ بإنشاء بطاقة دعوية جديدة لمشاركة الأحاديث الشريفة
+            </p>
+            <Link
+              to={`/create-card`}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-2xl hover:from-purple-700 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl"
+            >
+              <Plus className="w-6 h-6" />
+              إنشاء أول بطاقة
+            </Link>
+          </motion.div>
+        )}
+      </motion.section>
+
+      {/* Enhanced Modals */}
+      <AnimatePresence>
+        {deleteModal.open && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="bg-white rounded-3xl shadow-2xl p-8 w-96 max-w-full text-center"
+            >
+              <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-xl font-bold mb-4 text-gray-800">
+                تأكيد الحذف
+              </h3>
+              <p className="mb-8 text-gray-600">هل أنت متأكد أنك تريد الحذف؟</p>
+              <div className="flex gap-4 justify-center">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={confirmDelete}
+                  className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-bold rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-300"
+                >
+                  تأكيد
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={closeDeleteModal}
+                  className="px-6 py-3 bg-gradient-to-r from-gray-500 to-gray-600 text-white font-bold rounded-xl hover:from-gray-600 hover:to-gray-700 transition-all duration-300"
+                >
+                  إلغاء
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Enhanced Edit Account Modal */}
       <Dialog
         open={showEditModal}
         onClose={() => setShowEditModal(false)}
         className="fixed z-50 inset-0 overflow-y-auto"
       >
         <div className="flex items-center justify-center min-h-screen px-4">
-          <Dialog.Panel className="relative bg-white rounded-2xl shadow-xl max-w-md w-full mx-auto p-6 z-10 text-center">
-            <Dialog.Title className="text-lg font-bold mb-4 text-indigo-700">
-              تعديل الحساب
-            </Dialog.Title>
-            <div className="flex flex-col items-center gap-4 mb-4">
-              <img
-                src={editImagePreview}
-                alt="avatar preview"
-                className="w-24 h-24 rounded-full border-2 border-indigo-300 object-cover shadow"
+          <Dialog.Panel className="relative bg-white rounded-3xl shadow-2xl max-w-md w-full mx-auto p-8 z-10 text-center">
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+            >
+              <Dialog.Title className="text-2xl font-bold mb-6 text-gray-900">
+                تعديل الحساب
+              </Dialog.Title>
+              
+              <div className="flex flex-col items-center gap-6 mb-6">
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  className="relative"
+                >
+                  <img
+                    src={editImagePreview}
+                    alt="avatar preview"
+                    className="w-32 h-32 rounded-full border-4 border-purple-300 object-cover shadow-lg"
+                  />
+                  <motion.div
+                    animate={{ 
+                      scale: [1, 1.1, 1],
+                      opacity: [0.5, 1, 0.5]
+                    }}
+                    transition={{ 
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                    className="absolute inset-0 rounded-full border-4 border-purple-400/50"
+                  />
+                </motion.div>
+                
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  className="w-full"
+                >
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setEditImage(e.target.files[0])}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-gradient-to-r file:from-purple-500 file:to-blue-600 file:text-white hover:file:from-purple-600 hover:file:to-blue-700 transition-all duration-300"
+                  />
+                </motion.div>
+              </div>
+              
+              <motion.input
+                whileFocus={{ scale: 1.02 }}
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="اسم المستخدم الجديد"
+                className="w-full mb-6 px-6 py-4 rounded-2xl bg-gray-50 text-gray-900 border-2 border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-lg transition-all duration-300"
               />
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setEditImage(e.target.files[0])}
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-              />
-            </div>
-            <input
-              type="text"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              placeholder="اسم المستخدم الجديد"
-              className="w-full mb-4 px-4 py-2 rounded-lg bg-white text-black border border-gray-200 focus:ring-2 focus:ring-indigo-200 text-xl"
-            />
-            <div className="flex gap-4 justify-center mt-2">
-              <button
-                onClick={async () => {
-                  setIsSaving(true);
-                  try {
-                    const formData = new FormData();
-                    formData.append("username", editName);
-                    if (editImage) formData.append("avatar", editImage);
-                    const token = localStorage.getItem("token");
-                    const response = await axios.put(
-                      `${import.meta.env.VITE_API_URL}/auth/update-profile`,
-                      formData,
-                      {
-                        headers: {
-                          "x-auth-token": token,
-                          "Content-Type": "multipart/form-data",
-                        },
-                      }
-                    );
-                    toast.success("تم تحديث الحساب بنجاح");
-                    setShowEditModal(false);
-                    setUser(response.data);
-                  } catch (error) {
-                    toast.error("حدث خطأ أثناء تحديث الحساب");
-                  } finally {
-                    setIsSaving(false);
-                  }
-                }}
-                disabled={isSaving || !editName.trim()}
-                className="px-6 py-2 rounded bg-indigo-500 text-white font-bold hover:bg-indigo-600 transition disabled:opacity-60"
-              >
-                {isSaving ? "جاري الحفظ..." : "حفظ التعديلات"}
-              </button>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="px-6 py-2 rounded bg-gray-200 text-gray-700 font-bold hover:bg-gray-300 transition"
-              >
-                إلغاء
-              </button>
-            </div>
+              
+              <div className="flex gap-4 justify-center">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={async () => {
+                    setIsSaving(true);
+                    try {
+                      const formData = new FormData();
+                      formData.append("username", editName);
+                      if (editImage) formData.append("avatar", editImage);
+                      const token = localStorage.getItem("token");
+                      const response = await axios.put(
+                        `${import.meta.env.VITE_API_URL}/auth/update-profile`,
+                        formData,
+                        {
+                          headers: {
+                            "x-auth-token": token,
+                            "Content-Type": "multipart/form-data",
+                          },
+                        }
+                      );
+                      toast.success("تم تحديث الحساب بنجاح");
+                      setShowEditModal(false);
+                      setUser(response.data);
+                    } catch (error) {
+                      toast.error("حدث خطأ أثناء تحديث الحساب");
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }}
+                  disabled={isSaving || !editName.trim()}
+                  className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all duration-300 disabled:opacity-60"
+                >
+                  {isSaving ? "جاري الحفظ..." : "حفظ التعديلات"}
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowEditModal(false)}
+                  className="px-8 py-3 bg-gradient-to-r from-gray-500 to-gray-600 text-white font-bold rounded-xl hover:from-gray-600 hover:to-gray-700 transition-all duration-300"
+                >
+                  إلغاء
+                </motion.button>
+              </div>
+            </motion.div>
           </Dialog.Panel>
         </div>
       </Dialog>
-      {/* Modal تكبير الصورة */}
+
+      {/* Enhanced Avatar Modal */}
       <Dialog
         open={showAvatarModal}
         onClose={() => setShowAvatarModal(false)}
         className="fixed z-50 inset-0 overflow-y-auto"
       >
-        <div className="flex items-center justify-center min-h-screen px-4 bg-black/60">
+        <div className="flex items-center justify-center min-h-screen px-4 bg-black/60 backdrop-blur-sm">
           <Dialog.Panel className="relative bg-transparent shadow-none flex flex-col items-center justify-center">
-            <button
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
               onClick={() => setShowAvatarModal(false)}
-              className="absolute top-2 left-2 bg-white/80 text-gray-700 rounded-3xl px-2 py-2 shadow hover:bg-white z-20"
+              className="absolute top-4 left-4 bg-white/90 text-gray-700 rounded-full p-3 shadow-lg hover:bg-white z-20"
               title="إغلاق"
             >
               ×
-            </button>
-            <img
+            </motion.button>
+            <motion.img
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
               src={avatarUrl}
               alt="avatar-large"
-              className="max-w-[90vw] max-h-[80vh] rounded-2xl border-4 border-indigo-300 shadow-2xl bg-white"
+              className="max-w-[90vw] max-h-[80vh] rounded-3xl border-4 border-purple-300 shadow-2xl bg-white"
               style={{ objectFit: "contain" }}
             />
           </Dialog.Panel>
         </div>
       </Dialog>
-      {/* Modal تعديل البطاقة الدعوية */}
+
+      {/* Edit Card Modal */}
       <EditCardModal
         isOpen={showCardEditModal}
         onClose={() => setShowCardEditModal(false)}
@@ -678,6 +893,7 @@ const ProfilePage = () => {
           setShowCardEditModal(false);
         }}
       />
+
       <footer className="w-full min-h-[40px] bg-white" />
     </div>
   );

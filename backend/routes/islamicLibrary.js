@@ -33,6 +33,7 @@ const BOOK_CATEGORIES = {
       "riyad_assalihin",
       "malik",
       "darimi",
+      "bulugh_al_maram"
     ],
   },
   arbaain: {
@@ -170,6 +171,22 @@ const LOCAL_BOOKS = {
     isLocal: true,
     category: "adab",
     filePath: "shamail_muhammadiyah.json",
+  },
+  bulugh_al_maram: {
+    id: 17,
+    bookName: "بلوغ المرام",
+    bookNameEn: "Bulugh al-Maram",
+    bookNameUr: "بلوغ المرام",
+    writerName: "الإمام ابن حجر العسقلاني",
+    writerNameEn: "Imam Ibn Hajar al-Asqalani",
+    writerNameUr: "بلوغ المرام",
+    bookSlug: "bulugh_al_maram",
+    hadiths_count: "1767",
+    chapters_count: "16",
+    status: "available",
+    isLocal: true,
+    category: "kutub_tisaa",
+    filePath: "bulugh_almaram.json",
   },
 };
 
@@ -392,9 +409,10 @@ router.get("/local-books/:bookSlug/hadiths/:hadithId", async (req, res) => {
         book: {
           bookName: bookData.metadata.arabic.title,
           bookNameEn: bookData.metadata.english.title,
+          bookSlug: bookSlug,
         },
         chapter: {
-          chapterNumber: 1,
+          chapterNumber: bookChapter.id,
           chapterArabic: bookChapter.arabic,
           chapterEnglish: bookChapter.english,
           chapterUrdu: bookChapter.english,
@@ -433,6 +451,7 @@ router.get("/small-books/:bookSlug/hadiths/:hadithId", async (req, res) => {
         book: {
           bookName: bookData.metadata.arabic.title,
           bookNameEn: bookData.metadata.english.title,
+          bookSlug: bookSlug,
         },
         chapter: bookData.chapters[0],
       },
@@ -793,7 +812,12 @@ router.get(
                   bookName: bookData.metadata.arabic.title,
                   bookNameEn: bookData.metadata.english.title,
                 },
-                chapter: bookData.chapters[0],
+                chapter: {
+                  chapterNumber: bookData.chapters[0].id,
+                  chapterArabic: bookData.chapters[0].arabic,
+                  chapterEnglish: bookData.chapters[0].english,
+                  chapterUrdu: bookData.chapters[0].english,
+                },
               },
             });
           }
@@ -820,5 +844,80 @@ router.get(
     }
   }
 );
+
+// Get Islamic Library Statistics
+router.get("/statistics", async (req, res) => {
+  try {
+    // Get all books from API
+    const response = await axios.get(
+      `${ISLAMIC_LIBRARY_API_BASE}/books?apiKey=${ISLAMIC_LIBRARY_API_KEY}`
+    );
+
+    // Filter out unwanted books
+    const filteredBooks = response.data.books.filter(
+      (book) => !EXCLUDED_BOOKS.includes(book.bookName)
+    );
+
+    // Add local books to the list
+    const localBooksList = Object.values(LOCAL_BOOKS);
+
+    // Combine regular books with local books
+    const allBooks = [...filteredBooks, ...localBooksList];
+
+    // Calculate statistics
+    const totalBooks = allBooks.length;
+    const totalHadiths = allBooks.reduce((sum, book) => {
+      return sum + (parseInt(book.hadiths_count) || 0);
+    }, 0);
+    const totalChapters = allBooks.reduce((sum, book) => {
+      return sum + (parseInt(book.chapters_count) || 0);
+    }, 0);
+
+    // Calculate books by category
+    const booksByCategory = {};
+    Object.keys(BOOK_CATEGORIES).forEach((categoryId) => {
+      const category = BOOK_CATEGORIES[categoryId];
+      const categoryBooks = allBooks.filter((book) => {
+        return category.books.includes(book.bookSlug || book.bookName);
+      });
+      booksByCategory[categoryId] = {
+        name: category.name,
+        nameEn: category.nameEn,
+        nameUr: category.nameUr,
+        count: categoryBooks.length,
+        hadiths: categoryBooks.reduce((sum, book) => {
+          return sum + (parseInt(book.hadiths_count) || 0);
+        }, 0),
+      };
+    });
+
+    // Calculate top books by hadith count
+    const topBooks = allBooks
+      .sort((a, b) => (parseInt(b.hadiths_count) || 0) - (parseInt(a.hadiths_count) || 0))
+      .slice(0, 5)
+      .map(book => ({
+        name: book.bookName,
+        nameEn: book.bookNameEn,
+        nameUr: book.bookNameUr,
+        hadiths: parseInt(book.hadiths_count) || 0,
+        chapters: parseInt(book.chapters_count) || 0,
+      }));
+
+    res.json({
+      status: 200,
+      statistics: {
+        totalBooks,
+        totalHadiths,
+        totalChapters,
+        booksByCategory,
+        topBooks,
+        lastUpdated: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching Islamic library statistics:", error);
+    res.status(500).json({ message: "Error fetching Islamic library statistics" });
+  }
+});
 
 module.exports = router;
