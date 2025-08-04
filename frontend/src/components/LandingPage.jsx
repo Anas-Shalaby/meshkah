@@ -12,7 +12,7 @@ const SiteStatsSection = React.lazy(() => import("./landing/SiteStatsSection"));
 const LandingPage = ({ language = "ar" }) => {
   return (
     <div
-      className="min-h-screen relative overflow-x-hidden font-cairo"
+      className="min-h-screen relative  font-cairo"
       style={{ direction: "rtl" }}
     >
       {/* Animated Background */}

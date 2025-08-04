@@ -68,17 +68,35 @@ async function generateSitemap() {
     // Static Pages
     const staticPages = [
       { url: "/", priority: 1.0, changefreq: "daily" },
-      { url: "/hadiths", priority: 0.8, changefreq: "daily" },
-      { url: "/public-cards", priority: 0.6, changefreq: "weekly" },
+      { url: "/hadiths", priority: 0.9, changefreq: "daily" },
+      { url: "/islamic-library", priority: 0.9, changefreq: "weekly" },
+      { url: "/islamic-bookmarks", priority: 0.8, changefreq: "daily" },
+      { url: "/saved", priority: 0.8, changefreq: "daily" },
+      { url: "/daily-hadith", priority: 0.8, changefreq: "daily" },
+      { url: "/fasting", priority: 0.6, changefreq: "weekly" },
+      { url: "/sahabi-ai", priority: 0.7, changefreq: "weekly" },
+      { url: "/achievements", priority: 0.5, changefreq: "weekly" },
+      { url: "/notifications", priority: 0.5, changefreq: "daily" },
+      { url: "/print-requests", priority: 0.4, changefreq: "weekly" },
+      { url: "/profile", priority: 0.4, changefreq: "weekly" },
       { url: "/about", priority: 0.6, changefreq: "monthly" },
+      { url: "/contact", priority: 0.5, changefreq: "monthly" },
+      { url: "/islamic-library/help-support", priority: 0.4, changefreq: "monthly" },
+      { url: "/login", priority: 0.3, changefreq: "monthly" },
+      { url: "/register", priority: 0.3, changefreq: "monthly" },
     ];
 
-    // Add static pages to sitemap
+    // Add static pages to sitemap with language alternates
     staticPages.forEach((page) => {
       sitemapStream.write({
         url: page.url,
         changefreq: page.changefreq,
         priority: page.priority,
+        links: [
+          { lang: "ar", url: `${page.url}?lang=ar` },
+          { lang: "en", url: `${page.url}?lang=en` },
+          { lang: "x-default", url: page.url },
+        ],
       });
     });
 
@@ -89,6 +107,11 @@ async function generateSitemap() {
         url: `/hadiths/${category.id}/page/1`,
         changefreq: "weekly",
         priority: 0.7,
+        links: [
+          { lang: "ar", url: `/hadiths/${category.id}/page/1?lang=ar` },
+          { lang: "en", url: `/hadiths/${category.id}/page/1?lang=en` },
+          { lang: "x-default", url: `/hadiths/${category.id}/page/1` },
+        ],
       });
 
       // Fetch hadiths for this category
@@ -107,6 +130,11 @@ async function generateSitemap() {
           url: `/hadiths/hadith/${hadithId}`,
           changefreq: "weekly",
           priority: 0.6,
+          links: [
+            { lang: "ar", url: `/hadiths/hadith/${hadithId}?lang=ar` },
+            { lang: "en", url: `/hadiths/hadith/${hadithId}?lang=en` },
+            { lang: "x-default", url: `/hadiths/hadith/${hadithId}` },
+          ],
         });
       });
     }

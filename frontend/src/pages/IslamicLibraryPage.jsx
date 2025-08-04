@@ -18,6 +18,7 @@ import FloatingHelpButton from "../components/FloatingHelpButton";
 import { getTranslation, getBookTranslation } from "../utils/translations";
 import { toast } from "react-toastify";
 import WelcomeBanner from "../components/WelcomeBanner";
+import SEO from "../components/SEO";
 
 const IslamicLibraryPage = () => {
   const navigate = useNavigate();
@@ -93,6 +94,83 @@ const IslamicLibraryPage = () => {
   const handleDismissWelcome = () => {
     setHasSeenTutorial(true);
     localStorage.setItem("hasSeenIslamicLibraryTutorial", "true");
+  };
+
+  // SEO Structured Data for Islamic Library
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "Library",
+    "name": "المكتبة الإسلامية - مشكاة",
+    "alternateName": "Islamic Library - Meshkah",
+    "description": "مكتبة إسلامية شاملة تحتوي على كتب الحديث النبوي الشريف والعلوم الإسلامية، مع إمكانية البحث والتصفح باللغتين العربية والإنجليزية",
+    "url": window.location.href,
+    "sameAs": [
+      "https://hadith-shareef.com",
+      "https://twitter.com/mishkahcom1",
+      "https://facebook.com/mishkahcom1"
+    ],
+    "hasPart": allBooks.map(book => ({
+      "@type": "Book",
+      "name": book.title,
+      "description": book.description || `كتاب ${book.title} في الحديث النبوي الشريف`,
+      "author": {
+        "@type": "Person",
+        "name": book.author || "مؤلف إسلامي"
+      },
+      "isbn": book.id,
+      "numberOfPages": book.chapters?.length || 0,
+      "inLanguage": language === "ar" ? "ar" : "en",
+      "genre": "Islamic Literature",
+      "subject": "Hadith"
+    })),
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": `${window.location.origin}/islamic-library?search={search_term_string}`
+      },
+      "query-input": "required name=search_term_string"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "مشكاة",
+      "url": "https://hadith-shareef.com",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://hadith-shareef.com/logo.svg"
+      }
+    },
+    "address": {
+      "@type": "PostalAddress",
+      "addressCountry": "SA",
+      "addressLocality": "الرياض"
+    },
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "contactType": "customer service",
+      "email": "Meshkah@hadith-shareef.com"
+    }
+  };
+
+  // SEO Metadata
+  const seoData = {
+    title: language === "ar" 
+      ? "المكتبة الإسلامية - مشكاة | كتب الحديث النبوي الشريف" 
+      : "Islamic Library - Meshkah | Hadith Books Collection",
+    description: language === "ar"
+      ? "استكشف المكتبة الإسلامية الشاملة لمشكاة. تصفح كتب الحديث النبوي الشريف، الصحاح الستة، والعلوم الإسلامية. بحث متقدم وترجمة للغتين العربية والإنجليزية."
+      : "Explore Meshkah's comprehensive Islamic library. Browse Hadith books, the Six Authentic Collections, and Islamic sciences. Advanced search with Arabic and English translations.",
+    keywords: language === "ar"
+      ? "مكتبة إسلامية, كتب الحديث, الصحاح الستة, البخاري, مسلم, أبو داود, الترمذي, النسائي, ابن ماجة, مشكاة, علوم إسلامية, حديث نبوي"
+      : "Islamic library, Hadith books, Six Authentic Collections, Bukhari, Muslim, Abu Dawud, Tirmidhi, Nasa'i, Ibn Majah, Meshkah, Islamic sciences, Prophet's sayings",
+    canonicalUrl: `${window.location.origin}/islamic-library`,
+    ogImage: "https://hadith-shareef.com/logo.svg",
+    alternateLanguages: [
+      { hrefLang: "ar", href: `${window.location.origin}/islamic-library?lang=ar` },
+      { hrefLang: "en", href: `${window.location.origin}/islamic-library?lang=en` },
+      { hrefLang: "x-default", href: `${window.location.origin}/islamic-library` }
+    ],
+    structuredData
   };
 
   const handleSearch = async (e) => {
@@ -199,11 +277,13 @@ const IslamicLibraryPage = () => {
   }
 
   return (
-    <div
-      className="min-h-screen bg-gradient-to-br from-purple-50 font-cairo to-blue-50 "
-      dir={language === "ar" ? "rtl" : "ltr"}
-      lang={language}
-    >
+    <>
+      <SEO {...seoData} />
+      <div
+        className="min-h-screen bg-gradient-to-br from-purple-50 font-cairo to-blue-50 "
+        dir={language === "ar" ? "rtl" : "ltr"}
+        lang={language}
+      >
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-md border-b border-purple-200/50 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
@@ -791,6 +871,7 @@ const IslamicLibraryPage = () => {
         onStartTutorial={handleStartTutorial}
       />
     </div>
+    </>
   );
 };
 

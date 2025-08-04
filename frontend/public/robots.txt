@@ -2,22 +2,70 @@
 
 User-agent: *
 Allow: /
-Disallow: /api/
-Disallow: /admin/
-Disallow: /private/
-Disallow: /dashboard/
 
+# Sitemap locations
+Sitemap: https://hadith-shareef.com/sitemap-index.xml
 Sitemap: https://hadith-shareef.com/sitemap.xml
 
-# Crawl-delay to prevent overwhelming the server
-Crawl-delay: 10
+# Crawl-delay for respectful crawling
+Crawl-delay: 1
 
-# Specific bot instructions
+# Disallow admin and private areas
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /_next/
+Disallow: /static/
+
+# Allow important pages
+Allow: /islamic-library/
+Allow: /hadiths/
+Allow: /saved/
+Allow: /about/
+Allow: /contact/
+Allow: /help-support/
+
+# Specific rules for different bots
 User-agent: Googlebot
 Allow: /
+Crawl-delay: 0.5
 
 User-agent: Bingbot
 Allow: /
+Crawl-delay: 1
 
-User-agent: YandexBot
+User-agent: Slurp
+Allow: /
+Crawl-delay: 1
+
+User-agent: DuckDuckBot
+Allow: /
+Crawl-delay: 1
+
+# Block bad bots
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+# Block archive.org (optional - remove if you want to be archived)
+User-agent: ia_archiver
+Disallow: /
+
+# Block social media bots that might cause issues
+User-agent: facebookexternalhit
+Disallow: /
+
+User-agent: Twitterbot
+Disallow: /
+
+# Allow Google and Bing to crawl everything
+User-agent: *
 Allow: /

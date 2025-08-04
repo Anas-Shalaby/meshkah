@@ -2,6 +2,14 @@
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <sitemap>
     <loc>https://hadith-shareef.com/sitemap.xml</loc>
-    <lastmod>2025-01-07T20:53:47.058Z</lastmod>
+    <lastmod>2024-01-15T00:00:00+00:00</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>https://hadith-shareef.com/sitemap-hadiths.xml</loc>
+    <lastmod>2024-01-15T00:00:00+00:00</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>https://hadith-shareef.com/sitemap-islamic-library.xml</loc>
+    <lastmod>2024-01-15T00:00:00+00:00</lastmod>
   </sitemap>
 </sitemapindex>

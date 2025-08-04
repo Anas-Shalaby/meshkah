@@ -1,18 +1,20 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, User } from "lucide-react";
+import { Menu, X, User, BookOpen, Sparkles, Heart, Shield } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 
 const NAV_LINKS_MOBILE = [
-  { name: "الرئيسية", to: "/" },
-  { name: "حديث اليوم", to: "/daily-hadith" },
-  { name: "الأحاديث", to: "/hadiths" },
-  { name: "المكتبة الإسلامية", to: "/islamic-library" },
-  { name: "المحفوظات", to: "/saved" },
-  { name: "البطاقات الدعوية", to: "/public-cards" },
-  { name: "من نحن", to: "/about" },
-  { name: "تواصل معنا", to: "/contact" },
+  { name: "الرئيسية", to: "/", icon: Sparkles },
+  { name: "حديث اليوم", to: "/daily-hadith", icon: BookOpen },
+  { name: "الأحاديث", to: "/hadiths", icon: BookOpen },
+  { name: "المكتبة الإسلامية", to: "/islamic-library", icon: BookOpen },
+  { name: "المحفوظات", to: "/saved", icon: Heart },
+  { name: "البطاقات الدعوية", to: "/public-cards", icon: Shield },
+  { name: "من نحن", to: "/about", icon: Shield },
+  { name: "تواصل معنا", to: "/contact", icon: Shield },
 ];
+
 const NAV_LINKS = [
   { name: "الرئيسية", to: "/" },
   { name: "حديث اليوم", to: "/daily-hadith" },
@@ -103,191 +105,288 @@ const Navbar = () => {
 
   return (
     <>
-      <nav
-        className="font-cairo fixed top-0 right-0 left-0 z-[1000] bg-white/90 dark:bg-[#0f172a]/90 backdrop-blur border-b border-[#e5e7eb] dark:border-[#23283a] shadow-sm transition-all duration-200"
+      <motion.nav
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+        className="font-cairo fixed top-0 right-0 left-0 z-[1000] bg-white/90 backdrop-blur-xl border-b border-purple-200/50 shadow-lg transition-all duration-300"
         dir="rtl"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-8 flex items-center justify-between h-16">
           {/* Logo */}
-          <Link
-            to="/"
-            className="flex font-['MeshkahFont'] items-center gap-2 text-[#7440E9] text-3xl font-bold tracking-tight select-none"
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
-            مشكاة
-            <span className="text-xs">AA</span>
-          </Link>
+            <Link
+              to="/"
+              className="flex font-['MeshkahFont'] items-center gap-2 text-[#7440E9] text-2xl sm:text-3xl font-bold tracking-tight select-none"
+            >
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              </div>
+              مشكاة
+              <span className="text-sm text-gray-500">AA</span>
+            </Link>
+          </motion.div>
+
           {/* Centered Desktop Nav */}
           <div className="hidden md:flex flex-1 items-center justify-center">
-            <div className="flex items-center gap-2 lg:gap-4">
-              {NAV_LINKS.map((link) => (
-                <Link
+            <div className="flex items-center gap-1 lg:gap-2">
+              {NAV_LINKS.map((link, index) => (
+                <motion.div
                   key={link.to}
-                  to={link.to}
-                  className={`px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 hover:bg-[#f3f0fa] hover:text-[#7440E9] dark:hover:bg-[#23283a] dark:hover:text-[#FFD700] focus:outline-none focus:ring-2 focus:ring-[#7440E9] focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-[#0f172a] ${
-                    location.pathname === link.to
-                      ? "bg-[#f3f0fa] text-[#7440E9] font-bold dark:bg-[#23283a] dark:text-[#FFD700]"
-                      : "text-[#0f172a] dark:text-white"
-                  }`}
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
                 >
-                  {link.name}
-                </Link>
+                  <Link
+                    to={link.to}
+                    className={`px-3 py-2 rounded-xl text-sm font-medium transition-all duration-300 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 hover:text-[#7440E9] focus:outline-none focus:ring-2 focus:ring-[#7440E9] focus:ring-offset-2 ${
+                      location.pathname === link.to
+                        ? "bg-gradient-to-r from-purple-100 to-indigo-100 text-[#7440E9] font-bold shadow-md"
+                        : "text-gray-700 hover:shadow-sm"
+                    }`}
+                  >
+                    {link.name}
+                  </Link>
+                </motion.div>
               ))}
             </div>
           </div>
-          {/* الجرس + زر القائمة (الهامبرجر) */}
+
+          {/* Mobile Menu Button */}
           <div className="flex items-center gap-2">
-            <button
-              className="md:hidden flex items-center justify-center p-3 rounded focus:outline-none focus:ring-2 focus:ring-[#7440E9]"
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="md:hidden flex items-center justify-center p-2 rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#7440E9]"
               onClick={handleMobileToggle}
               aria-label="فتح القائمة"
             >
               {mobileOpen ? (
-                <X className="w-7 h-7 text-[#7440E9]" />
+                <X className="w-6 h-6 text-[#7440E9]" />
               ) : (
-                <Menu className="w-7 h-7 text-[#7440E9]" />
+                <Menu className="w-6 h-6 text-[#7440E9]" />
               )}
-            </button>
+            </motion.button>
           </div>
+
           {/* Desktop User/Profile or CTA Button */}
           <div className="hidden md:flex items-center">
             {isAuthenticated && user ? (
-              <div className="relative">
+              <motion.div 
+                className="relative"
+                whileHover={{ scale: 1.02 }}
+              >
                 <button
-                  className="flex items-center gap-2 focus:outline-none"
+                  className="flex items-center gap-3 p-2 rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#7440E9]"
                   onClick={() => setDropdownOpen((v) => !v)}
                 >
-                  <img
+                  <motion.img
+                    whileHover={{ scale: 1.1 }}
                     src={avatarUrl || "https://hadith-shareef.com/default.jpg"}
                     alt={user.username}
-                    className="w-10 h-10 rounded-full border-2 border-[#7440E9] object-cover shadow"
+                    className="w-8 h-8 rounded-full border-2 border-[#7440E9] object-cover shadow-md"
                   />
-                  <span className="font-semibold text-[#7440E9]">
+                  <span className="font-semibold text-[#7440E9] text-sm">
                     {user.username}
                   </span>
-                  <User className="w-5 h-5 text-[#7440E9]" />
+                  <User className="w-4 h-4 text-[#7440E9]" />
                 </button>
-                {dropdownOpen && (
-                  <div className="absolute left-0 mt-2 w-44 bg-white border border-gray-200 rounded-xl shadow-lg py-2 z-50 text-right">
-                    <Link
-                      to="/profile"
-                      className="block px-4 py-2 text-gray-700 hover:bg-[#f3f0fa] hover:text-[#7440E9] transition-colors"
-                      onClick={() => setDropdownOpen(false)}
+                
+                <AnimatePresence>
+                  {dropdownOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute left-0 mt-2 w-48 bg-white/95 backdrop-blur-xl border border-purple-200/50 rounded-2xl shadow-2xl py-2 z-50 text-right"
                     >
-                      الملف الشخصي
-                    </Link>
-                    <Link
-                      to="/saved"
-                      className="block px-4 py-2 text-gray-700 hover:bg-[#f3f0fa] hover:text-[#7440E9] transition-colors"
-                      onClick={() => setDropdownOpen(false)}
-                    >
-                      محفوظاتي
-                    </Link>
-
-                    <button
-                      onClick={() => {
-                        logout();
-                        setDropdownOpen(false);
-                      }}
-                      className="w-full text-right px-4 py-2 text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors"
-                    >
-                      تسجيل الخروج
-                    </button>
-                  </div>
-                )}
-              </div>
+                      <Link
+                        to="/profile"
+                        className="block px-4 py-3 text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 hover:text-[#7440E9] transition-all duration-300"
+                        onClick={() => setDropdownOpen(false)}
+                      >
+                        الملف الشخصي
+                      </Link>
+                      <Link
+                        to="/saved"
+                        className="block px-4 py-3 text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 hover:text-[#7440E9] transition-all duration-300"
+                        onClick={() => setDropdownOpen(false)}
+                      >
+                        محفوظاتي
+                      </Link>
+                      <div className="border-t border-purple-100 my-2"></div>
+                      <button
+                        onClick={() => {
+                          logout();
+                          setDropdownOpen(false);
+                        }}
+                        className="w-full text-right px-4 py-3 text-gray-700 hover:bg-red-50 hover:text-red-600 transition-all duration-300"
+                      >
+                        تسجيل الخروج
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
             ) : (
-              <Link
-                to="/login"
-                className="inline-block  px-4 py-2 rounded bg-indigo-600 text-white font-bold text-md hover:bg-indigo-700 transition"
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
-                ابدأ الآن
-              </Link>
-            )}
-          </div>
-        </div>
-      </nav>
-
-      {mobileOpen && (
-        <div
-          className="md:hidden fixed inset-0 z-[9999] bg-black/40"
-          onClick={closeMobile}
-        >
-          <div
-            className="absolute top-0 right-0 w-72 max-w-full h-full bg-white dark:bg-[#1a202c] shadow-lg flex flex-col gap-2 py-8 px-6 transition-all  animate-fade-in-item"
-            style={{
-              fontFamily: "'Cairo', 'Amiri', 'Tajawal', sans-serif",
-              transition: "transform 0.3s cubic-bezier(.4,0,.2,1)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              className="self-end mb-4 p-3 rounded focus:outline-none focus:ring-2 focus:ring-[#7440E9]"
-              onClick={closeMobile}
-              aria-label="إغلاق القائمة"
-            >
-              <X className="w-7 h-7 text-[#7440E9]" />
-            </button>
-            {isAuthenticated && user && (
-              <Link
-                to="/profile"
-                onClick={closeMobile}
-                className="flex flex-col items-center gap-2 border-b border-gray-200 dark:border-gray-700 pb-6 mb-4"
-              >
-                <img
-                  src={avatarUrl}
-                  alt={user.username}
-                  className="w-16 h-16 rounded-full border-2 border-[#7440E9] object-cover shadow-lg"
-                />
-                <span className="font-bold text-lg text-gray-800 dark:text-white">
-                  {user.username}
-                </span>
-              </Link>
-            )}
-            {NAV_LINKS_MOBILE.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                onClick={closeMobile}
-                className={`block px-4 py-3 rounded-md text-lg font-medium transition-colors duration-200 hover:bg-[#f3f0fa] hover:text-[#7440E9] dark:hover:bg-[#23283a] dark:hover:text-[#FFD700] focus:outline-none focus:ring-2 focus:ring-[#7440E9] focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-[#0f172a] ${
-                  location.pathname === link.to
-                    ? "bg-[#f3f0fa] text-[#7440E9] font-bold dark:bg-[#23283a] dark:text-[#FFD700]"
-                    : "text-[#0f172a] dark:text-white"
-                }`}
-              >
-                {link.name}
-              </Link>
-            ))}
-            <div className="mt-auto pt-6 border-t border-gray-200 dark:border-gray-700">
-              <Link
-                to="/privacy-policy"
-                onClick={closeMobile}
-                className="block text-center text-sm text-gray-500 hover:text-[#7440E9] mb-4"
-              >
-                سياسة الخصوصية
-              </Link>
-              {isAuthenticated ? (
-                <button
-                  onClick={() => {
-                    logout();
-                    closeMobile();
-                  }}
-                  className="w-full text-center px-5 py-3 rounded-full bg-red-500 text-white text-lg font-semibold shadow transition-all duration-200 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500"
-                >
-                  تسجيل الخروج
-                </button>
-              ) : (
                 <Link
                   to="/login"
-                  onClick={closeMobile}
-                  className="inline-block px-4 py-2 rounded bg-indigo-600 text-white font-bold text-base   hover:bg-indigo-700 transition"
+                  className="inline-flex items-center gap-2 px-6 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-sm hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl"
                 >
+                  <Sparkles className="w-4 h-4" />
                   ابدأ الآن
                 </Link>
-              )}
-            </div>
+              </motion.div>
+            )}
           </div>
         </div>
-      )}
+      </motion.nav>
+
+      {/* Mobile Menu Overlay */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="md:hidden fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm"
+            onClick={closeMobile}
+          >
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+              className="absolute top-0 right-0 w-80 max-w-[85vw] h-full bg-white/95 backdrop-blur-xl shadow-2xl flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-purple-200/50">
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  className="flex items-center gap-2 text-[#7440E9] text-xl font-bold"
+                >
+                  <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                    <BookOpen className="w-4 h-4 text-white" />
+                  </div>
+                  مشكاة
+                  <span className="text-sm text-gray-500">AA</span>
+                </motion.div>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  className="p-2 rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 transition-all duration-300"
+                  onClick={closeMobile}
+                  aria-label="إغلاق القائمة"
+                >
+                  <X className="w-6 h-6 text-[#7440E9]" />
+                </motion.button>
+              </div>
+
+              {/* User Profile Section */}
+              {isAuthenticated && user && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="p-6 border-b border-purple-200/50"
+                >
+                  <Link
+                    to="/profile"
+                    onClick={closeMobile}
+                    className="flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 transition-all duration-300"
+                  >
+                    <motion.img
+                      whileHover={{ scale: 1.1 }}
+                      src={avatarUrl}
+                      alt={user.username}
+                      className="w-12 h-12 rounded-full border-2 border-[#7440E9] object-cover shadow-lg"
+                    />
+                    <div>
+                      <span className="font-bold text-lg text-gray-800">
+                        {user.username}
+                      </span>
+                      <p className="text-sm text-gray-600">عضو نشط</p>
+                    </div>
+                  </Link>
+                </motion.div>
+              )}
+
+              {/* Navigation Links */}
+              <div className="flex-1 p-6 space-y-2">
+                {NAV_LINKS_MOBILE.map((link, index) => (
+                  <motion.div
+                    key={link.to}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <Link
+                      to={link.to}
+                      onClick={closeMobile}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-all duration-300 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 hover:text-[#7440E9] focus:outline-none focus:ring-2 focus:ring-[#7440E9] ${
+                        location.pathname === link.to
+                          ? "bg-gradient-to-r from-purple-100 to-indigo-100 text-[#7440E9] font-bold shadow-md"
+                          : "text-gray-700"
+                      }`}
+                    >
+                      <link.icon className="w-5 h-5" />
+                      {link.name}
+                    </Link>
+                  </motion.div>
+                ))}
+              </div>
+
+              {/* Footer */}
+              <div className="p-6 border-t border-purple-200/50 space-y-4">
+                <Link
+                  to="/privacy-policy"
+                  onClick={closeMobile}
+                  className="block text-center text-sm text-gray-500 hover:text-[#7440E9] transition-colors duration-300"
+                >
+                  سياسة الخصوصية
+                </Link>
+                {isAuthenticated ? (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      logout();
+                      closeMobile();
+                    }}
+                    className="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white text-base font-semibold shadow-lg hover:from-red-600 hover:to-red-700 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  >
+                    تسجيل الخروج
+                  </motion.button>
+                ) : (
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Link
+                      to="/login"
+                      onClick={closeMobile}
+                      className="inline-flex items-center gap-2 w-full justify-center px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-base font-semibold shadow-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-300"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      ابدأ الآن
+                    </Link>
+                  </motion.div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 };
