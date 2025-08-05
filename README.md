@@ -322,7 +322,7 @@ This project is licensed under the ISC License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Email**: support@meshkah.com
+- **Email**: Meshkah@hadith-shareef.com
 - **Documentation**: [Wiki](https://github.com/Anas-Shalaby/meshkah/wiki)
 - **Issues**: [GitHub Issues](https://github.com/Anas-Shalaby/meshkah/issues)
 

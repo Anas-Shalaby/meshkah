@@ -1024,23 +1024,22 @@ router.get("/books/:bookSlug/chapters/:chapterId/navigation", async (req, res) =
 
     const chapterHadiths  = await axios.get(`${ISLAMIC_LIBRARY_API_BASE}/hadiths?apiKey=${ISLAMIC_LIBRARY_API_KEY}&book=${bookSlug}&chapter=${chapterId}`);
     const totalHadiths = chapterHadiths.data.hadiths.length;
-
     res.json({
       status: 200,
       navigation: {
         current: {
-          id: currentChapter.id,
+          id: currentChapter.chapterNumber,
           title: currentChapter.chapterArabic,
           titleEn: currentChapter.chapterEnglish,
           hadithsCount: totalHadiths
         },
         previous: prevChapter ? {
-          id: prevChapter.id,
+          id: prevChapter.chapterNumber,
           title: prevChapter.chapterArabic,
           titleEn: prevChapter.chapterEnglish
         } : null,
         next: nextChapter ? {
-          id: nextChapter.id,
+          id: nextChapter.chapterNumber,
           title: nextChapter.chapterArabic,
           titleEn: nextChapter.chapterEnglish
         } : null,

@@ -173,12 +173,7 @@ const IslamicChapterNavigation = ({ bookSlug, chapterNumber, book, language, onC
                   <Clock className="w-4 h-4" />
                   <span>{navigation.currentChapterIndex} / {navigation.totalChapters}</span>
                 </div>
-                {book?.isLocal && (
-                  <div className="flex items-center space-x-1 space-x-reverse">
-                    <BookOpen className="w-4 h-4 text-purple-600" />
-                    <span className="text-purple-600 text-xs">{getTranslation(language, "local")}</span>
-                  </div>
-                )}
+                
               </div>
             </div>
           </div>
