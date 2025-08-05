@@ -10,8 +10,13 @@ import {
   Share2,
   Eye,
   Brain,
+  Target,
+  BarChart3,
+  BookMarked,
 } from "lucide-react";
 import LanguageSelector from "../components/LanguageSelector";
+import BookInsights from "../components/BookInsights";
+import ChapterNavigation from "../components/ChapterNavigation";
 import {
   getTranslation,
   getBookTranslation,
@@ -28,6 +33,7 @@ const IslamicBookPage = () => {
   const [language, setLanguage] = useState(() => {
     return localStorage.getItem("islamicLibraryLanguage") || "ar";
   });
+  const [activeTab, setActiveTab] = useState("chapters"); // chapters, learning-path, insights
 
 
 
@@ -223,6 +229,8 @@ const IslamicBookPage = () => {
                 onLanguageChange={handleLanguageChange}
               />
             </div>
+
+         
           </div>
         </div>
       </div>
@@ -353,18 +361,34 @@ const IslamicBookPage = () => {
             </div>
           </div>
         </motion.div>
-        {/* Enhanced Chapters Display */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className={`${
-            viewMode === "grid"
-              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-              : "space-y-4"
-          }`}
-        >
-          {filteredChapters.map((chapter, index) => (
-            <motion.div key={index}>
+
+        {/* Chapter Navigation for Local Books */}
+        {book?.isLocal && activeTab === "chapters" && (
+          <div className="mb-6">
+            <ChapterNavigation 
+              bookSlug={bookSlug} 
+              language={language}
+              onChapterChange={(chapterId) => {
+                // Navigate to the selected chapter
+                window.location.href = `/islamic-library/local-books/${bookSlug}/chapter/${chapterId}`;
+              }}
+            />
+          </div>
+        )}
+
+        {/* Tab Content */}
+        {activeTab === "chapters" && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className={`${
+              viewMode === "grid"
+                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                : "space-y-4"
+            }`}
+          >
+            {filteredChapters.map((chapter, index) => (
+              <motion.div key={index}>
               <Link
                 to={
                   book?.isLocal
@@ -481,9 +505,10 @@ const IslamicBookPage = () => {
             </motion.div>
           ))}
         </motion.div>
+        )}
 
         {/* Enhanced No Results */}
-        {filteredChapters.length === 0 && (
+        {filteredChapters.length === 0 && activeTab === "chapters" && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -500,6 +525,9 @@ const IslamicBookPage = () => {
             </p>
           </motion.div>
         )}
+
+
+  
       </div>
 
 

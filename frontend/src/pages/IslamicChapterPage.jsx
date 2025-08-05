@@ -16,6 +16,7 @@ import {
 import IslamicHadithCard from "../components/IslamicHadithCard";
 import LanguageSelector from "../components/LanguageSelector";
 import BookmarkModal from "../components/BookmarkModal";
+import IslamicChapterNavigation from "../components/IslamicChapterNavigation";
 import {
   getTranslation,
   getBookTranslation,
@@ -124,7 +125,6 @@ const IslamicChapterPage = () => {
             (c) => c.chapterNumber.toString() == chapterNumber
           );
           setChapter(currentChapter);
-          console.log(currentChapter);
         }
       } else {
         // For external books, fetch chapters and hadiths
@@ -499,7 +499,6 @@ const IslamicChapterPage = () => {
       </div>
     );
   }
-  console.log(chapter);
 
   if (!book || !chapter) {
     return (
@@ -690,6 +689,28 @@ const IslamicChapterPage = () => {
               </div>
             </div>
           </div>
+        </motion.div>
+
+        {/* Chapter Navigation for All Books */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
+          <IslamicChapterNavigation 
+            bookSlug={bookSlug} 
+            chapterNumber={chapterNumber}
+            book={book}
+            language={language}
+            onChapterChange={(newChapterId) => {
+              // Navigate to the new chapter based on book type
+              if (book?.isLocal) {
+                window.location.href = `/islamic-library/local-books/${bookSlug}/chapter/${newChapterId}`;
+              } else {
+                window.location.href = `/islamic-library/book/${bookSlug}/chapter/${newChapterId}`;
+              }
+            }}
+          />
         </motion.div>
 
         {/* Enhanced Search */}
