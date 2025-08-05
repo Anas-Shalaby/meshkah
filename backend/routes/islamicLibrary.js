@@ -33,7 +33,7 @@ const BOOK_CATEGORIES = {
       "riyad_assalihin",
       "malik",
       "darimi",
-      "bulugh_al_maram"
+      "bulugh_al_maram",
     ],
   },
   arbaain: {
@@ -54,7 +54,7 @@ const BOOK_CATEGORIES = {
     description: "كتب في الآداب الإسلامية والأخلاق",
     descriptionEn: "Books on Islamic etiquette and manners",
     descriptionUr: "اسلامی آداب و اخلاق کی کتابیں",
-    books: ["aladab_almufrad", "shamail_muhammadiyah"],
+    books: ["aladab_almufrad", "shamail_muhammadiyah", "hisnul_muslim"],
   },
 };
 
@@ -102,7 +102,7 @@ const LOCAL_BOOKS = {
     writerNameUr: "Imam Al-Bukhari",
     bookSlug: "aladab_almufrad",
     hadiths_count: "1322",
-    chapters_count: "1",
+    chapters_count: "57",
     status: "available",
     isLocal: true,
     category: "adab",
@@ -187,6 +187,22 @@ const LOCAL_BOOKS = {
     isLocal: true,
     category: "kutub_tisaa",
     filePath: "bulugh_almaram.json",
+  },
+  hisnul_muslim: {
+    id: 18,
+    bookName: "حصن المسلم",
+    bookNameEn: "Hisnul Muslim",
+    bookNameUr: "حصن المسلم",
+    writerName: "سعيد بن علي بن وهف القحطاني",
+    writerNameEn: "Sa'id bin Ali bin Wahf Al-Qahtani",
+    writerNameUr: "سعيد بن علي بن وهف القحطاني",
+    bookSlug: "hisnul_muslim",
+    hadiths_count: "268",
+    chapters_count: "132",
+    status: "available",
+    isLocal: true,
+    category: "adab",
+    filePath: "hisnulmuslim.json",
   },
 };
 
@@ -461,6 +477,8 @@ router.get("/small-books/:bookSlug/hadiths/:hadithId", async (req, res) => {
     res.status(500).json({ message: "Error fetching hadith" });
   }
 });
+
+
 
 // Get chapters of a specific book (for regular books)
 router.get("/books/:bookSlug/chapters", async (req, res) => {
@@ -845,7 +863,6 @@ router.get(
   }
 );
 
-// Get Islamic Library Statistics
 router.get("/statistics", async (req, res) => {
   try {
     // Get all books from API
@@ -893,9 +910,12 @@ router.get("/statistics", async (req, res) => {
 
     // Calculate top books by hadith count
     const topBooks = allBooks
-      .sort((a, b) => (parseInt(b.hadiths_count) || 0) - (parseInt(a.hadiths_count) || 0))
+      .sort(
+        (a, b) =>
+          (parseInt(b.hadiths_count) || 0) - (parseInt(a.hadiths_count) || 0)
+      )
       .slice(0, 5)
-      .map(book => ({
+      .map((book) => ({
         name: book.bookName,
         nameEn: book.bookNameEn,
         nameUr: book.bookNameUr,
@@ -916,8 +936,125 @@ router.get("/statistics", async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching Islamic library statistics:", error);
-    res.status(500).json({ message: "Error fetching Islamic library statistics" });
+    res
+      .status(500)
+      .json({ message: "Error fetching Islamic library statistics" });
   }
 });
+
+// Get chapter navigation with next/previous
+router.get("/local-books/:bookSlug/chapters/:chapterId/navigation", async (req, res) => {
+  try {
+    const { bookSlug, chapterId } = req.params;
+    const bookConfig = LOCAL_BOOKS[bookSlug];
+
+    if (!bookConfig) {
+      return res.status(404).json({ message: "Book not found" });
+    }
+
+    const bookData = await loadLocalBook(bookSlug);
+    if (!bookData) {
+      return res.status(404).json({ message: "Book data not found" });
+    }
+
+    const chapters = bookData.chapters || [];
+    const currentChapterIndex = chapters.findIndex(ch => ch.id.toString() === chapterId.toString());
+    
+    if (currentChapterIndex === -1) {
+      return res.status(404).json({ message: "Chapter not found" });
+    }
+
+    const currentChapter = chapters[currentChapterIndex];
+    const prevChapter = currentChapterIndex > 0 ? chapters[currentChapterIndex - 1] : null;
+    const nextChapter = currentChapterIndex < chapters.length - 1 ? chapters[currentChapterIndex + 1] : null;
+
+    // Get hadiths for current chapter
+    const chapterHadiths = bookData.hadiths.filter(h => h.chapterId.toString() === chapterId.toString());
+    const totalHadiths = chapterHadiths.length;
+
+    res.json({
+      status: 200,
+      navigation: {
+        current: {
+          id: currentChapter.id,
+          title: currentChapter.arabic,
+          titleEn: currentChapter.english,
+          hadithsCount: totalHadiths
+        },
+        previous: prevChapter ? {
+          id: prevChapter.id,
+          title: prevChapter.arabic,
+          titleEn: prevChapter.english
+        } : null,
+        next: nextChapter ? {
+          id: nextChapter.id,
+          title: nextChapter.arabic,
+          titleEn: nextChapter.english
+        } : null,
+        totalChapters: chapters.length,
+        currentChapterIndex: currentChapterIndex + 1
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching chapter navigation:", error);
+    res.status(500).json({ message: "Error fetching chapter navigation" });
+  }
+});
+
+
+// Get chapter navigation with next/previous
+router.get("/books/:bookSlug/chapters/:chapterId/navigation", async (req, res) => {
+  try {
+    const { bookSlug, chapterId } = req.params;
+
+    const response = await axios.get(`${ISLAMIC_LIBRARY_API_BASE}/${bookSlug}/chapters?apiKey=${ISLAMIC_LIBRARY_API_KEY}`);
+    const bookData = response.data;
+    console.log(bookData);
+    if (!bookData) {
+      return res.status(404).json({ message: "Book data not found" });
+    }
+
+    const chapters = bookData.chapters || [];
+    const currentChapter = chapters.find(ch => ch.chapterNumber.toString() === chapterId.toString());
+    const prevChapter = chapters.find(ch => ch.chapterNumber.toString() === (parseInt(chapterId) - 1).toString());
+    const nextChapter = chapters.find(ch => ch.chapterNumber.toString() === (parseInt(chapterId) + 1).toString());
+    if (!currentChapter) {
+      return res.status(404).json({ message: "Chapter not found" });
+    }
+
+    const chapterHadiths  = await axios.get(`${ISLAMIC_LIBRARY_API_BASE}/hadiths?apiKey=${ISLAMIC_LIBRARY_API_KEY}&book=${bookSlug}&chapter=${chapterId}`);
+    const totalHadiths = chapterHadiths.data.hadiths.length;
+
+    res.json({
+      status: 200,
+      navigation: {
+        current: {
+          id: currentChapter.id,
+          title: currentChapter.chapterArabic,
+          titleEn: currentChapter.chapterEnglish,
+          hadithsCount: totalHadiths
+        },
+        previous: prevChapter ? {
+          id: prevChapter.id,
+          title: prevChapter.chapterArabic,
+          titleEn: prevChapter.chapterEnglish
+        } : null,
+        next: nextChapter ? {
+          id: nextChapter.id,
+          title: nextChapter.chapterArabic,
+          titleEn: nextChapter.chapterEnglish
+        } : null,
+        totalChapters: chapters.length,
+        currentChapterIndex: currentChapter.chapterNumber
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching chapter navigation:", error);
+    res.status(500).json({ message: "Error fetching chapter navigation" });
+  }
+});
+ 
+
+
 
 module.exports = router;
