@@ -306,3 +306,55 @@ export const fetchSubCategories = async (categoryId) => {
     throw new Error("Failed to fetch subcategories");
   }
 };
+
+/**
+ * Enhanced Islamic Library Search (unified local + API)
+ * @param {Object} params - Search parameters (q, book, category, narrator, status, chapter, sort, order, paginate, page, includeLocal, includeAPI)
+ * @returns {Promise<Object>} Search results
+ */
+export const searchIslamicLibrary = async (params) => {
+  try {
+    const response = await axios.get(`${import.meta.env.VITE_API_URL}/islamic-library/search`, {
+      params,
+      timeout: 15000,
+      headers: { "Cache-Control": "no-cache" },
+    });
+    return response.data;
+  } catch (error) {
+    throw formatApiError(error);
+  }
+};
+
+/**
+ * Get search suggestions for Islamic Library
+ * @param {Object} params - Suggestion parameters (q, type)
+ * @returns {Promise<Object>} Suggestions
+ */
+export const getIslamicLibrarySuggestions = async (params) => {
+  try {
+    const response = await axios.get(`${import.meta.env.VITE_API_URL}/islamic-library/suggestions`, {
+      params,
+      timeout: 8000,
+      headers: { "Cache-Control": "no-cache" },
+    });
+    return response.data;
+  } catch (error) {
+    throw formatApiError(error);
+  }
+};
+
+/**
+ * Get search statistics for Islamic Library
+ * @returns {Promise<Object>} Stats
+ */
+export const getIslamicLibrarySearchStats = async () => {
+  try {
+    const response = await axios.get(`${import.meta.env.VITE_API_URL}/islamic-library/search-stats`, {
+      timeout: 8000,
+      headers: { "Cache-Control": "no-cache" },
+    });
+    return response.data;
+  } catch (error) {
+    throw formatApiError(error);
+  }
+};
