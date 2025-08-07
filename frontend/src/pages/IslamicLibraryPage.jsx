@@ -19,6 +19,20 @@ import { getTranslation, getBookTranslation } from "../utils/translations";
 import { toast } from "react-toastify";
 import WelcomeBanner from "../components/WelcomeBanner";
 import SEO from "../components/SEO";
+import { searchIslamicLibrary, getIslamicLibrarySuggestions, getIslamicLibrarySearchStats } from "../services/api";
+
+// Local books configuration for navigation
+const LOCAL_BOOKS = {
+  nawawi40: { bookSlug: "nawawi40", isLocal: true },
+  qudsi40: { bookSlug: "qudsi40", isLocal: true },
+  aladab_almufrad: { bookSlug: "aladab_almufrad", isLocal: true },
+  shamail_muhammadiyah: { bookSlug: "shamail_muhammadiyah", isLocal: true },
+  hisnul_muslim: { bookSlug: "hisnul_muslim", isLocal: true },
+  bulugh_al_maram: { bookSlug: "bulugh_al_maram", isLocal: true },
+  malik: { bookSlug: "malik", isLocal: true },
+  darimi: { bookSlug: "darimi", isLocal: true },
+  riyad_assalihin: { bookSlug: "riyad_assalihin", isLocal: true },
+};
 
 const IslamicLibraryPage = () => {
   const navigate = useNavigate();
@@ -41,6 +55,11 @@ const IslamicLibraryPage = () => {
   const [hasSeenTutorial, setHasSeenTutorial] = useState(() => {
     return localStorage.getItem("hasSeenIslamicLibraryTutorial") === "true";
   });
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedNarrator, setSelectedNarrator] = useState("");
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("");
+  const [searchStats, setSearchStats] = useState(null);
 
   // Update document direction based on language
   useEffect(() => {
@@ -51,6 +70,24 @@ const IslamicLibraryPage = () => {
   useEffect(() => {
     fetchBooks();
   }, []);
+
+  // Fetch search stats on mount
+  useEffect(() => {
+    getIslamicLibrarySearchStats().then((data) => setSearchStats(data.stats)).catch(() => {});
+  }, []);
+
+  // Suggestions handler
+  useEffect(() => {
+    if (searchTerm.length > 1) {
+      getIslamicLibrarySuggestions({ q: searchTerm, type: "all" })
+        .then((data) => setSuggestions(data.suggestions))
+        .catch(() => setSuggestions([]));
+      setShowSuggestions(true);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, [searchTerm]);
 
   const fetchBooks = async () => {
     try {
@@ -173,61 +210,59 @@ const IslamicLibraryPage = () => {
     structuredData
   };
 
+  const normalizeArabicText = (text) => {
+    if (!text) return '';
+    return text
+      .replace(/[\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E8\u06EA-\u06ED]/g, '') // Remove tashkeel
+      .replace(/[أإآ]/g, 'ا') // Normalize alef variations
+      .replace(/[يى]/g, 'ي') // Normalize yaa variations
+      .replace(/[ةه]/g, 'ه') // Normalize taa marbouta and haa
+      .replace(/[ؤئ]/g, 'و') // Normalize waw variations
+      .trim();
+  };
+
+  // Enhanced search handler
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!searchTerm.trim()) return;
+    
+    // Check if there's any search criteria
+    const hasSearchCriteria = searchTerm.trim() || selectedBookFilter || selectedNarrator || selectedCategoryFilter || selectedStatusFilter || selectedChapterFilter;
+    
+    if (!hasSearchCriteria) {
+      toast.warning(getTranslation(language, "pleaseEnterSearchCriteria"));
+      return;
+    }
 
     try {
       setSearchLoading(true);
       setShowSearchResults(true);
-
-      // Build search parameters
-      const searchParams = new URLSearchParams();
-
-      // Add search term based on language
-      if (language === "ar") {
-        searchParams.append("hadithArabic", searchTerm);
-      } else if (language === "en") {
-        searchParams.append("hadithEnglish", searchTerm);
-      } else if (language === "ur") {
-        searchParams.append("hadithUrdu", searchTerm);
+      
+      // Normalize search term if it's Arabic
+      const normalizedSearchTerm = language === 'ar' ? normalizeArabicText(searchTerm.trim()) : searchTerm.trim();
+      
+      // Show feedback if normalization was applied
+      if (language === 'ar' && searchTerm.trim() !== normalizedSearchTerm) {
+        console.log('Arabic text normalized for search:', searchTerm.trim(), '→', normalizedSearchTerm);
       }
-
-      // Add filters
-      if (selectedBookFilter) {
-        searchParams.append("book", selectedBookFilter);
-      }
-      if (selectedStatusFilter) {
-        searchParams.append("status", selectedStatusFilter);
-      }
-      if (selectedChapterFilter) {
-        searchParams.append("chapter", selectedChapterFilter);
-      }
-
-      // Add pagination
-      searchParams.append("paginate", "25");
-
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_API_URL
-        }/islamic-library/hadiths?${searchParams.toString()}`
-      );
-
-      const data = await response.json();
-
+      
+      const params = {
+        q: normalizedSearchTerm,
+        book: selectedBookFilter,
+        category: selectedCategoryFilter,
+        narrator: selectedNarrator,
+        status: selectedStatusFilter,
+        chapter: selectedChapterFilter,
+        paginate: 25,
+        page: 1,
+      };
+      const data = await searchIslamicLibrary(params);
       if (data.status === 200) {
-        setHadiths(data.hadiths?.data || []);
-      } else if (data.status === 404) {
-        // Handle case when no hadiths found
-        setHadiths([]);
-        // Don't show error toast for 404, just show no results message
+        setHadiths(data.search?.results?.data || data.hadiths?.data || []);
       } else {
-        console.error("API returned error:", data);
         setHadiths([]);
         toast.error(getTranslation(language, "searchError"));
       }
     } catch (error) {
-      console.error("Error searching hadiths:", error);
       setHadiths([]);
       toast.error(getTranslation(language, "searchError"));
     } finally {
@@ -235,13 +270,34 @@ const IslamicLibraryPage = () => {
     }
   };
 
+  // Suggestion click handler
+  const handleSuggestionClick = (suggestion) => {
+    if (suggestion.type === "narrator") {
+      setSelectedNarrator(suggestion.value);
+      setSearchTerm("");
+    } else if (suggestion.type === "book") {
+      setSelectedBookFilter(suggestion.bookSlug);
+      setSearchTerm("");
+    } else if (suggestion.type === "chapter") {
+      setSelectedChapterFilter(suggestion.chapterId);
+      setSearchTerm("");
+    } else {
+      setSearchTerm(suggestion.value);
+    }
+    setShowSuggestions(false);
+  };
+
   const clearSearch = () => {
     setSearchTerm("");
     setSelectedBookFilter("");
     setSelectedStatusFilter("");
     setSelectedChapterFilter("");
+    setSelectedNarrator("");
+    setSelectedCategoryFilter("");
     setShowSearchResults(false);
     setHadiths([]);
+    setSuggestions([]);
+    setShowSuggestions(false);
   };
 
   // Get books for selected category
@@ -379,16 +435,60 @@ const IslamicLibraryPage = () => {
           className="bg-white/80 backdrop-blur-md rounded-2xl p-4 sm:p-6 mb-6 sm:mb-8 border border-purple-200/50 shadow-lg"
         >
           <form onSubmit={handleSearch} className="space-y-4">
-            {/* Search Bar */}
+            {/* Enhanced Search Bar with Suggestions */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder={getTranslation(language, "searchPlaceholder")}
-                className="w-full pl-10 sm:pl-12 pr-4 py-3 sm:py-4 border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/50 backdrop-blur-sm text-sm sm:text-base"
+                onFocus={() => searchTerm.length > 1 && setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch(e)}
+                placeholder={language === "ar" 
+                  ? getTranslation(language, "searchInArabic")
+                  : getTranslation(language, "searchPlaceholder")}
+                className="w-full pl-10 sm:pl-12 pr-20 py-3 sm:py-4 border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/50 backdrop-blur-sm text-sm sm:text-base"
+                dir={language === "ar" ? "rtl" : "ltr"}
               />
+              
+              {/* Search Button */}
+              <button
+                type="submit"
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+              >
+                {getTranslation(language, "search")}
+              </button>
+              
+              {/* Suggestions Dropdown */}
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-purple-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                  {suggestions.map((suggestion, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => handleSuggestionClick(suggestion)}
+                      className="w-full px-4 py-3 text-left hover:bg-purple-50 transition-colors border-b border-gray-100 last:border-b-0"
+                    >
+                      <div className="flex items-center space-x-2 space-x-reverse">
+                        <div className={`w-2 h-2 rounded-full ${
+                          suggestion.type === 'narrator' ? 'bg-blue-500' :
+                          suggestion.type === 'book' ? 'bg-green-500' :
+                          suggestion.type === 'chapter' ? 'bg-purple-500' : 'bg-gray-500'
+                        }`}></div>
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">{suggestion.value}</div>
+                          <div className="text-xs text-gray-500">
+                            {suggestion.type === 'narrator' && `${getTranslation(language, 'narrator')} - ${suggestion.book}`}
+                            {suggestion.type === 'book' && `${getTranslation(language, 'book')} - ${suggestion.category}`}
+                            {suggestion.type === 'chapter' && `${getTranslation(language, 'chapter')} - ${suggestion.book}`}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Filters Header */}
@@ -418,19 +518,19 @@ const IslamicLibraryPage = () => {
               </button>
             </div>
 
-            {/* Filters */}
+            {/* Enhanced Filters */}
             {showFilters && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="flex flex-col space-y-3 sm:flex-row sm:flex-wrap sm:items-center sm:space-y-0 sm:space-x-4 sm:space-x-reverse"
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4"
               >
                 {/* Book Filter */}
                 <select
                   value={selectedBookFilter}
                   onChange={(e) => setSelectedBookFilter(e.target.value)}
-                  className="w-full sm:w-auto px-3 sm:px-4 py-2 sm:py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/50 backdrop-blur-sm text-sm sm:text-base"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/50 backdrop-blur-sm text-sm sm:text-base"
                 >
                   <option value="">
                     {getTranslation(language, "selectBook")}
@@ -442,11 +542,43 @@ const IslamicLibraryPage = () => {
                   ))}
                 </select>
 
+                {/* Category Filter */}
+                <select
+                  value={selectedCategoryFilter}
+                  onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/50 backdrop-blur-sm text-sm sm:text-base"
+                >
+                  <option value="">
+                    {getTranslation(language, "selectCategory")}
+                  </option>
+                  {Object.keys(categories).map((categoryId) => {
+                    const category = categories[categoryId];
+                    return (
+                      <option key={categoryId} value={categoryId}>
+                        {language === "ar"
+                          ? category.name
+                          : language === "en"
+                          ? category.nameEn
+                          : category.nameUr}
+                      </option>
+                    );
+                  })}
+                </select>
+
+                {/* Narrator Filter */}
+                <input
+                  type="text"
+                  value={selectedNarrator}
+                  onChange={(e) => setSelectedNarrator(e.target.value)}
+                  placeholder={getTranslation(language, "narratorPlaceholder")}
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/50 backdrop-blur-sm text-sm sm:text-base"
+                />
+
                 {/* Status Filter */}
                 <select
                   value={selectedStatusFilter}
                   onChange={(e) => setSelectedStatusFilter(e.target.value)}
-                  className="w-full sm:w-auto px-3 sm:px-4 py-2 sm:py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/50 backdrop-blur-sm text-sm sm:text-base"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/50 backdrop-blur-sm text-sm sm:text-base"
                 >
                   <option value="">
                     {getTranslation(language, "selectGrade")}
@@ -462,14 +594,37 @@ const IslamicLibraryPage = () => {
                   </option>
                 </select>
 
-                {/* Clear Filters Button */}
-                <button
-                  type="button"
-                  onClick={clearSearch}
-                  className="w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm sm:text-base font-medium"
-                >
-                  {getTranslation(language, "clearAllFilters")}
-                </button>
+                {/* Chapter Filter */}
+                <input
+                  type="text"
+                  value={selectedChapterFilter}
+                  onChange={(e) => setSelectedChapterFilter(e.target.value)}
+                  placeholder={getTranslation(language, "chapterPlaceholder")}
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/50 backdrop-blur-sm text-sm sm:text-base"
+                />
+
+                {/* Action Buttons */}
+                <div className="flex gap-2">
+                  {/* Search with Filters Button */}
+                  {(selectedBookFilter || selectedCategoryFilter || selectedNarrator || selectedStatusFilter || selectedChapterFilter) && (
+                    <button
+                      type="button"
+                      onClick={handleSearch}
+                      className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                    >
+                      {getTranslation(language, "search")}
+                    </button>
+                  )}
+                  
+                  {/* Clear Filters Button */}
+                  <button
+                    type="button"
+                    onClick={clearSearch}
+                    className="flex-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium px-4 py-2"
+                  >
+                    {getTranslation(language, "clearAllFilters")}
+                  </button>
+                </div>
               </motion.div>
             )}
           </form>
@@ -478,7 +633,7 @@ const IslamicLibraryPage = () => {
         {/* Search Results */}
         {showSearchResults && (
           <div className="space-y-6">
-            {/* Search Header */}
+            {/* Enhanced Search Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
               <div>
                 <h2 className="text-xl sm:text-2xl font-cairo font-bold text-gray-900">
@@ -492,12 +647,24 @@ const IslamicLibraryPage = () => {
                         "hadithsFound"
                       )}`}
                 </p>
+                {/* Search Statistics */}
+                {searchStats && (
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-500">
+                    <span>{getTranslation(language, "totalBooks")}: {searchStats.totalBooks}</span>
+                    <span>{getTranslation(language, "totalHadiths")}: {searchStats.totalHadiths}</span>
+                  </div>
+                )}
+                {/* Language Indicator */}
+                <div className="mt-2">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                    {language === "ar" ? "العربية" : language === "en" ? "English" : "اردو"}
+                  </span>
+                </div>
               </div>
               <button
                 onClick={() => {
                   setShowSearchResults(false);
-                  setSearchTerm("");
-                  setHadiths([]);
+                  clearSearch();
                 }}
                 className="text-purple-600 hover:text-purple-800 transition-colors text-sm sm:text-base"
               >
@@ -508,7 +675,12 @@ const IslamicLibraryPage = () => {
             {/* Loading State */}
             {searchLoading && (
               <div className="flex justify-center py-8 sm:py-12">
-                <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-purple-600"></div>
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600 text-sm sm:text-base">
+                    {getTranslation(language, "searching")}...
+                  </p>
+                </div>
               </div>
             )}
 
@@ -544,13 +716,19 @@ const IslamicLibraryPage = () => {
                     <li>• {getTranslation(language, "searchTip1")}</li>
                     <li>• {getTranslation(language, "searchTip2")}</li>
                     <li>• {getTranslation(language, "searchTip3")}</li>
+                    {language === "ar" && (
+                      <>
+                        <li>• {getTranslation(language, "arabicSearchTip1")}</li>
+                        <li>• {getTranslation(language, "arabicSearchTip2")}</li>
+                        <li>• {getTranslation(language, "arabicSearchTip3")}</li>
+                      </>
+                    )}
                   </ul>
                 </div>
                 <button
                   onClick={() => {
                     setShowSearchResults(false);
-                    setSearchTerm("");
-                    setHadiths([]);
+                    clearSearch();
                   }}
                   className="mt-4 sm:mt-6 bg-purple-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg hover:bg-purple-700 transition-colors text-sm sm:text-base"
                 >
@@ -559,34 +737,45 @@ const IslamicLibraryPage = () => {
               </div>
             )}
 
-            {/* Hadiths List */}
+            {/* Enhanced Hadiths List */}
             {!searchLoading && hadiths.length > 0 && (
-              <div className="grid gap-3 sm:gap-4">
+              <div className="grid gap-4 sm:gap-6">
                 {hadiths.map((hadith, index) => (
-                  <div
+                  <motion.div
                     key={index}
-                    className="bg-white/80 backdrop-blur-md rounded-xl p-4 sm:p-6 border border-purple-200/50 shadow-md cursor-pointer hover:shadow-lg transition-all"
-                    onClick={() =>
-                      navigate(`/islamic-library/hadith/${hadith.id}`)
-                    }
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="bg-white/80 backdrop-blur-md rounded-xl p-4 sm:p-6 border border-purple-200/50 shadow-md cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
+                    onClick={() => {
+                      // Check if it's a local book
+                      const isLocalBook = hadith.bookSlug && LOCAL_BOOKS[hadith.bookSlug];
+                      
+                      if (isLocalBook) {
+                        // Navigate to local book hadith page using hadithNumber
+                        const hadithNumber = hadith.id
+                        navigate(`/islamic-library/local-books/${hadith.bookSlug}/hadith/${hadithNumber}`);
+                      } else {
+                        // Navigate to API book hadith page using hadith ID
+                        navigate(`/islamic-library/book/${hadith.bookSlug}/chapter/${hadith.chapter.chapterNumber}/hadith/${hadith.hadithNumber}`);
+                      }
+                    }}
                   >
-                    <div className="flex items-center justify-between mb-3 sm:mb-4">
-                      <div className="flex items-center space-x-2 sm:space-x-3 space-x-reverse">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                          <span className="font-cairo font-bold text-purple-800 text-xs sm:text-sm">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center space-x-3 space-x-reverse">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
+                          <span className="font-cairo font-bold text-white text-sm sm:text-base">
                             {hadith.hadithNumber}
                           </span>
                         </div>
-                        <div>
-                          <h3 className="font-cairo font-semibold text-gray-900 text-sm sm:text-base">
-                            {getTranslation(language, "hadith")}{" "}
-                            {hadith.hadithNumber}
+                        <div className="flex-1">
+                          <h3 className="font-cairo font-semibold text-gray-900 text-sm sm:text-base mb-1">
+                            {getTranslation(language, "hadith")} {hadith.hadithNumber}
                           </h3>
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
                             {hadith.volume && (
-                              <span>
-                                {getTranslation(language, "volume")}{" "}
-                                {hadith.volume}
+                              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                {getTranslation(language, "volume")} {hadith.volume}
                               </span>
                             )}
                             {hadith.status && (
@@ -605,31 +794,57 @@ const IslamicLibraryPage = () => {
                                 )}
                               </span>
                             )}
+                            {hadith.bookSlug && LOCAL_BOOKS[hadith.bookSlug] && (
+                              <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
+                                {getTranslation(language, "localBook")}
+                              </span>
+                            )}
+                            {hadith.bookSlug && !LOCAL_BOOKS[hadith.bookSlug] && (
+                              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                {getTranslation(language, "apiBook")}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Hadith Text */}
-                    <div className="mb-3 sm:mb-4">
-                      <p className="text-gray-800 leading-relaxed text-sm sm:text-base line-clamp-3">
-                        {language === "ar"
-                          ? hadith.hadithArabic
-                          : language === "en"
-                          ? hadith.hadithEnglish
-                          : hadith.hadithUrdu}
-                      </p>
+                    {/* Enhanced Hadith Text */}
+                    <div className="mb-4">
+                      <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+                        {/* Arabic Text - Always show if available */}
+                        {hadith.hadithArabic && (
+                          <div className="mb-3">
+                            <p className="text-gray-800 leading-relaxed text-sm sm:text-base line-clamp-3 font-cairo" dir="rtl">
+                              {hadith.hadithArabic}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* English/Urdu Text - Show based on language preference */}
+                        {(language === "en" || language === "ur") && (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <p className="text-gray-600 leading-relaxed text-sm sm:text-base line-clamp-3">
+                              {language === "en"
+                                ? hadith.hadithEnglish
+                                : hadith.hadithUrdu}
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Metadata */}
-                    <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+                    {/* Enhanced Metadata */}
+                    <div className="flex flex-wrap gap-2 text-xs">
                       {hadith.book && (
-                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                          {getBookTranslation(language, hadith.book.bookName)}
+                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                          {language === "ar" 
+                            ? hadith.book.bookName 
+                            : getBookTranslation(language, hadith.book.bookName)}
                         </span>
                       )}
                       {hadith.chapter && (
-                        <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                        <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
                           {language === "ar"
                             ? hadith.chapter.chapterArabic
                             : language === "en"
@@ -637,8 +852,15 @@ const IslamicLibraryPage = () => {
                             : hadith.chapter.chapterUrdu}
                         </span>
                       )}
+                      {hadith.englishNarrator && (
+                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                          {language === "ar" 
+                            ? hadith.englishNarrator 
+                            : hadith.englishNarrator}
+                        </span>
+                      )}
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             )}

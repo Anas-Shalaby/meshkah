@@ -19,6 +19,7 @@ export const translations = {
     chaptersCount: "باب",
     available: "متاح",
     progress: "التقدم",
+    analyzeHadith: "تحليل سريع للحديث",
     analyzeHadithNotice: "تحليل سريع للحديث",
     tryDifferentHadith: "جرب حديثًا آخر",
     // التصنيفات
@@ -97,6 +98,51 @@ export const translations = {
     booksFound: "كتاب تم العثور عليها",
     quickActions: "إجراءات سريعة",
     quickActionsDesc: "تصفح وبحث في الكتب",
+
+    // البحث والفلترة
+    searchResults: "نتائج البحث",
+    hadithsFound: "حديث تم العثور عليها",
+    searching: "جاري البحث",
+    searchError: "خطأ في البحث",
+    noResults: "لا توجد نتائج",
+    tryDifferentKeywords: "جرب كلمات مفتاحية مختلفة",
+    searchTips: "نصائح للبحث:",
+    searchTip1: "استخدم كلمات مفتاحية محددة",
+    searchTip2: "جرب البحث باللغة العربية أو الإنجليزية",
+    searchTip3: "استخدم فلاتر إضافية لتحسين النتائج",
+    selectBook: "اختر الكتاب",
+    selectCategory: "اختر التصنيف",
+    selectGrade: "اختر الدرجة",
+    narratorPlaceholder: "اسم الراوي...",
+    chapterPlaceholder: "رقم الباب...",
+    narrator: "الراوي",
+    totalBooks: "إجمالي الكتب",
+    totalHadiths: "إجمالي الأحاديث",
+    localBook: "كتاب محلي",
+    apiBook: "كتاب خارجي",
+    volume: "المجلد",
+    pleaseEnterSearchCriteria: "يرجى إدخال معايير البحث",
+    searchInArabic: "ابحث في الأحاديث بالعربية أو الإنجليزية...",
+    arabicSearchTip1: "يمكنك البحث بالعربية بدون تشكيل",
+    arabicSearchTip2: "جرب البحث بكلمات مختلفة",
+    arabicSearchTip3: "استخدم فلاتر إضافية للحصول على نتائج أفضل",
+
+    // درجات الأحاديث
+    sahih: "صحيح",
+    hasan: "حسن",
+    daif: "ضعيف",
+
+    // التصنيفات
+    kutub_tisaa: "كتب الأحاديث الكبيرة",
+    arbaain: "كتب الأربعينيات",
+    adab: "كتب الأدب والآداب",
+
+    // المساعدة والدعم
+    helpAndSupport: "المساعدة والدعم",
+    myBookmarks: "المفضلة",
+    bookmarks: "المفضلة",
+    tutorialCompleted: "تم إكمال الدليل التعليمي",
+    loading: "جاري التحميل...",
     browseAll: "تصفح الكل",
 
     // Enhanced Local Book Features
@@ -259,6 +305,26 @@ export const translations = {
     heading: "العنوان",
     narrator: "الراوي",
 
+    // البحث والفلترة
+    searchResults: "نتائج البحث",
+    hadithsFound: "حديث تم العثور عليها",
+    searching: "جاري البحث",
+    searchError: "خطأ في البحث",
+    noResults: "لا توجد نتائج",
+    tryDifferentKeywords: "جرب كلمات مفتاحية مختلفة",
+    searchTips: "نصائح للبحث:",
+    searchTip1: "استخدم كلمات مفتاحية محددة",
+    searchTip2: "جرب البحث باللغة العربية أو الإنجليزية",
+    searchTip3: "استخدم فلاتر إضافية لتحسين النتائج",
+    selectBook: "اختر الكتاب",
+    selectCategory: "اختر التصنيف",
+    selectGrade: "اختر الدرجة",
+    narratorPlaceholder: "اسم الراوي...",
+    chapterPlaceholder: "رقم الباب...",
+    totalBooks: "إجمالي الكتب",
+    totalHadiths: "إجمالي الأحاديث",
+    localBook: "كتاب محلي",
+
     // الأزرار والإجراءات
     view: "عرض",
     copy: "نسخ",
@@ -366,6 +432,7 @@ export const translations = {
       "حالياً، يتم تخزين الإشارات المرجعية محلياً في متصفحك. يمكنك الوصول إليها من أي جهاز عن طريق تسجيل الدخول إلى حسابك.",
     technicalQuestions: "الدعم الفني",
     browserSupport: "ما المتصفحات المدعومة؟",
+    searchResults : "نتائج البحث",
     browserAnswer:
       "تعمل المكتبة على جميع المتصفحات الحديثة بما في ذلك Chrome و Firefox و Safari و Edge. للحصول على أفضل تجربة، نوصي باستخدام أحدث إصدار من متصفحك.",
     mobileSupport: "هل تعمل على الأجهزة المحمولة؟",
@@ -396,6 +463,7 @@ export const translations = {
     thursday: "الخميس",
     supportHours: "ساعات الدعم",
     friday: "الجمعة",
+    selectBook : "اختر الكتاب",
     saturday: "السبت",
     generalInquiry: "استفسار عام",
     technicalIssue: "مشكلة تقنية",
@@ -411,6 +479,8 @@ export const translations = {
     phoneSupportDesc: "اتصل بنا خلال ساعات العمل",
     sendMessage: "إرسال رسالة",
     fullName: "الاسم الكامل",
+    selectGrade : "اختر الدرجة",
+    daif: "ضعيف",
     // Navigation
     currentChapter: "الفصل الحالي",
     previous: "السابق",
@@ -421,14 +491,16 @@ export const translations = {
     allBooks: "جميع الكتب",
     progress: "التقدم",
     local: "محلي",
-
+    analyzing : "جاري التحليل ...",
     loading: "جاري التحميل ...",
+    hadithsFound : "الأحاديث الموجودة",
     enterYourName: "ادخل اسمك",
     emailAddress: "البريد الإلكتروني",
     enterYourEmail: "ادخل البريد الإلكتروني",
     supportCategory: "الفئة",
     priority: "الأولوية",
     subject: "الموضوع",
+    backToBooks : "العودة للكتب",
     enterSubject: "ادخل الموضوع",
     message: "الرسالة",
     enterYourMessage: "ادخل الرسالة",
@@ -682,6 +754,47 @@ export const translations = {
     booksFound: "books found",
     quickActions: "Quick Actions",
     quickActionsDesc: "Browse and search books",
+
+    // Search and Filtering
+    searchResults: "Search Results",
+    hadithsFound: "hadiths found",
+    searching: "Searching",
+    searchError: "Search Error",
+    noResults: "No Results",
+    tryDifferentKeywords: "Try different keywords",
+    searchTips: "Search Tips:",
+    searchTip1: "Use specific keywords",
+    searchTip2: "Try searching in Arabic or English",
+    searchTip3: "Use additional filters to improve results",
+    selectBook: "Select Book",
+    selectCategory: "Select Category",
+    selectGrade: "Select Grade",
+    narratorPlaceholder: "Narrator name...",
+    chapterPlaceholder: "Chapter number...",
+    narrator: "Narrator",
+    totalBooks: "Total Books",
+    totalHadiths: "Total Hadiths",
+    localBook: "Local Book",
+    apiBook: "API Book",
+    volume: "Volume",
+    pleaseEnterSearchCriteria: "Please enter search criteria",
+
+    // Hadith Grades
+    sahih: "Sahih",
+    hasan: "Hasan",
+    daif: "Da'eef",
+
+    // Categories
+    kutub_tisaa: "Major Hadith Books",
+    arbaain: "Forty Hadith Collections",
+    adab: "Books of Etiquette and Manners",
+
+    // Help and Support
+    helpAndSupport: "Help & Support",
+    myBookmarks: "My Bookmarks",
+    bookmarks: "Bookmarks",
+    tutorialCompleted: "Tutorial completed successfully! 🎉",
+    loading: "Loading...",
     browseAll: "Browse All",
     searchBooks: "Search Books",
     search: "Search",
