@@ -17,6 +17,7 @@ import {
 import LanguageSelector from "../components/LanguageSelector";
 import BookInsights from "../components/BookInsights";
 import ChapterNavigation from "../components/ChapterNavigation";
+import SEO from "../components/SEO";
 import {
   getTranslation,
   getBookTranslation,
@@ -34,8 +35,6 @@ const IslamicBookPage = () => {
     return localStorage.getItem("islamicLibraryLanguage") || "ar";
   });
   const [activeTab, setActiveTab] = useState("chapters"); // chapters, learning-path, insights
-
-
 
   // Update document direction based on language
   useEffect(() => {
@@ -159,314 +158,440 @@ const IslamicBookPage = () => {
     );
   }
 
+  // SEO Metadata
+  const seoData = {
+    title:
+      language === "ar"
+        ? `${
+            getBookTranslation(language, book?.bookName) || book?.bookName
+          } - مشكاة | المكتبة الإسلامية`
+        : `${
+            book?.bookNameEn ||
+            getBookTranslation(language, book?.bookName) ||
+            book?.bookName
+          } - Meshkah | Islamic Library`,
+    description:
+      language === "ar"
+        ? `تصفح كتاب ${
+            getBookTranslation(language, book?.bookName) || book?.bookName
+          } للكاتب ${
+            getBookTranslation(language, book?.writerName) || book?.writerName
+          } في مشكاة. يحتوي على ${book?.hadiths_count} حديث و ${
+            book?.chapters_count
+          } باب.`
+        : `Browse ${
+            book?.bookNameEn ||
+            getBookTranslation(language, book?.bookName) ||
+            book?.bookName
+          } by ${
+            book?.writerNameEn ||
+            getBookTranslation(language, book?.writerName) ||
+            book?.writerName
+          } on Meshkah. Contains ${book?.hadiths_count} hadiths and ${
+            book?.chapters_count
+          } chapters.`,
+    keywords:
+      language === "ar"
+        ? `${getBookTranslation(language, book?.bookName) || book?.bookName}, ${
+            getBookTranslation(language, book?.writerName) || book?.writerName
+          }, حديث نبوي, مشكاة, مكتبة إسلامية, كتب الحديث`
+        : `${
+            book?.bookNameEn ||
+            getBookTranslation(language, book?.bookName) ||
+            book?.bookName
+          }, ${
+            book?.writerNameEn ||
+            getBookTranslation(language, book?.writerName) ||
+            book?.writerName
+          }, Hadith, Meshkah, Islamic library, Hadith books`,
+    canonicalUrl: `${window.location.origin}/islamic-library/books/${bookSlug}`,
+    ogImage: "https://hadith-shareef.com/logo.svg",
+    alternateLanguages: [
+      {
+        hrefLang: "ar",
+        href: `${window.location.origin}/islamic-library/books/${bookSlug}?lang=ar`,
+      },
+      {
+        hrefLang: "en",
+        href: `${window.location.origin}/islamic-library/books/${bookSlug}?lang=en`,
+      },
+      {
+        hrefLang: "x-default",
+        href: `${window.location.origin}/islamic-library/books/${bookSlug}`,
+      },
+    ],
+    structuredData: {
+      "@context": "https://schema.org",
+      "@type": "Book",
+      name:
+        language === "ar"
+          ? getBookTranslation(language, book?.bookName) || book?.bookName
+          : book?.bookNameEn ||
+            getBookTranslation(language, book?.bookName) ||
+            book?.bookName,
+      author: {
+        "@type": "Person",
+        name:
+          language === "ar"
+            ? getBookTranslation(language, book?.writerName) || book?.writerName
+            : book?.writerNameEn ||
+              getBookTranslation(language, book?.writerName) ||
+              book?.writerName,
+      },
+      description:
+        language === "ar"
+          ? `كتاب ${
+              getBookTranslation(language, book?.bookName) || book?.bookName
+            } للكاتب ${
+              getBookTranslation(language, book?.writerName) || book?.writerName
+            }`
+          : `${
+              book?.bookNameEn ||
+              getBookTranslation(language, book?.bookName) ||
+              book?.bookName
+            } by ${
+              book?.writerNameEn ||
+              getBookTranslation(language, book?.writerName) ||
+              book?.writerName
+            }`,
+      numberOfPages: book?.chapters_count,
+      publisher: {
+        "@type": "Organization",
+        name: "Meshkah",
+      },
+    },
+  };
+
   return (
-    <div
-      className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"
-      style={{ direction: language === "ar" ? "rtl" : "ltr" }}
-    >
-      {/* Enhanced Header with Glass Effect */}
-      <div className="bg-white/90 backdrop-blur-xl border-b border-purple-200/50 sticky top-0 z-10  shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 ">
-          <div className="flex flex-col flex-wrap items-start justify-between gap-y-4">
-            <div className="flex flex-wrap flex-row-reverse justify-between w-[100%]  lg:gap-6 flex-1 min-w-0">
-              <Link
-                to="/islamic-library"
-                className="flex items-center space-x-2 space-x-reverse text-purple-600 hover:text-purple-700 transition-all whitespace-nowrap"
-              >
-                <span className="font-cairo font-medium">
-                  {getTranslation(language, "back")}
-                </span>
-                {language === "ar" ? (
-                  <ChevronLeft className="w-5 h-5" />
-                ) : (
-                  <ChevronRight className="w-5 h-5" />
-                )}
-              </Link>
+    <>
+      <SEO {...seoData} />
+      <div
+        className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"
+        style={{ direction: language === "ar" ? "rtl" : "ltr" }}
+      >
+        {/* Enhanced Header with Glass Effect */}
+        <div className="bg-white/90 backdrop-blur-xl border-b border-purple-200/50 sticky top-0 z-10  shadow-lg">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 ">
+            <div className="flex flex-col flex-wrap items-start justify-between gap-y-4">
+              <div className="flex flex-wrap flex-row-reverse justify-between w-[100%]  lg:gap-6 flex-1 min-w-0">
+                <Link
+                  to="/islamic-library"
+                  className="flex items-center space-x-2 space-x-reverse text-purple-600 hover:text-purple-700 transition-all whitespace-nowrap"
+                >
+                  <span className="font-cairo font-medium">
+                    {getTranslation(language, "back")}
+                  </span>
+                  {language === "ar" ? (
+                    <ChevronLeft className="w-5 h-5" />
+                  ) : (
+                    <ChevronRight className="w-5 h-5" />
+                  )}
+                </Link>
 
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="flex items-center justify-between gap-4 flex-1 min-w-0"
-              >
-                <div className="min-w-0">
-                  <h1
-                    className="text-2xl sm:text-3xl font-cairo font-bold text-gray-900 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent break-words whitespace-pre-line leading-snug"
-                    style={{ wordBreak: "break-word" }}
-                  >
-                    {language === "ar"
-                      ? getBookTranslation(language, book.bookName)
-                      : book.bookNameEn
-                      ? book.bookNameEn
-                      : getBookTranslation(language, book.bookName)}
-                  </h1>
-                  <p
-                    className="text-sm text-gray-600 flex flex-wrap items-center gap-x-2 gap-y-1 break-words whitespace-pre-line"
-                    style={{ wordBreak: "break-word" }}
-                  >
-                    <span>
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="flex items-center justify-between gap-4 flex-1 min-w-0"
+                >
+                  <div className="min-w-0">
+                    <h1
+                      className="text-2xl sm:text-3xl font-cairo font-bold text-gray-900 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent break-words whitespace-pre-line leading-snug"
+                      style={{ wordBreak: "break-word" }}
+                    >
                       {language === "ar"
-                        ? getBookTranslation(language, book.writerName)
-                        : book.writerNameEn
-                        ? book.writerNameEn
-                        : getWriterTranslation(language, book.writerName)}
-                    </span>
-                    {book.writerDeath && (
-                      <>
-                        <span>•</span>
-                        <span className="text-purple-600">
-                          {book.writerDeath}
-                        </span>
-                      </>
-                    )}
-                  </p>
-                </div>
-              </motion.div>
-            </div>
+                        ? getBookTranslation(language, book.bookName)
+                        : book.bookNameEn
+                        ? book.bookNameEn
+                        : getBookTranslation(language, book.bookName)}
+                    </h1>
+                    <p
+                      className="text-sm text-gray-600 flex flex-wrap items-center gap-x-2 gap-y-1 break-words whitespace-pre-line"
+                      style={{ wordBreak: "break-word" }}
+                    >
+                      <span>
+                        {language === "ar"
+                          ? getBookTranslation(language, book.writerName)
+                          : book.writerNameEn
+                          ? book.writerNameEn
+                          : getWriterTranslation(language, book.writerName)}
+                      </span>
+                      {book.writerDeath && (
+                        <>
+                          <span>•</span>
+                          <span className="text-purple-600">
+                            {book.writerDeath}
+                          </span>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </motion.div>
+              </div>
 
-            <div className="relative shrink-0">
-              <LanguageSelector
-                currentLanguage={language}
-                onLanguageChange={handleLanguageChange}
-              />
+              <div className="relative shrink-0">
+                <LanguageSelector
+                  currentLanguage={language}
+                  onLanguageChange={handleLanguageChange}
+                />
+              </div>
             </div>
-
-         
           </div>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Enhanced Book Info Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white/90 backdrop-blur-xl rounded-3xl p-8 mb-8 border border-purple-200/50 shadow-xl"
-        >
-          <div className="flex flex-col gap-10 lg:flex-row items-start lg:items-center space-y-6 lg:space-y-0 lg:space-x-8 lg:space-x-reverse">
-            <div className="relative">
-              <div className="w-24 h-32 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-xl">
-                <img
-                  src={`/assets/${book.bookSlug}.jpeg`}
-                  alt={book.bookName}
-                  className="w-full h-full object-cover rounded-2xl"
-                  onError={(e) => {
-                    e.target.style.display = "none";
-                    e.target.nextSibling.style.display = "flex";
-                  }}
-                />
-                <BookOpen className="w-12 h-12 text-white hidden" />
-              </div>
-              <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
-                <div className="w-4 h-4 bg-white rounded-full"></div>
-              </div>
-            </div>
-
-            <div className="flex-1 w-[100%]">
-              <h2 className="text-3xl font-cairo font-bold text-gray-900 mb-3 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                {language === "ar"
-                  ? getBookTranslation(language, book.bookName)
-                  : book.bookNameEn
-                  ? book.bookNameEn
-                  : getBookTranslation(language, book.bookName)}
-              </h2>
-              <p className="text-gray-600 mb-4 text-lg">
-                {language === "ar"
-                  ? getBookTranslation(language, book.writerName)
-                  : book.writerNameEn
-                  ? book.writerNameEn
-                  : getWriterTranslation(language, book.writerName)}
-                {book.writerDeath && (
-                  <span className="text-purple-600 ml-2">
-                    ({book.writerDeath})
-                  </span>
-                )}
-              </p>
-
-              <div className="grid grid-cols-3 lg:grid-cols-4 font-cairo gap-4">
-                <div className="bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl p-4 text-center">
-                  <div className="text-2xl font-bold text-purple-800">
-                    {book.hadiths_count}
-                  </div>
-                  <div className="text-sm text-purple-600">
-                    {getTranslation(language, "hadiths")}
-                  </div>
-                </div>
-                <div className="bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl p-4 text-center">
-                  <div className="text-2xl font-bold text-blue-800">
-                    {book.chapters_count}
-                  </div>
-                  <div className="text-sm text-blue-600">
-                    {getTranslation(language, "chapters")}
-                  </div>
-                </div>
-                <div className="bg-gradient-to-br from-green-100 to-green-200 rounded-xl p-4 text-center">
-                  <div className="text-2xl font-bold text-green-800">100%</div>
-                  <div className="text-sm text-green-600">
-                    {getTranslation(language, "available")}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-        {/* Enhanced Search and Controls */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 mb-8 border border-purple-200/50 shadow-xl"
-        >
-          <div className="flex flex-col lg:flex-row items-center space-y-4 lg:space-y-0 lg:space-x-6 lg:space-x-reverse">
-            <div className="relative flex-1 w-full">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder={getTranslation(language, "searchPlaceholder")}
-                className="w-full pl-12 pr-4 py-4 border border-purple-200 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/50 backdrop-blur-sm text-lg"
-              />
-            </div>
-
-            <div className="flex items-center space-x-2 space-x-reverse">
-              <button
-                onClick={() => setViewMode("grid")}
-                className={`p-3 rounded-xl transition-all ${
-                  viewMode === "grid"
-                    ? "bg-purple-500 text-white shadow-lg"
-                    : "bg-gray-100 text-gray-600 hover:bg-purple-100"
-                }`}
-              >
-                <div className="w-5 h-5 grid grid-cols-2 gap-1">
-                  <div className="bg-current rounded-sm"></div>
-                  <div className="bg-current rounded-sm"></div>
-                  <div className="bg-current rounded-sm"></div>
-                  <div className="bg-current rounded-sm"></div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => setViewMode("list")}
-                className={`p-3 rounded-xl transition-all ${
-                  viewMode === "list"
-                    ? "bg-purple-500 text-white shadow-lg"
-                    : "bg-gray-100 text-gray-600 hover:bg-purple-100"
-                }`}
-              >
-                <div className="w-5 h-5 space-y-1">
-                  <div className="w-full h-1 bg-current rounded-sm"></div>
-                  <div className="w-full h-1 bg-current rounded-sm"></div>
-                  <div className="w-full h-1 bg-current rounded-sm"></div>
-                </div>
-              </button>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Chapter Navigation for Local Books */}
-        {book?.isLocal && activeTab === "chapters" && (
-          <div className="mb-6">
-            <ChapterNavigation 
-              bookSlug={bookSlug} 
-              language={language}
-              onChapterChange={(chapterId) => {
-                // Navigate to the selected chapter
-                window.location.href = `/islamic-library/local-books/${bookSlug}/chapter/${chapterId}`;
-              }}
-            />
-          </div>
-        )}
-
-        {/* Tab Content */}
-        {activeTab === "chapters" && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Enhanced Book Info Card */}
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className={`${
-              viewMode === "grid"
-                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-                : "space-y-4"
-            }`}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white/90 backdrop-blur-xl rounded-3xl p-8 mb-8 border border-purple-200/50 shadow-xl"
           >
-            {filteredChapters.map((chapter, index) => (
-              <motion.div key={index}>
-              <Link
-                to={
-                  book?.isLocal
-                    ? `/islamic-library/local-books/${bookSlug}/chapter/${chapter.chapterNumber}`
-                    : `/islamic-library/book/${bookSlug}/chapter/${chapter.chapterNumber}`
-                }
-                className={`block group transition-all  ${
-                  viewMode === "grid"
-                    ? "bg-white/90 backdrop-blur-xl rounded-3xl p-6 border border-purple-200/50 shadow-xl hover:shadow-2xl"
-                    : "bg-white/90 backdrop-blur-xl rounded-2xl p-6 border border-purple-200/50 shadow-lg hover:shadow-xl"
-                }`}
-              >
-                <div
-                  className={`${
+            <div className="flex flex-col gap-10 lg:flex-row items-start lg:items-center space-y-6 lg:space-y-0 lg:space-x-8 lg:space-x-reverse">
+              <div className="relative">
+                <div className="w-24 h-32 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-xl">
+                  <img
+                    src={`/assets/${book.bookSlug}.jpeg`}
+                    alt={book.bookName}
+                    className="w-full h-full object-cover rounded-2xl"
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                      e.target.nextSibling.style.display = "flex";
+                    }}
+                  />
+                  <BookOpen className="w-12 h-12 text-white hidden" />
+                </div>
+                <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
+                  <div className="w-4 h-4 bg-white rounded-full"></div>
+                </div>
+              </div>
+
+              <div className="flex-1 w-[100%]">
+                <h2 className="text-3xl font-cairo font-bold text-gray-900 mb-3 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                  {language === "ar"
+                    ? getBookTranslation(language, book.bookName)
+                    : book.bookNameEn
+                    ? book.bookNameEn
+                    : getBookTranslation(language, book.bookName)}
+                </h2>
+                <p className="text-gray-600 mb-4 text-lg">
+                  {language === "ar"
+                    ? getBookTranslation(language, book.writerName)
+                    : book.writerNameEn
+                    ? book.writerNameEn
+                    : getWriterTranslation(language, book.writerName)}
+                  {book.writerDeath && (
+                    <span className="text-purple-600 ml-2">
+                      ({book.writerDeath})
+                    </span>
+                  )}
+                </p>
+
+                <div className="grid grid-cols-3 lg:grid-cols-4 font-cairo gap-4">
+                  <div className="bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl p-4 text-center">
+                    <div className="text-2xl font-bold text-purple-800">
+                      {book.hadiths_count}
+                    </div>
+                    <div className="text-sm text-purple-600">
+                      {getTranslation(language, "hadiths")}
+                    </div>
+                  </div>
+                  <div className="bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl p-4 text-center">
+                    <div className="text-2xl font-bold text-blue-800">
+                      {book.chapters_count}
+                    </div>
+                    <div className="text-sm text-blue-600">
+                      {getTranslation(language, "chapters")}
+                    </div>
+                  </div>
+                  <div className="bg-gradient-to-br from-green-100 to-green-200 rounded-xl p-4 text-center">
+                    <div className="text-2xl font-bold text-green-800">
+                      100%
+                    </div>
+                    <div className="text-sm text-green-600">
+                      {getTranslation(language, "available")}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+          {/* Enhanced Search and Controls */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 mb-8 border border-purple-200/50 shadow-xl"
+          >
+            <div className="flex flex-col lg:flex-row items-center space-y-4 lg:space-y-0 lg:space-x-6 lg:space-x-reverse">
+              <div className="relative flex-1 w-full">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder={getTranslation(language, "searchPlaceholder")}
+                  className="w-full pl-12 pr-4 py-4 border border-purple-200 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/50 backdrop-blur-sm text-lg"
+                />
+              </div>
+
+              <div className="flex items-center space-x-2 space-x-reverse">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`p-3 rounded-xl transition-all ${
                     viewMode === "grid"
-                      ? "text-center"
-                      : "flex items-center space-x-4 space-x-reverse"
+                      ? "bg-purple-500 text-white shadow-lg"
+                      : "bg-gray-100 text-gray-600 hover:bg-purple-100"
                   }`}
                 >
-                  <div
-                    className={`relative ${
-                      viewMode === "grid" ? "mx-auto mb-4" : ""
-                    }`}
-                  >
-                    <div
-                      className={`bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg ${
-                        viewMode === "grid" ? "w-16 h-16" : "w-12 h-12"
-                      }`}
-                    >
-                      <Hash
-                        className={`text-white ${
-                          viewMode === "grid" ? "w-8 h-8" : "w-6 h-6"
-                        }`}
-                      />
-                    </div>
-                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shadow-md">
-                      <span className="text-xs font-bold text-white">
-                        {chapter.chapterNumber}
-                      </span>
-                    </div>
+                  <div className="w-5 h-5 grid grid-cols-2 gap-1">
+                    <div className="bg-current rounded-sm"></div>
+                    <div className="bg-current rounded-sm"></div>
+                    <div className="bg-current rounded-sm"></div>
+                    <div className="bg-current rounded-sm"></div>
                   </div>
+                </button>
 
-                  <div
-                    className={`flex-1 ${
-                      viewMode === "grid" ? "text-center" : ""
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`p-3 rounded-xl transition-all ${
+                    viewMode === "list"
+                      ? "bg-purple-500 text-white shadow-lg"
+                      : "bg-gray-100 text-gray-600 hover:bg-purple-100"
+                  }`}
+                >
+                  <div className="w-5 h-5 space-y-1">
+                    <div className="w-full h-1 bg-current rounded-sm"></div>
+                    <div className="w-full h-1 bg-current rounded-sm"></div>
+                    <div className="w-full h-1 bg-current rounded-sm"></div>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Chapter Navigation for Local Books */}
+          {book?.isLocal && activeTab === "chapters" && (
+            <div className="mb-6">
+              <ChapterNavigation
+                bookSlug={bookSlug}
+                language={language}
+                onChapterChange={(chapterId) => {
+                  // Navigate to the selected chapter
+                  window.location.href = `/islamic-library/local-books/${bookSlug}/chapter/${chapterId}`;
+                }}
+              />
+            </div>
+          )}
+
+          {/* Tab Content */}
+          {activeTab === "chapters" && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className={`${
+                viewMode === "grid"
+                  ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                  : "space-y-4"
+              }`}
+            >
+              {filteredChapters.map((chapter, index) => (
+                <motion.div key={index}>
+                  <Link
+                    to={
+                      book?.isLocal
+                        ? `/islamic-library/local-books/${bookSlug}/chapter/${chapter.chapterNumber}`
+                        : `/islamic-library/book/${bookSlug}/chapter/${chapter.chapterNumber}`
+                    }
+                    className={`block group transition-all  ${
+                      viewMode === "grid"
+                        ? "bg-white/90 backdrop-blur-xl rounded-3xl p-6 border border-purple-200/50 shadow-xl hover:shadow-2xl"
+                        : "bg-white/90 backdrop-blur-xl rounded-2xl p-6 border border-purple-200/50 shadow-lg hover:shadow-xl"
                     }`}
                   >
-                    <h3
-                      className={`font-cairo font-bold text-gray-900 mb-2 line-clamp-2 ${
-                        viewMode === "grid" ? "text-lg" : "text-xl"
-                      }`}
-                    >
-                      {language === "ar"
-                        ? chapter.chapterArabic
-                        : language === "en"
-                        ? chapter.chapterEnglish
-                        : chapter.chapterUrdu}
-                    </h3>
-
                     <div
-                      className={`flex items-center justify-between text-sm text-gray-500 ${
-                        viewMode === "grid" ? "flex-col space-y-2" : ""
+                      className={`${
+                        viewMode === "grid"
+                          ? "text-center"
+                          : "flex items-center space-x-4 space-x-reverse"
                       }`}
                     >
-                      <div className="flex items-center space-x-2 space-x-reverse">
-                        <span className="px-3 py-1 rounded-full bg-purple-100 text-purple-800 text-xs font-semibold">
-                          {getTranslation(language, "chapter")}{" "}
-                          {chapter.chapterNumber}
-                        </span>
-                        <span className="flex items-center space-x-1 space-x-reverse">
-                          <Eye className="w-4 h-4" />
-                          <span>{getTranslation(language, "available")}</span>
-                        </span>
+                      <div
+                        className={`relative ${
+                          viewMode === "grid" ? "mx-auto mb-4" : ""
+                        }`}
+                      >
+                        <div
+                          className={`bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg ${
+                            viewMode === "grid" ? "w-16 h-16" : "w-12 h-12"
+                          }`}
+                        >
+                          <Hash
+                            className={`text-white ${
+                              viewMode === "grid" ? "w-8 h-8" : "w-6 h-6"
+                            }`}
+                          />
+                        </div>
+                        <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shadow-md">
+                          <span className="text-xs font-bold text-white">
+                            {chapter.chapterNumber}
+                          </span>
+                        </div>
                       </div>
 
-                      {viewMode === "list" && (
-                        <div className="flex items-center space-x-2 space-x-reverse">
-                          
+                      <div
+                        className={`flex-1 ${
+                          viewMode === "grid" ? "text-center" : ""
+                        }`}
+                      >
+                        <h3
+                          className={`font-cairo font-bold text-gray-900 mb-2 line-clamp-2 ${
+                            viewMode === "grid" ? "text-lg" : "text-xl"
+                          }`}
+                        >
+                          {language === "ar"
+                            ? chapter.chapterArabic
+                            : language === "en"
+                            ? chapter.chapterEnglish
+                            : chapter.chapterUrdu}
+                        </h3>
+
+                        <div
+                          className={`flex items-center justify-between text-sm text-gray-500 ${
+                            viewMode === "grid" ? "flex-col space-y-2" : ""
+                          }`}
+                        >
+                          <div className="flex items-center space-x-2 space-x-reverse">
+                            <span className="px-3 py-1 rounded-full bg-purple-100 text-purple-800 text-xs font-semibold">
+                              {getTranslation(language, "chapter")}{" "}
+                              {chapter.chapterNumber}
+                            </span>
+                            <span className="flex items-center space-x-1 space-x-reverse">
+                              <Eye className="w-4 h-4" />
+                              <span>
+                                {getTranslation(language, "available")}
+                              </span>
+                            </span>
+                          </div>
+
+                          {viewMode === "list" && (
+                            <div className="flex items-center space-x-2 space-x-reverse">
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleShare(chapter);
+                                }}
+                                className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                              >
+                                <Share2 className="w-4 h-4" />
+                              </button>
+                              <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-purple-600 transition-colors" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {viewMode === "grid" && (
+                      <div className="mt-4 pt-4 border-t border-purple-100">
+                        <div className="flex items-center justify-center space-x-4 space-x-reverse">
                           <button
                             onClick={(e) => {
                               e.preventDefault();
@@ -476,62 +601,38 @@ const IslamicBookPage = () => {
                           >
                             <Share2 className="w-4 h-4" />
                           </button>
+
                           <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-purple-600 transition-colors" />
                         </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {viewMode === "grid" && (
-                  <div className="mt-4 pt-4 border-t border-purple-100">
-                    <div className="flex items-center justify-center space-x-4 space-x-reverse">
-                       
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleShare(chapter);
-                        }}
-                        className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                      >
-                        <Share2 className="w-4 h-4" />
-                      </button>
-
-                      <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-purple-600 transition-colors" />
-                    </div>
-                  </div>
-                )}
-              </Link>
+                      </div>
+                    )}
+                  </Link>
+                </motion.div>
+              ))}
             </motion.div>
-          ))}
-        </motion.div>
-        )}
+          )}
 
-        {/* Enhanced No Results */}
-        {filteredChapters.length === 0 && activeTab === "chapters" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-20"
-          >
-            <div className="w-24 h-24 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <BookOpen className="w-12 h-12 text-gray-400" />
-            </div>
-            <h3 className="text-2xl font-cairo font-bold text-gray-600 mb-4">
-              {getTranslation(language, "noResults")}
-            </h3>
-            <p className="text-gray-500 text-lg">
-              {getTranslation(language, "tryDifferentSearch")}
-            </p>
-          </motion.div>
-        )}
-
-
-  
+          {/* Enhanced No Results */}
+          {filteredChapters.length === 0 && activeTab === "chapters" && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-20"
+            >
+              <div className="w-24 h-24 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <BookOpen className="w-12 h-12 text-gray-400" />
+              </div>
+              <h3 className="text-2xl font-cairo font-bold text-gray-600 mb-4">
+                {getTranslation(language, "noResults")}
+              </h3>
+              <p className="text-gray-500 text-lg">
+                {getTranslation(language, "tryDifferentSearch")}
+              </p>
+            </motion.div>
+          )}
+        </div>
       </div>
-
-
-    </div>
+    </>
   );
 };
 
