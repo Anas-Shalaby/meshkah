@@ -839,7 +839,7 @@ const IslamicLibraryPage = () => {
                       {hadith.book && (
                         <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
                           {language === "ar" 
-                            ? hadith.book.bookName 
+                            ? getBookTranslation(language, hadith.book.bookName)
                             : getBookTranslation(language, hadith.book.bookName)}
                         </span>
                       )}
