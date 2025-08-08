@@ -120,7 +120,7 @@ const ShareModal = ({ isOpen, onClose, hadithDetails, language }) => {
   );
 };
 
-const AIAssistant = ({ hadith, isOpen, onClose, language , hadithNumber }) => {
+const AIAssistant = ({ hadith, isOpen, onClose, language, hadithNumber }) => {
   const [messages, setMessages] = useState([
     {
       role: "assistant",
@@ -147,7 +147,6 @@ const AIAssistant = ({ hadith, isOpen, onClose, language , hadithNumber }) => {
         },
       ]);
     }
-   
   }, [isOpen, hadith, language]);
 
   const handleSendMessage = async (e) => {
@@ -315,27 +314,34 @@ const IslamicHadithPage = () => {
 
   useEffect(() => {
     fetchHadithDetails();
-    
   }, [hadithNumber]);
 
   useEffect(() => {
-    if (isAnalysisModalOpen  && !isAnalysisLoading) {
+    if (isAnalysisModalOpen && !isAnalysisLoading) {
       fetchShortAnalysis();
     }
-  }, [isAnalysisModalOpen , hadithNumber]);
+  }, [isAnalysisModalOpen, hadithNumber]);
 
   // Keyboard navigation
   useEffect(() => {
     const handleKeyPress = (e) => {
-      if (e.key === 'ArrowLeft' && hadithNavigation?.prevHadith && !navigationLoading) {
-        navigateToHadith(hadithNavigation.prevHadith.id, 'prev');
-      } else if (e.key === 'ArrowRight' && hadithNavigation?.nextHadith && !navigationLoading) {
-        navigateToHadith(hadithNavigation.nextHadith.id, 'next');
+      if (
+        e.key === "ArrowLeft" &&
+        hadithNavigation?.prevHadith &&
+        !navigationLoading
+      ) {
+        navigateToHadith(hadithNavigation.prevHadith.id, "prev");
+      } else if (
+        e.key === "ArrowRight" &&
+        hadithNavigation?.nextHadith &&
+        !navigationLoading
+      ) {
+        navigateToHadith(hadithNavigation.nextHadith.id, "next");
       }
     };
-    
-    document.addEventListener('keydown', handleKeyPress);
-    return () => document.removeEventListener('keydown', handleKeyPress);
+
+    document.addEventListener("keydown", handleKeyPress);
+    return () => document.removeEventListener("keydown", handleKeyPress);
   }, [hadithNavigation, navigationLoading]);
 
   const fetchHadithDetails = async () => {
@@ -355,8 +361,11 @@ const IslamicHadithPage = () => {
           }/islamic-library/local-books/${bookSlug}/hadiths/${hadithNumber}`
         );
 
-         hadithData = await axios.get(`${import.meta.env.VITE_API_URL}/islamic-library/local-books/${bookSlug}/hadiths/${hadithNumber}/navigation`)
-        
+        hadithData = await axios.get(
+          `${
+            import.meta.env.VITE_API_URL
+          }/islamic-library/local-books/${bookSlug}/hadiths/${hadithNumber}/navigation`
+        );
       } else {
         // For external books, use the regular endpoint
         response = await axios.get(
@@ -364,9 +373,12 @@ const IslamicHadithPage = () => {
             import.meta.env.VITE_API_URL
           }/islamic-library/book/${bookSlug}/chapter/${chapterNumber}/hadith/${hadithNumber}`
         );
-        hadithData = await axios.get(`${import.meta.env.VITE_API_URL}/islamic-library/books/${bookSlug}/chapter/${chapterNumber}/hadith/${hadithNumber}/navigation`)
+        hadithData = await axios.get(
+          `${
+            import.meta.env.VITE_API_URL
+          }/islamic-library/books/${bookSlug}/chapter/${chapterNumber}/hadith/${hadithNumber}/navigation`
+        );
       }
-      
 
       if (response.data?.hadiths?.data || response.data.hadith) {
         setHadithDetails(
@@ -374,7 +386,7 @@ const IslamicHadithPage = () => {
             ? response.data.hadiths.data[0]
             : response.data.hadith
         );
-        setHadithNavigation(hadithData?.data)
+        setHadithNavigation(hadithData?.data);
       } else {
         toast.error(getTranslation(language, "hadithNotFound"));
       }
@@ -410,7 +422,7 @@ const IslamicHadithPage = () => {
             number: hadithDetails.hadithNumber,
             reference: hadithDetails.book?.bookName,
             grade: hadithDetails.status,
-            attribution : hadithDetails.englishNarrator
+            attribution: hadithDetails.englishNarrator,
           },
         },
         { headers: { "x-auth-token": localStorage.getItem("token") } }
@@ -477,18 +489,20 @@ const IslamicHadithPage = () => {
   // Enhanced navigation function
   const navigateToHadith = async (hadithId, direction) => {
     if (navigationLoading) return;
-    
+
     setNavigationLoading(true);
     try {
       const isLocalBook = window.location.pathname.includes("/local-books/");
-      const baseUrl = `/islamic-library/${hadithDetails.book.isLocal ? "local-books" : "book"}/${hadithDetails.book.bookSlug}`;
-      const url = isLocalBook 
+      const baseUrl = `/islamic-library/${
+        hadithDetails.book.isLocal ? "local-books" : "book"
+      }/${hadithDetails.book.bookSlug}`;
+      const url = isLocalBook
         ? `${baseUrl}/hadith/${hadithId}`
         : `${baseUrl}/chapter/${hadithDetails.chapter.chapterNumber}/hadith/${hadithId}`;
-      
+
       navigate(url);
     } catch (error) {
-      console.error('Navigation error:', error);
+      console.error("Navigation error:", error);
       toast.error(getTranslation(language, "navigationError"));
     } finally {
       setNavigationLoading(false);
@@ -558,23 +572,122 @@ const IslamicHadithPage = () => {
       </div>
     );
   }
+  // SEO Metadata
+  const seoData = {
+    title:
+      language === "ar"
+        ? `حديث ${hadithDetails?.hadithNumber || hadithDetails?.id} - ${
+            getBookTranslation(language, hadithDetails?.book?.bookName) ||
+            hadithDetails?.book?.bookName ||
+            ""
+          } | مشكاة`
+        : `Hadith ${hadithDetails?.hadithNumber || hadithDetails?.id} - ${
+            hadithDetails?.book?.bookNameEn ||
+            getBookTranslation(language, hadithDetails?.book?.bookName) ||
+            hadithDetails?.book?.bookName ||
+            ""
+          } | Meshkah`,
+    description:
+      language === "ar"
+        ? `${
+            hadithDetails?.hadithArabic?.substring(0, 160) ||
+            hadithDetails?.arabic?.substring(0, 160) ||
+            `حديث ${hadithDetails?.hadithNumber || hadithDetails?.id} من كتاب ${
+              getBookTranslation(language, hadithDetails?.book?.bookName) ||
+              hadithDetails?.book?.bookName
+            }`
+          }`
+        : `${
+            hadithDetails?.hadithEnglish?.substring(0, 160) ||
+            hadithDetails?.english?.text?.substring(0, 160) ||
+            `Hadith ${hadithDetails?.hadithNumber || hadithDetails?.id} from ${
+              hadithDetails?.book?.bookNameEn ||
+              getBookTranslation(language, hadithDetails?.book?.bookName) ||
+              hadithDetails?.book?.bookName
+            }`
+          }`,
+    keywords:
+      language === "ar"
+        ? `حديث ${hadithDetails?.hadithNumber || hadithDetails?.id}, ${
+            getBookTranslation(language, hadithDetails?.book?.bookName) ||
+            hadithDetails?.book?.bookName
+          }, ${
+            getBookTranslation(language, hadithDetails?.book?.writerName) ||
+            hadithDetails?.book?.writerName
+          }, حديث نبوي, مشكاة, مكتبة إسلامية, علوم إسلامية`
+        : `Hadith ${hadithDetails?.hadithNumber || hadithDetails?.id}, ${
+            hadithDetails?.book?.bookNameEn ||
+            getBookTranslation(language, hadithDetails?.book?.bookName) ||
+            hadithDetails?.book?.bookName
+          }, ${
+            hadithDetails?.book?.writerNameEn ||
+            getBookTranslation(language, hadithDetails?.book?.writerName) ||
+            hadithDetails?.book?.writerName
+          }, Hadith, Meshkah, Islamic library, Islamic sciences`,
+    canonicalUrl: `${window.location.origin}${window.location.pathname}`,
+    ogImage: "https://hadith-shareef.com/logo.svg",
+    alternateLanguages: [
+      {
+        hrefLang: "ar",
+        href: `${window.location.origin}${window.location.pathname}?lang=ar`,
+      },
+      {
+        hrefLang: "en",
+        href: `${window.location.origin}${window.location.pathname}?lang=en`,
+      },
+      {
+        hrefLang: "x-default",
+        href: `${window.location.origin}${window.location.pathname}`,
+      },
+    ],
+    structuredData: {
+      "@context": "https://schema.org",
+      "@type": "CreativeWork",
+      name:
+        language === "ar"
+          ? `حديث ${hadithDetails?.hadithNumber || hadithDetails?.id}`
+          : `Hadith ${hadithDetails?.hadithNumber || hadithDetails?.id}`,
+      description:
+        language === "ar"
+          ? hadithDetails?.hadithArabic?.substring(0, 200) ||
+            hadithDetails?.arabic?.substring(0, 200)
+          : hadithDetails?.hadithEnglish?.substring(0, 200) ||
+            hadithDetails?.english?.text?.substring(0, 200),
+      text:
+        language === "ar"
+          ? hadithDetails?.hadithArabic || hadithDetails?.arabic
+          : hadithDetails?.hadithEnglish || hadithDetails?.english?.text,
+      isPartOf: {
+        "@type": "Book",
+        name:
+          language === "ar"
+            ? getBookTranslation(language, hadithDetails?.book?.bookName) ||
+              hadithDetails?.book?.bookName
+            : hadithDetails?.book?.bookNameEn ||
+              getBookTranslation(language, hadithDetails?.book?.bookName) ||
+              hadithDetails?.book?.bookName,
+        author: {
+          "@type": "Person",
+          name:
+            language === "ar"
+              ? getBookTranslation(language, hadithDetails?.book?.writerName) ||
+                hadithDetails?.book?.writerName
+              : hadithDetails?.book?.writerNameEn ||
+                getBookTranslation(language, hadithDetails?.book?.writerName) ||
+                hadithDetails?.book?.writerName,
+        },
+      },
+      position: parseInt(hadithDetails?.hadithNumber || hadithDetails?.id),
+      publisher: {
+        "@type": "Organization",
+        name: "Meshkah",
+      },
+    },
+  };
+
   return (
     <>
-      <SEO
-        title={`حديث ${hadithDetails.arabic?.substring(0, 30) || hadithDetails.hadithArabic?.substring(0, 30)} - ${
-          hadithDetails.book?.bookName || ""
-        }`}
-        description={
-          hadithDetails.hadithArabic?.substring(0, 160) ||
-          hadithDetails.hadithEnglish?.substring(0, 160)
-        }
-        keywords={[
-          "حديث",
-          "إسلامي",
-          "مكتبة",
-          hadithDetails.book?.bookName || "",
-        ].join(", ")}
-      />
+      <SEO {...seoData} />
 
       <div className="min-h-screen relative bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 p-4 sm:p-6 lg:p-8 overflow-x-hidden">
         {/* Decorative Background Pattern */}
@@ -754,34 +867,51 @@ const IslamicHadithPage = () => {
                   </span>
                 )}
                 {hadithDetails.book && (
-                 <Link to={`/islamic-library/${hadithDetails.book.isLocal ? "local-books" : "book"}/${hadithDetails.book.bookSlug}`} >
-                  <span className="px-3 sm:px-4 py-2 sm:py-3 rounded-xl text-sm sm:text-base font-semibold bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 border border-blue-300 shadow-md">
-                    {language === "ar"
-                      ? getBookTranslation(
-                          language,
-                          hadithDetails.book.bookName
-                        )
-                      : hadithDetails.book.bookNameEn
-                      ? hadithDetails.book.bookNameEn
-                      : getBookTranslation(
-                          language,
-                          hadithDetails.book.bookName
-                        )}
-                  </span>
+                  <Link
+                    to={`/islamic-library/${
+                      hadithDetails.book.isLocal ? "local-books" : "book"
+                    }/${hadithDetails.book.bookSlug}`}
+                  >
+                    <span className="px-3 sm:px-4 py-2 sm:py-3 rounded-xl text-sm sm:text-base font-semibold bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 border border-blue-300 shadow-md">
+                      {language === "ar"
+                        ? getBookTranslation(
+                            language,
+                            hadithDetails.book.bookName
+                          )
+                        : hadithDetails.book.bookNameEn
+                        ? hadithDetails.book.bookNameEn
+                        : getBookTranslation(
+                            language,
+                            hadithDetails.book.bookName
+                          )}
+                    </span>
                   </Link>
                 )}
                 {hadithDetails.chapter && (
-                  <Link to={`/islamic-library/${hadithDetails.book.isLocal ? "local-books" : "book"}/${hadithDetails.book.bookSlug}/chapter/${hadithDetails.chapter.chapterNumber == 0 ? 1 : hadithDetails.chapter.chapterNumber}`}>
-                  <span className="px-3 sm:px-4 mt-2 py-2 sm:py-3 rounded-xl text-sm sm:text-base font-semibold bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 border border-purple-300 shadow-md">
-                    {language === "ar"
-                      ? hadithDetails.chapter.chapterArabic.substring(0,30)  ||
-                        hadithDetails.chapter.arabic.substring(0,30)
-                      : language === "en"
-                      ? hadithDetails.chapter.chapterEnglish.substring(0,30) ||
-                        hadithDetails.chapter.english.substring(0,30)
-                      : hadithDetails.chapter.chapterUrdu.substring(0,30)}
+                  <Link
+                    to={`/islamic-library/${
+                      hadithDetails.book.isLocal ? "local-books" : "book"
+                    }/${hadithDetails.book.bookSlug}/chapter/${
+                      hadithDetails.chapter.chapterNumber == 0
+                        ? 1
+                        : hadithDetails.chapter.chapterNumber
+                    }`}
+                  >
+                    <span className="px-3 sm:px-4 mt-2 py-2 sm:py-3 rounded-xl text-sm sm:text-base font-semibold bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 border border-purple-300 shadow-md">
+                      {language === "ar"
+                        ? hadithDetails.chapter.chapterArabic.substring(
+                            0,
+                            30
+                          ) || hadithDetails.chapter.arabic.substring(0, 30)
+                        : language === "en"
+                        ? hadithDetails.chapter.chapterEnglish.substring(
+                            0,
+                            30
+                          ) || hadithDetails.chapter.english.substring(0, 30)
+                        : hadithDetails.chapter.chapterUrdu.substring(0, 30)}
                       ...
-                  </span></Link>
+                    </span>
+                  </Link>
                 )}
               </div>
 
@@ -845,9 +975,12 @@ const IslamicHadithPage = () => {
             <div className="flex items-center mt-5 justify-center space-x-4 sm:space-x-6 lg:space-x-8 space-x-reverse">
               {hadithNavigation && (
                 <>
-                  <motion.button 
-                    onClick={() => hadithNavigation.prevHadith && navigateToHadith(hadithNavigation.prevHadith.id, 'prev')}
-                    disabled={!hadithNavigation.prevHadith || navigationLoading} 
+                  <motion.button
+                    onClick={() =>
+                      hadithNavigation.prevHadith &&
+                      navigateToHadith(hadithNavigation.prevHadith.id, "prev")
+                    }
+                    disabled={!hadithNavigation.prevHadith || navigationLoading}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     className={`
@@ -856,7 +989,11 @@ const IslamicHadithPage = () => {
                       transition-all duration-300 ease-out transform hover:scale-110 hover:rotate-3
                       disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:rotate-0
                       flex items-center justify-center shadow-lg hover:shadow-2xl
-                      ${!hadithNavigation.prevHadith || navigationLoading ? 'opacity-40 cursor-not-allowed' : ''}
+                      ${
+                        !hadithNavigation.prevHadith || navigationLoading
+                          ? "opacity-40 cursor-not-allowed"
+                          : ""
+                      }
                     `}
                   >
                     <div className="absolute inset-0 rounded-full bg-gradient-to-br from-purple-400 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -866,25 +1003,33 @@ const IslamicHadithPage = () => {
                       <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-white relative z-10 transform group-hover:translate-x-1 transition-transform duration-300" />
                     )}
                   </motion.button>
-                  
+
                   <div className="flex flex-col items-center bg-white/90 backdrop-blur-xl px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3 rounded-xl sm:rounded-2xl shadow-md border border-purple-200/50 transform hover:scale-105 transition-all duration-300">
-                    <div className="text-xs text-gray-500 mb-1 font-medium">حديث</div>
+                    <div className="text-xs text-gray-500 mb-1 font-medium">
+                      حديث
+                    </div>
                     <div className="text-xs sm:text-sm font-bold text-gray-800">
-                      {hadithNavigation.currentHadithNumber} من {hadithNavigation.totalHadiths}
+                      {hadithNavigation.currentHadithNumber} من{" "}
+                      {hadithNavigation.totalHadiths}
                     </div>
                     {navigationLoading && (
                       <div className="mt-1">
-                        <div className="animate-pulse text-xs text-purple-600">جاري التحميل...</div>
+                        <div className="animate-pulse text-xs text-purple-600">
+                          جاري التحميل...
+                        </div>
                       </div>
                     )}
                     <div className="mt-1 text-xs text-gray-400 hidden sm:block">
                       استخدم الأسهم للتنقل
                     </div>
                   </div>
-                  
-                  <motion.button 
-                    onClick={() => hadithNavigation.nextHadith && navigateToHadith(hadithNavigation.nextHadith.id, 'next')}
-                    disabled={!hadithNavigation.nextHadith || navigationLoading} 
+
+                  <motion.button
+                    onClick={() =>
+                      hadithNavigation.nextHadith &&
+                      navigateToHadith(hadithNavigation.nextHadith.id, "next")
+                    }
+                    disabled={!hadithNavigation.nextHadith || navigationLoading}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     className={`
@@ -893,7 +1038,11 @@ const IslamicHadithPage = () => {
                       transition-all duration-300 ease-out transform hover:scale-110 hover:-rotate-3
                       disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:rotate-0
                       flex items-center justify-center shadow-lg hover:shadow-2xl
-                      ${!hadithNavigation.nextHadith || navigationLoading ? 'opacity-40 cursor-not-allowed' : ''}
+                      ${
+                        !hadithNavigation.nextHadith || navigationLoading
+                          ? "opacity-40 cursor-not-allowed"
+                          : ""
+                      }
                     `}
                   >
                     <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -991,7 +1140,7 @@ AIAssistant.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   language: PropTypes.string.isRequired,
-  hadithNumber : PropTypes.string.isRequired
+  hadithNumber: PropTypes.string.isRequired,
 };
 
 export default IslamicHadithPage;
