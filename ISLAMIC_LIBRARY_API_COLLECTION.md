@@ -12,7 +12,7 @@ Development: http://localhost:4000/api
 
 ### Headers Required for Protected Endpoints
 ```
-x-auth-token: YOUR_JWT_TOKEN
+x-auth-token: AnasYoussef2024
 Content-Type: application/json
 ```
 
