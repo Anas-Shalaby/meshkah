@@ -10,10 +10,214 @@ Development: http://localhost:4000/api
 
 ## Authentication
 
+All bookmark-related endpoints require authentication using JWT tokens. You need to register/login to get a token.
+
 ### Headers Required for Protected Endpoints
 ```
 x-auth-token: AnasYoussef2024
 Content-Type: application/json
+```
+
+---
+
+## 🔐 Authentication APIs
+
+### 1. User Registration
+**POST** `/auth/register`
+
+Register a new user account.
+
+**Request Body:**
+```json
+{
+  "username": "john_doe",
+  "email": "john@example.com",
+  "password": "password123"
+}
+```
+
+**Validation Rules:**
+- Username: Required, not empty
+- Email: Required, valid email format
+- Password: Required, minimum 6 characters
+
+**Response:**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+**Error Response:**
+```json
+{
+  "msg": "المستخدم موجود مسبقاً"
+}
+```
+
+### 2. User Login
+**POST** `/auth/login`
+
+Login with email and password.
+
+**Request Body:**
+```json
+{
+  "email": "john@example.com",
+  "password": "password123"
+}
+```
+
+**Response:**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+**Error Responses:**comprehensive
+```json
+{
+  "msg": "لا يوجد مستخدم بهذا الايميل"
+}
+```
+
+```json
+{
+  "msg": "خطأ في الصلاحيات"
+}
+```comprehensive
+
+### 3. Google OAuth Login
+**POST** `/auth/google-login`
+
+Login/Register using Google OAuth.
+
+**Request Body:**
+```jsoncomprehensive
+{
+  "token": "GOOGLE_ID_TOKEN"
+}
+```
+
+**Response:**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": 1,
+    "username": "john_doe",comprehensive
+    "email": "john@example.com",
+    "google_id": "123456789",
+    "avatar_url": "https://lh3.googleusercontent.com/...",
+    "role": "user"
+  }
+}
+```
+
+### 4. Get User Profile
+**GET** `/auth/profile`
+
+**Authentication Required:** Yes
+
+Get current user's profile information.
+
+**Response:**
+```json
+{
+  "id": 1,
+  "username": "john_doe",
+  "email": "john@example.com",
+  "avatar_url": null,
+  "google_id": null,
+  "role": "user",
+  "weekly_achievement_count": 0,
+  "created_at": "2024-01-01T12:00:00Z"
+}
+```
+
+### 5. Update User Profile
+**PUT** `/auth/update-profile`
+
+**Authentication Required:** Yes
+
+Update user profile (supports file upload for avatar).
+
+**Request (Multipart Form Data):**
+```
+username: john_updated
+avatar: [file upload]
+```
+
+**Response:**
+```json
+{
+  "id": 1,
+  "username": "john_updated",
+  "email": "john@example.com",
+  "avatar_url": "/uploads/avatars/avatar-1-1234567890.jpg",
+  "role": "user"
+}
+```
+
+### 6. Get Bookmarked Cards
+**GET** `/auth/bookmarked-cards`
+
+**Authentication Required:** Yes
+
+Get user's bookmarked dawah cards.
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "title": "Card Title",
+    "description": "Card description",
+    "bookmarked_at": "2024-01-01T12:00:00Z",
+    "created_by_username": "creator_name",
+    "created_by_avatar": "/uploads/avatar.jpg",
+    "total_hadiths": 5
+  }
+]
+```
+
+### 7. Check Google Connection Status
+**GET** `/auth/google-status`
+
+**Authentication Required:** Yes
+
+Check if user has connected their Google account.
+
+**Response:**
+```json
+{
+  "connected": true
+}
+```
+
+### 8. Google OAuth Setup
+**GET** `/auth/google`
+
+Redirects to Google OAuth consent page for calendar integration.
+
+### 9. Google OAuth Callback
+**POST** `/auth/google/callback`
+
+**Authentication Required:** Yes
+
+Handle Google OAuth callback for calendar integration.
+
+**Request Body:**
+```json
+{
+  "code": "GOOGLE_AUTHORIZATION_CODE"
+}
+```
+
+**Response:**
+```
+Text response: "تم ربط حسابك بجوجل بنجاح! يمكنك إغلاق هذه النافذة."
 ```
 
 ---
@@ -753,7 +957,80 @@ Get next/previous hadith navigation for API books.
 
 ## 📱 Mobile Implementation Tips
 
-### 1. **Pagination**
+### 1. **Authentication Flow**
+Implement proper authentication flow for mobile apps:
+
+```javascript
+// Authentication service example
+class AuthService {
+  constructor() {
+    this.token = null;
+    this.user = null;
+  }
+
+  async register(username, email, password) {
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, password })
+    });
+    
+    if (response.ok) {
+      const { token } = await response.json();
+      await this.setToken(token);
+      return true;
+    }
+    throw new Error('Registration failed');
+  }
+
+  async login(email, password) {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    
+    if (response.ok) {
+      const { token } = await response.json();
+      await this.setToken(token);
+      return true;
+    }
+    throw new Error('Login failed');
+  }
+
+  async setToken(token) {
+    this.token = token;
+    // Store in secure storage
+    await AsyncStorage.setItem('auth_token', token);
+    // Get user profile
+    await this.loadUserProfile();
+  }
+
+  async loadUserProfile() {
+    if (!this.token) return;
+    
+    const response = await fetch('/api/auth/profile', {
+      headers: { 'x-auth-token': this.token }
+    });
+    
+    if (response.ok) {
+      this.user = await response.json();
+    }
+  }
+
+  async logout() {
+    this.token = null;
+    this.user = null;
+    await AsyncStorage.removeItem('auth_token');
+  }
+
+  getAuthHeaders() {
+    return this.token ? { 'x-auth-token': this.token } : {};
+  }
+}
+```
+
+### 2. **Pagination**
 Always implement pagination for list endpoints to improve performance:
 ```javascript
 // Example pagination handling
@@ -763,7 +1040,75 @@ const loadBooks = async (page = 1) => {
 };
 ```
 
-### 2. **Search with Debouncing**
+### 2. **Bookmark Management**
+Implement comprehensive bookmark management with authentication:
+
+```javascript
+// Bookmark service example
+class BookmarkService {
+  constructor(authService) {
+    this.authService = authService;
+  }
+
+  async addBookmark(bookmarkData) {
+    const response = await fetch('/api/islamic-bookmarks/add', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.authService.getAuthHeaders()
+      },
+      body: JSON.stringify(bookmarkData)
+    });
+    
+    if (response.ok) {
+      return await response.json();
+    }
+    throw new Error('Failed to add bookmark');
+  }
+
+  async getUserBookmarks(type = null, collection = null, page = 1) {
+    let url = `/api/islamic-bookmarks/user?page=${page}&limit=20`;
+    if (type) url += `&type=${type}`;
+    if (collection) url += `&collection=${collection}`;
+    
+    const response = await fetch(url, {
+      headers: this.authService.getAuthHeaders()
+    });
+    
+    if (response.ok) {
+      return await response.json();
+    }
+    throw new Error('Failed to get bookmarks');
+  }
+
+  async isBookmarked(bookSlug, type, chapterNumber = null, hadithId = null) {
+    let url = `/api/islamic-bookmarks/check?bookSlug=${bookSlug}&type=${type}`;
+    if (chapterNumber) url += `&chapterNumber=${chapterNumber}`;
+    if (hadithId) url += `&hadithId=${hadithId}`;
+    
+    const response = await fetch(url, {
+      headers: this.authService.getAuthHeaders()
+    });
+    
+    if (response.ok) {
+      const { isBookmarked } = await response.json();
+      return isBookmarked;
+    }
+    return false;
+  }
+
+  async removeBookmark(bookmarkId) {
+    const response = await fetch(`/api/islamic-bookmarks/remove/${bookmarkId}`, {
+      method: 'DELETE',
+      headers: this.authService.getAuthHeaders()
+    });
+    
+    return response.ok;
+  }
+}
+```
+
+### 3. **Search with Debouncing**
 Implement search with debouncing to avoid too many API calls:
 ```javascript
 // Debounced search implementation
@@ -775,7 +1120,7 @@ const debouncedSearch = useCallback(
 );
 ```
 
-### 3. **Caching**
+### 4. **Caching**
 Cache frequently accessed data like book lists and categories:
 ```javascript
 // Example with AsyncStorage
@@ -823,6 +1168,34 @@ const apiCall = async (url, options) => {
 
 ### Using cURL Examples
 
+**Register new user:**
+```bash
+curl -X POST "http://localhost:4000/api/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "testuser",
+    "email": "test@example.com",
+    "password": "password123"
+  }'
+```
+
+**Login user:**
+```bash
+curl -X POST "http://localhost:4000/api/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com",
+    "password": "password123"
+  }'
+```
+
+**Get user profile (authenticated):**
+```bash
+curl -X GET "http://localhost:4000/api/auth/profile" \
+  -H "Content-Type: application/json" \
+  -H "x-auth-token: YOUR_JWT_TOKEN"
+```
+
 **Get all books:**
 ```bash
 curl -X GET "http://localhost:4000/api/islamic-library/books" \
@@ -846,6 +1219,13 @@ curl -X POST "http://localhost:4000/api/islamic-bookmarks/add" \
     "hadithId": 1,
     "collection": "Favorites"
   }'
+```
+
+**Check if item is bookmarked:**
+```bash
+curl -X GET "http://localhost:4000/api/islamic-bookmarks/check?bookSlug=sahih-bukhari&type=hadith&hadithId=1" \
+  -H "Content-Type: application/json" \
+  -H "x-auth-token: YOUR_JWT_TOKEN"
 ```
 
 ---
@@ -877,4 +1257,63 @@ curl -X POST "http://localhost:4000/api/islamic-bookmarks/add" \
 
 ---
 
-This comprehensive API collection provides all the endpoints your mobile developer needs to implement a full-featured Islamic Library application with search, bookmarking, and navigation capabilities.
+## 📋 API Summary
+
+This comprehensive API collection includes **32 endpoints** organized into **7 main categories**:
+
+### 🔐 Authentication (9 endpoints)
+- User registration and login
+- Google OAuth integration
+- Profile management
+- Token-based authentication for bookmarks
+
+### 📚 Books & Categories (4 endpoints)
+- Complete book listings with multilingual support
+- Category-based organization
+- Comprehensive statistics
+
+### 📖 Local Books (3 endpoints)
+- Access to curated local Islamic book collection
+- Direct hadith access with pagination
+- Detailed book metadata
+
+### 📑 Chapters (3 endpoints)
+- Chapter navigation for all books
+- Hadith listings by chapter
+- Navigation between chapters
+
+### 🔍 Search (3 endpoints)
+- Advanced search with relevance scoring
+- Autocomplete suggestions
+- Search analytics
+
+### 📝 Hadiths (2 endpoints)
+- Comprehensive hadith retrieval
+- Multi-language support (Arabic, English, Urdu)
+
+### 🧭 Navigation (2 endpoints)
+- Seamless navigation between hadiths
+- Context-aware previous/next functionality
+
+### 🔖 Bookmarks (6 endpoints)
+- Full bookmark management system
+- Collection organization
+- Real-time bookmark status checking
+
+### 🎯 **Key Features for Mobile Apps:**
+- **Multi-language Support**: Arabic, English, and Urdu
+- **Advanced Search**: Relevance-based with Arabic text normalization
+- **User Authentication**: JWT-based with Google OAuth
+- **Bookmark System**: Complete CRUD operations with collections
+- **Pagination**: Performance-optimized data loading
+- **Navigation**: Seamless hadith and chapter navigation
+- **Offline Ready**: Designed for caching and offline sync
+
+### 🔧 **Developer Benefits:**
+- **Complete Documentation**: Every endpoint with examples
+- **Authentication Flow**: Ready-to-use implementation patterns
+- **Error Handling**: Standardized error responses
+- **Testing Examples**: cURL commands for all endpoints
+- **Mobile Optimized**: React Native and mobile-specific guidance
+
+This API collection provides everything needed to build a comprehensive Islamic Library mobile application with professional-grade features including user management, advanced search capabilities, and bookmark functionality.
