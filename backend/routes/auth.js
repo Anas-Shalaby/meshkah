@@ -188,8 +188,8 @@ router.post(
 
       // Insert new user
       const [result] = await db.query(
-        "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
-        [username, email, hashedPassword]
+        "INSERT INTO users (username, email, password , google_id ,avatar_url , weekly_achievement_count) VALUES (?, ?, ?, ?, ?, ?)",
+        [username, email, hashedPassword, 0, 0, 0]
       );
 
       // Create JWT payload
