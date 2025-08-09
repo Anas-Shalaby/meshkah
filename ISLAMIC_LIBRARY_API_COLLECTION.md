@@ -825,19 +825,19 @@ const apiCall = async (url, options) => {
 
 **Get all books:**
 ```bash
-curl -X GET "http://localhost:5000/api/islamic-library/books" \
+curl -X GET "http://localhost:4000/api/islamic-library/books" \
   -H "Content-Type: application/json"
 ```
 
 **Search hadiths:**
 ```bash
-curl -X GET "http://localhost:5000/api/islamic-library/search?q=prayer&category=kutub_tisaa" \
+curl -X GET "http://localhost:4000/api/islamic-library/search?q=prayer&category=kutub_tisaa" \
   -H "Content-Type: application/json"
 ```
 
 **Add bookmark (requires authentication):**
 ```bash
-curl -X POST "http://localhost:5000/api/islamic-bookmarks/add" \
+curl -X POST "http://localhost:4000/api/islamic-bookmarks/add" \
   -H "Content-Type: application/json" \
   -H "x-auth-token: YOUR_JWT_TOKEN" \
   -d '{
