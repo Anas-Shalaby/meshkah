@@ -4,7 +4,7 @@ A comprehensive collection of all Islamic Library APIs for mobile app developmen
 
 ## Base URL
 ```
-Production: https://api.hadith-shareef.com//api
+Production: https://api.hadith-shareef.com/api
 Development: http://localhost:4000/api
 ```
 
