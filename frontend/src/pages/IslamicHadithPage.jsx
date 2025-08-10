@@ -624,7 +624,9 @@ const IslamicHadithPage = () => {
             getBookTranslation(language, hadithDetails?.book?.writerName) ||
             hadithDetails?.book?.writerName
           }, Hadith, Meshkah, Islamic library, Islamic sciences`,
-    canonicalUrl: `${window.location.origin}${window.location.pathname}`,
+    canonicalUrl: `${window.location.origin}${window.location.pathname}${
+      window.location.search ? "" : ""
+    }`,
     ogImage: "https://hadith-shareef.com/logo.svg",
     alternateLanguages: [
       {

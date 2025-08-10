@@ -73,17 +73,17 @@ async function generateSitemap() {
       { url: "/islamic-bookmarks", priority: 0.8, changefreq: "daily" },
       { url: "/saved", priority: 0.8, changefreq: "daily" },
       { url: "/daily-hadith", priority: 0.8, changefreq: "daily" },
-      { url: "/fasting", priority: 0.6, changefreq: "weekly" },
-      { url: "/sahabi-ai", priority: 0.7, changefreq: "weekly" },
-      { url: "/achievements", priority: 0.5, changefreq: "weekly" },
-      { url: "/notifications", priority: 0.5, changefreq: "daily" },
-      { url: "/print-requests", priority: 0.4, changefreq: "weekly" },
       { url: "/profile", priority: 0.4, changefreq: "weekly" },
       { url: "/about", priority: 0.6, changefreq: "monthly" },
       { url: "/contact", priority: 0.5, changefreq: "monthly" },
-      { url: "/islamic-library/help-support", priority: 0.4, changefreq: "monthly" },
+      {
+        url: "/islamic-library/help-support",
+        priority: 0.4,
+        changefreq: "monthly",
+      },
       { url: "/login", priority: 0.3, changefreq: "monthly" },
       { url: "/register", priority: 0.3, changefreq: "monthly" },
+      { url: "/public-cards", priority: 0.4, changefreq: "weekly" },
     ];
 
     // Add static pages to sitemap with language alternates

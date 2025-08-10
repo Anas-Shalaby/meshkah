@@ -14,13 +14,16 @@ const EXCLUDED_BOOKS = ["Musnad Ahmad", "Al-Silsila Sahiha"];
 
 // Helper function to normalize Arabic text (remove tashkeel)
 const normalizeArabicText = (text) => {
-  if (!text) return '';
+  if (!text) return "";
   return text
-    .replace(/[\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E8\u06EA-\u06ED]/g, '') // Remove tashkeel
-    .replace(/[أإآ]/g, 'ا') // Normalize alef variations
-    .replace(/[يى]/g, 'ي') // Normalize yaa variations
-    .replace(/[ةه]/g, 'ه') // Normalize taa marbouta and haa
-    .replace(/[ؤئ]/g, 'و') // Normalize waw variations
+    .replace(
+      /[\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E8\u06EA-\u06ED]/g,
+      ""
+    ) // Remove tashkeel
+    .replace(/[أإآ]/g, "ا") // Normalize alef variations
+    .replace(/[يى]/g, "ي") // Normalize yaa variations
+    .replace(/[ةه]/g, "ه") // Normalize taa marbouta and haa
+    .replace(/[ؤئ]/g, "و") // Normalize waw variations
     .trim();
 };
 
@@ -216,10 +219,6 @@ const LOCAL_BOOKS = {
     category: "adab",
     filePath: "hisnulmuslim.json",
   },
-<<<<<<< HEAD
-
-=======
->>>>>>> refs/remotes/origin/main
   shahwaliullah40: {
     id: 19,
     bookName: "أربعون ولي الله الدهلوي",
@@ -510,8 +509,6 @@ router.get("/small-books/:bookSlug/hadiths/:hadithId", async (req, res) => {
     res.status(500).json({ message: "Error fetching hadith" });
   }
 });
-
-
 
 // Get chapters of a specific book (for regular books)
 router.get("/books/:bookSlug/chapters", async (req, res) => {
@@ -829,85 +826,115 @@ router.get(
   }
 );
 
-router.get("/books/:bookSlug/chapter/:chapterNumber/hadith/:hadithNumber/navigation" , async(req ,res) => {
- try {
-  const { bookSlug, chapterNumber , hadithNumber} = req.params;
-  const bookData = await axios.get(`${ISLAMIC_LIBRARY_API_BASE}/hadiths/?apiKey=${ISLAMIC_LIBRARY_API_KEY}` , {
-    params : {
-      book : bookSlug,
-      chapter : chapterNumber
+router.get(
+  "/books/:bookSlug/chapter/:chapterNumber/hadith/:hadithNumber/navigation",
+  async (req, res) => {
+    try {
+      const { bookSlug, chapterNumber, hadithNumber } = req.params;
+      const bookData = await axios.get(
+        `${ISLAMIC_LIBRARY_API_BASE}/hadiths/?apiKey=${ISLAMIC_LIBRARY_API_KEY}`,
+        {
+          params: {
+            book: bookSlug,
+            chapter: chapterNumber,
+          },
+        }
+      );
+      if (!bookData) {
+        return res.status(404).json({ message: "Book data not found" });
+      }
+      const hadith = bookData.data.hadiths.data.find(
+        (h) => h.hadithNumber.toString() === hadithNumber.toString()
+      );
+      const nextHadith = bookData.data.hadiths.data.find(
+        (h) =>
+          h.hadithNumber.toString() === (parseInt(hadithNumber) + 1).toString()
+      );
+      const prevHadith = bookData.data.hadiths.data.find(
+        (h) =>
+          h.hadithNumber.toString() === (parseInt(hadithNumber) - 1).toString()
+      );
+      if (!hadith) {
+        return res.status(404).json({ message: "Hadith not found" });
+      }
+      res.json({
+        status: 200,
+        nextHadith: nextHadith
+          ? {
+              id: nextHadith.hadithNumber,
+              title: nextHadith.hadithArabic,
+              titleEn: nextHadith.hadithEnglish,
+            }
+          : null,
+        prevHadith: prevHadith
+          ? {
+              id: prevHadith.hadithNumber,
+              title: prevHadith.hadithArabic,
+              titleEn: prevHadith.hadithEnglish,
+            }
+          : null,
+        currentHadithNumber: hadith.hadithNumber,
+        totalHadiths: bookData.data.hadiths.total,
+      });
+    } catch (error) {
+      console.error("Error fetching local book hadith navigation:", error);
+      res
+        .status(500)
+        .json({ message: "Error fetching local book hadith navigation" });
     }
-  });
-  if (!bookData) {
-    return res.status(404).json({ message: "Book data not found" });
   }
-  const hadith = bookData.data.hadiths.data.find(h => h.hadithNumber.toString() === hadithNumber.toString());
-  const nextHadith = bookData.data.hadiths.data.find(h => h.hadithNumber.toString() === (parseInt(hadithNumber) + 1).toString());
-  const prevHadith =bookData.data.hadiths.data.find(h => h.hadithNumber.toString() === (parseInt(hadithNumber) - 1).toString());
-  if (!hadith) {
-    return res.status(404).json({ message: "Hadith not found" });
-  }
-  res.json({
-    status: 200,
-    nextHadith: nextHadith ? {
-      id: nextHadith.hadithNumber,
-      title: nextHadith.hadithArabic,
-      titleEn: nextHadith.hadithEnglish
-    } : null,
-    prevHadith: prevHadith ? {
-      id: prevHadith.hadithNumber,
-      title: prevHadith.hadithArabic,
-      titleEn: prevHadith.hadithEnglish
-    } : null,
-    currentHadithNumber : hadith.hadithNumber,
-    totalHadiths : bookData.data.hadiths.total
-  });
-   
- } catch (error) {
-  console.error("Error fetching local book hadith navigation:", error);
-  res.status(500).json({ message: "Error fetching local book hadith navigation" });
- }
-    
-})
+);
 
-router.get("/local-books/:bookSlug/hadiths/:hadithNumber/navigation" , async(req ,res) => {
-  try {
-    const { bookSlug, hadithNumber } = req.params;
-    const bookData = await loadLocalBook(bookSlug);
-    if (!bookData) {
-      return res.status(404).json({ message: "Book data not found" });
+router.get(
+  "/local-books/:bookSlug/hadiths/:hadithNumber/navigation",
+  async (req, res) => {
+    try {
+      const { bookSlug, hadithNumber } = req.params;
+      const bookData = await loadLocalBook(bookSlug);
+      if (!bookData) {
+        return res.status(404).json({ message: "Book data not found" });
+      }
+      const hadith = bookData.hadiths.find(
+        (h) => h.id.toString() === hadithNumber.toString()
+      );
+      const nextHadith = bookData.hadiths.find(
+        (h) => h.id.toString() === (parseInt(hadithNumber) + 1).toString()
+      );
+      const prevHadith = bookData.hadiths.find(
+        (h) => h.id.toString() === (parseInt(hadithNumber) - 1).toString()
+      );
+      if (!hadith) {
+        return res.status(404).json({ message: "Hadith not found" });
+      }
+      res.json({
+        status: 200,
+        book: {
+          bookName: bookData.metadata.arabic.title,
+          bookNameEn: bookData.metadata.english.title,
+        },
+        nextHadith: nextHadith
+          ? {
+              id: nextHadith.id,
+              title: nextHadith.arabic,
+              titleEn: nextHadith.english,
+            }
+          : null,
+        prevHadith: prevHadith
+          ? {
+              id: prevHadith.id,
+              title: prevHadith.arabic,
+              titleEn: prevHadith.english,
+            }
+          : null,
+        currentHadithNumber: hadith.idInBook,
+        totalHadiths: bookData.hadiths.length,
+      });
+    } catch (error) {
+      console.error("Error fetching local book hadith:", error);
+      res.status(500).json({ message: "Error fetching local book hadith" });
     }
-    const hadith = bookData.hadiths.find(h => h.id.toString() === hadithNumber.toString());
-    const nextHadith = bookData.hadiths.find(h => h.id.toString() === (parseInt(hadithNumber) + 1).toString());
-    const prevHadith = bookData.hadiths.find(h => h.id.toString() === (parseInt(hadithNumber) - 1).toString());
-    if (!hadith) {
-      return res.status(404).json({ message: "Hadith not found" });
-    }
-    res.json({
-      status: 200,
-      book: {
-        bookName: bookData.metadata.arabic.title,
-        bookNameEn: bookData.metadata.english.title,
-      },
-      nextHadith: nextHadith ? {
-        id: nextHadith.id,
-        title: nextHadith.arabic,
-        titleEn: nextHadith.english
-      } : null,
-      prevHadith: prevHadith ? {
-        id: prevHadith.id,
-        title: prevHadith.arabic,
-        titleEn: prevHadith.english
-      } : null,
-      currentHadithNumber : hadith.idInBook,
-      totalHadiths : bookData.hadiths.length
-    });
-  } catch (error) {
-    console.error("Error fetching local book hadith:", error);
-    res.status(500).json({ message: "Error fetching local book hadith" });
   }
-})
-
+);
 
 // Get specific hadith by ID (for regular books)
 router.get(
@@ -1056,116 +1083,148 @@ router.get("/statistics", async (req, res) => {
 });
 
 // Get chapter navigation with next/previous
-router.get("/local-books/:bookSlug/chapters/:chapterId/navigation", async (req, res) => {
-  try {
-    const { bookSlug, chapterId } = req.params;
-    const bookConfig = LOCAL_BOOKS[bookSlug];
+router.get(
+  "/local-books/:bookSlug/chapters/:chapterId/navigation",
+  async (req, res) => {
+    try {
+      const { bookSlug, chapterId } = req.params;
+      const bookConfig = LOCAL_BOOKS[bookSlug];
 
-    if (!bookConfig) {
-      return res.status(404).json({ message: "Book not found" });
-    }
-
-    const bookData = await loadLocalBook(bookSlug);
-    if (!bookData) {
-      return res.status(404).json({ message: "Book data not found" });
-    }
-
-    const chapters = bookData.chapters || [];
-    const currentChapterIndex = chapters.findIndex(ch => ch.id.toString() === chapterId.toString());
-    
-    if (currentChapterIndex === -1) {
-      return res.status(404).json({ message: "Chapter not found" });
-    }
-
-    const currentChapter = chapters[currentChapterIndex];
-    const prevChapter = currentChapterIndex > 0 ? chapters[currentChapterIndex - 1] : null;
-    const nextChapter = currentChapterIndex < chapters.length - 1 ? chapters[currentChapterIndex + 1] : null;
-
-    // Get hadiths for current chapter
-    const chapterHadiths = bookData.hadiths.filter(h => h.chapterId.toString() === chapterId.toString());
-    const totalHadiths = chapterHadiths.length;
-
-    res.json({
-      status: 200,
-      navigation: {
-        current: {
-          id: currentChapter.id,
-          title: currentChapter.arabic,
-          titleEn: currentChapter.english,
-          hadithsCount: totalHadiths
-        },
-        previous: prevChapter ? {
-          id: prevChapter.id,
-          title: prevChapter.arabic,
-          titleEn: prevChapter.english
-        } : null,
-        next: nextChapter ? {
-          id: nextChapter.id,
-          title: nextChapter.arabic,
-          titleEn: nextChapter.english
-        } : null,
-        totalChapters: chapters.length,
-        currentChapterIndex: currentChapterIndex + 1
+      if (!bookConfig) {
+        return res.status(404).json({ message: "Book not found" });
       }
-    });
-  } catch (error) {
-    console.error("Error fetching chapter navigation:", error);
-    res.status(500).json({ message: "Error fetching chapter navigation" });
-  }
-});
 
+      const bookData = await loadLocalBook(bookSlug);
+      if (!bookData) {
+        return res.status(404).json({ message: "Book data not found" });
+      }
+
+      const chapters = bookData.chapters || [];
+      const currentChapterIndex = chapters.findIndex(
+        (ch) => ch.id.toString() === chapterId.toString()
+      );
+
+      if (currentChapterIndex === -1) {
+        return res.status(404).json({ message: "Chapter not found" });
+      }
+
+      const currentChapter = chapters[currentChapterIndex];
+      const prevChapter =
+        currentChapterIndex > 0 ? chapters[currentChapterIndex - 1] : null;
+      const nextChapter =
+        currentChapterIndex < chapters.length - 1
+          ? chapters[currentChapterIndex + 1]
+          : null;
+
+      // Get hadiths for current chapter
+      const chapterHadiths = bookData.hadiths.filter(
+        (h) => h.chapterId.toString() === chapterId.toString()
+      );
+      const totalHadiths = chapterHadiths.length;
+
+      res.json({
+        status: 200,
+        navigation: {
+          current: {
+            id: currentChapter.id,
+            title: currentChapter.arabic,
+            titleEn: currentChapter.english,
+            hadithsCount: totalHadiths,
+          },
+          previous: prevChapter
+            ? {
+                id: prevChapter.id,
+                title: prevChapter.arabic,
+                titleEn: prevChapter.english,
+              }
+            : null,
+          next: nextChapter
+            ? {
+                id: nextChapter.id,
+                title: nextChapter.arabic,
+                titleEn: nextChapter.english,
+              }
+            : null,
+          totalChapters: chapters.length,
+          currentChapterIndex: currentChapterIndex + 1,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching chapter navigation:", error);
+      res.status(500).json({ message: "Error fetching chapter navigation" });
+    }
+  }
+);
 
 // Get chapter navigation with next/previous
-router.get("/books/:bookSlug/chapters/:chapterId/navigation", async (req, res) => {
-  try {
-    const { bookSlug, chapterId } = req.params;
+router.get(
+  "/books/:bookSlug/chapters/:chapterId/navigation",
+  async (req, res) => {
+    try {
+      const { bookSlug, chapterId } = req.params;
 
-    const response = await axios.get(`${ISLAMIC_LIBRARY_API_BASE}/${bookSlug}/chapters?apiKey=${ISLAMIC_LIBRARY_API_KEY}`);
-    const bookData = response.data;
-    console.log(bookData);
-    if (!bookData) {
-      return res.status(404).json({ message: "Book data not found" });
-    }
-
-    const chapters = bookData.chapters || [];
-    const currentChapter = chapters.find(ch => ch.chapterNumber.toString() === chapterId.toString());
-    const prevChapter = chapters.find(ch => ch.chapterNumber.toString() === (parseInt(chapterId) - 1).toString());
-    const nextChapter = chapters.find(ch => ch.chapterNumber.toString() === (parseInt(chapterId) + 1).toString());
-    if (!currentChapter) {
-      return res.status(404).json({ message: "Chapter not found" });
-    }
-
-    const chapterHadiths  = await axios.get(`${ISLAMIC_LIBRARY_API_BASE}/hadiths?apiKey=${ISLAMIC_LIBRARY_API_KEY}&book=${bookSlug}&chapter=${chapterId}`);
-    const totalHadiths = chapterHadiths.data.hadiths.length;
-    res.json({
-      status: 200,
-      navigation: {
-        current: {
-          id: currentChapter.chapterNumber,
-          title: currentChapter.chapterArabic,
-          titleEn: currentChapter.chapterEnglish,
-          hadithsCount: totalHadiths
-        },
-        previous: prevChapter ? {
-          id: prevChapter.chapterNumber,
-          title: prevChapter.chapterArabic,
-          titleEn: prevChapter.chapterEnglish
-        } : null,
-        next: nextChapter ? {
-          id: nextChapter.chapterNumber,
-          title: nextChapter.chapterArabic,
-          titleEn: nextChapter.chapterEnglish
-        } : null,
-        totalChapters: chapters.length,
-        currentChapterIndex: currentChapter.chapterNumber
+      const response = await axios.get(
+        `${ISLAMIC_LIBRARY_API_BASE}/${bookSlug}/chapters?apiKey=${ISLAMIC_LIBRARY_API_KEY}`
+      );
+      const bookData = response.data;
+      console.log(bookData);
+      if (!bookData) {
+        return res.status(404).json({ message: "Book data not found" });
       }
-    });
-  } catch (error) {
-    console.error("Error fetching chapter navigation:", error);
-    res.status(500).json({ message: "Error fetching chapter navigation" });
+
+      const chapters = bookData.chapters || [];
+      const currentChapter = chapters.find(
+        (ch) => ch.chapterNumber.toString() === chapterId.toString()
+      );
+      const prevChapter = chapters.find(
+        (ch) =>
+          ch.chapterNumber.toString() === (parseInt(chapterId) - 1).toString()
+      );
+      const nextChapter = chapters.find(
+        (ch) =>
+          ch.chapterNumber.toString() === (parseInt(chapterId) + 1).toString()
+      );
+      if (!currentChapter) {
+        return res.status(404).json({ message: "Chapter not found" });
+      }
+
+      const chapterHadiths = await axios.get(
+        `${ISLAMIC_LIBRARY_API_BASE}/hadiths?apiKey=${ISLAMIC_LIBRARY_API_KEY}&book=${bookSlug}&chapter=${chapterId}`
+      );
+      const totalHadiths = chapterHadiths.data.hadiths.length;
+      res.json({
+        status: 200,
+        navigation: {
+          current: {
+            id: currentChapter.chapterNumber,
+            title: currentChapter.chapterArabic,
+            titleEn: currentChapter.chapterEnglish,
+            hadithsCount: totalHadiths,
+          },
+          previous: prevChapter
+            ? {
+                id: prevChapter.chapterNumber,
+                title: prevChapter.chapterArabic,
+                titleEn: prevChapter.chapterEnglish,
+              }
+            : null,
+          next: nextChapter
+            ? {
+                id: nextChapter.chapterNumber,
+                title: nextChapter.chapterArabic,
+                titleEn: nextChapter.chapterEnglish,
+              }
+            : null,
+          totalChapters: chapters.length,
+          currentChapterIndex: currentChapter.chapterNumber,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching chapter navigation:", error);
+      res.status(500).json({ message: "Error fetching chapter navigation" });
+    }
   }
-});
-<<<<<<< HEAD
+);
 
 // Advanced search endpoint with enhanced capabilities
 router.get("/search", async (req, res) => {
@@ -1216,22 +1275,32 @@ router.get("/search", async (req, res) => {
             // Search in main query
             if (q) {
               const normalizedSearch = normalizeArabicText(q);
-              const normalizedHadithArabic = normalizeArabicText(hadith.arabic || '');
-              const hadithText = `${normalizedHadithArabic} ${hadith.english.text} ${hadith.english.narrator}`.toLowerCase();
-              matches = matches && searchTerms.every(term => {
-                const normalizedTerm = normalizeArabicText(term);
-                return hadithText.includes(normalizedTerm.toLowerCase());
-              });
+              const normalizedHadithArabic = normalizeArabicText(
+                hadith.arabic || ""
+              );
+              const hadithText =
+                `${normalizedHadithArabic} ${hadith.english.text} ${hadith.english.narrator}`.toLowerCase();
+              matches =
+                matches &&
+                searchTerms.every((term) => {
+                  const normalizedTerm = normalizeArabicText(term);
+                  return hadithText.includes(normalizedTerm.toLowerCase());
+                });
             }
 
             // Filter by narrator
             if (narrator) {
-              matches = matches && hadith.english.narrator.toLowerCase().includes(narrator.toLowerCase());
+              matches =
+                matches &&
+                hadith.english.narrator
+                  .toLowerCase()
+                  .includes(narrator.toLowerCase());
             }
 
             // Filter by chapter
             if (chapter) {
-              matches = matches && hadith.chapterId.toString().includes(chapter);
+              matches =
+                matches && hadith.chapterId.toString().includes(chapter);
             }
 
             return matches;
@@ -1240,15 +1309,24 @@ router.get("/search", async (req, res) => {
           // Transform and add to results with relevance score
           matchingHadiths.forEach((hadith) => {
             let relevanceScore = 0;
-            
+
             if (q) {
               const normalizedSearch = normalizeArabicText(q);
-              const normalizedHadithArabic = normalizeArabicText(hadith.arabic || '');
-              searchTerms.forEach(term => {
+              const normalizedHadithArabic = normalizeArabicText(
+                hadith.arabic || ""
+              );
+              searchTerms.forEach((term) => {
                 const normalizedTerm = normalizeArabicText(term);
-                if (normalizedHadithArabic.toLowerCase().includes(normalizedTerm.toLowerCase())) relevanceScore += 3;
-                if (hadith.english.text.toLowerCase().includes(term)) relevanceScore += 2;
-                if (hadith.english.narrator.toLowerCase().includes(term)) relevanceScore += 1;
+                if (
+                  normalizedHadithArabic
+                    .toLowerCase()
+                    .includes(normalizedTerm.toLowerCase())
+                )
+                  relevanceScore += 3;
+                if (hadith.english.text.toLowerCase().includes(term))
+                  relevanceScore += 2;
+                if (hadith.english.narrator.toLowerCase().includes(term))
+                  relevanceScore += 1;
               });
             }
 
@@ -1297,7 +1375,8 @@ router.get("/search", async (req, res) => {
 
         if (q) queryString += `&hadithEnglish=${encodeURIComponent(q)}`;
         if (book) queryString += `&book=${encodeURIComponent(book)}`;
-        if (narrator) queryString += `&narrator=${encodeURIComponent(narrator)}`;
+        if (narrator)
+          queryString += `&narrator=${encodeURIComponent(narrator)}`;
         if (status) queryString += `&status=${encodeURIComponent(status)}`;
         if (chapter) queryString += `&chapter=${encodeURIComponent(chapter)}`;
 
@@ -1307,17 +1386,26 @@ router.get("/search", async (req, res) => {
 
         if (response.data.status === 200 && response.data.hadiths.data) {
           // Add relevance scores to API results
-          const apiResults = response.data.hadiths.data.map(hadith => {
+          const apiResults = response.data.hadiths.data.map((hadith) => {
             let relevanceScore = 0;
-            
+
             if (q) {
               const normalizedSearch = normalizeArabicText(q);
-              const normalizedHadithArabic = normalizeArabicText(hadith.hadithArabic || '');
-              searchTerms.forEach(term => {
+              const normalizedHadithArabic = normalizeArabicText(
+                hadith.hadithArabic || ""
+              );
+              searchTerms.forEach((term) => {
                 const normalizedTerm = normalizeArabicText(term);
-                if (normalizedHadithArabic.toLowerCase().includes(normalizedTerm.toLowerCase())) relevanceScore += 3;
-                if (hadith.hadithEnglish.toLowerCase().includes(term)) relevanceScore += 2;
-                if (hadith.englishNarrator.toLowerCase().includes(term)) relevanceScore += 1;
+                if (
+                  normalizedHadithArabic
+                    .toLowerCase()
+                    .includes(normalizedTerm.toLowerCase())
+                )
+                  relevanceScore += 3;
+                if (hadith.hadithEnglish.toLowerCase().includes(term))
+                  relevanceScore += 2;
+                if (hadith.englishNarrator.toLowerCase().includes(term))
+                  relevanceScore += 1;
               });
             }
 
@@ -1361,7 +1449,9 @@ router.get("/search", async (req, res) => {
     const paginatedResults = results.slice(startIndex, endIndex);
 
     // Remove relevanceScore from final results
-    const finalResults = paginatedResults.map(({ relevanceScore, ...hadith }) => hadith);
+    const finalResults = paginatedResults.map(
+      ({ relevanceScore, ...hadith }) => hadith
+    );
 
     return res.json({
       status: 200,
@@ -1387,12 +1477,18 @@ router.get("/search", async (req, res) => {
           total: results.length,
           from: results.length > 0 ? startIndex + 1 : 0,
           to: Math.min(endIndex, results.length),
-          next_page_url: page < Math.ceil(results.length / paginate) 
-            ? `/api/islamic-library/search?page=${parseInt(page) + 1}&q=${encodeURIComponent(q || '')}` 
-            : null,
-          prev_page_url: page > 1 
-            ? `/api/islamic-library/search?page=${parseInt(page) - 1}&q=${encodeURIComponent(q || '')}` 
-            : null,
+          next_page_url:
+            page < Math.ceil(results.length / paginate)
+              ? `/api/islamic-library/search?page=${
+                  parseInt(page) + 1
+                }&q=${encodeURIComponent(q || "")}`
+              : null,
+          prev_page_url:
+            page > 1
+              ? `/api/islamic-library/search?page=${
+                  parseInt(page) - 1
+                }&q=${encodeURIComponent(q || "")}`
+              : null,
         },
       },
     });
@@ -1428,15 +1524,19 @@ router.get("/suggestions", async (req, res) => {
         const bookData = await loadLocalBook(bookSlug);
         if (bookData && bookData.hadiths) {
           const narrators = new Set();
-          bookData.hadiths.forEach(hadith => {
-            if (hadith.english.narrator && 
-                (hadith.english.narrator.toLowerCase().includes(query) ||
-                 normalizeArabicText(hadith.english.narrator).toLowerCase().includes(normalizedQuery.toLowerCase()))) {
+          bookData.hadiths.forEach((hadith) => {
+            if (
+              hadith.english.narrator &&
+              (hadith.english.narrator.toLowerCase().includes(query) ||
+                normalizeArabicText(hadith.english.narrator)
+                  .toLowerCase()
+                  .includes(normalizedQuery.toLowerCase()))
+            ) {
               narrators.add(hadith.english.narrator);
             }
           });
-          
-          narrators.forEach(narrator => {
+
+          narrators.forEach((narrator) => {
             suggestions.push({
               type: "narrator",
               value: narrator,
@@ -1450,14 +1550,20 @@ router.get("/suggestions", async (req, res) => {
 
     if (type === "all" || type === "books") {
       // Book suggestions
-      Object.values(LOCAL_BOOKS).forEach(book => {
+      Object.values(LOCAL_BOOKS).forEach((book) => {
         const normalizedBookName = normalizeArabicText(book.bookName);
         const normalizedBookNameEn = normalizeArabicText(book.bookNameEn);
-        
-        if (book.bookNameEn.toLowerCase().includes(query) ||
-            book.bookName.toLowerCase().includes(query) ||
-            normalizedBookNameEn.toLowerCase().includes(normalizedQuery.toLowerCase()) ||
-            normalizedBookName.toLowerCase().includes(normalizedQuery.toLowerCase())) {
+
+        if (
+          book.bookNameEn.toLowerCase().includes(query) ||
+          book.bookName.toLowerCase().includes(query) ||
+          normalizedBookNameEn
+            .toLowerCase()
+            .includes(normalizedQuery.toLowerCase()) ||
+          normalizedBookName
+            .toLowerCase()
+            .includes(normalizedQuery.toLowerCase())
+        ) {
           suggestions.push({
             type: "book",
             value: book.bookNameEn,
@@ -1474,11 +1580,11 @@ router.get("/suggestions", async (req, res) => {
         const bookData = await loadLocalBook(bookSlug);
         if (bookData && bookData.hadiths) {
           const chapters = new Set();
-          bookData.hadiths.forEach(hadith => {
+          bookData.hadiths.forEach((hadith) => {
             chapters.add(hadith.chapterId);
           });
-          
-          chapters.forEach(chapterId => {
+
+          chapters.forEach((chapterId) => {
             if (chapterId.toString().includes(query)) {
               suggestions.push({
                 type: "chapter",
@@ -1494,8 +1600,12 @@ router.get("/suggestions", async (req, res) => {
     }
 
     // Remove duplicates and limit results
-    const uniqueSuggestions = suggestions.filter((suggestion, index, self) =>
-      index === self.findIndex(s => s.value === suggestion.value && s.type === suggestion.type)
+    const uniqueSuggestions = suggestions.filter(
+      (suggestion, index, self) =>
+        index ===
+        self.findIndex(
+          (s) => s.value === suggestion.value && s.type === suggestion.type
+        )
     );
 
     return res.json({
@@ -1528,7 +1638,7 @@ router.get("/search-stats", async (req, res) => {
       if (bookData && bookData.hadiths) {
         const hadithCount = bookData.hadiths.length;
         stats.totalHadiths += hadithCount;
-        
+
         stats.books.push({
           slug: bookSlug,
           name: bookConfig.bookNameEn,
@@ -1539,7 +1649,9 @@ router.get("/search-stats", async (req, res) => {
         // Category statistics
         if (!stats.categories[bookConfig.category]) {
           stats.categories[bookConfig.category] = {
-            name: BOOK_CATEGORIES[bookConfig.category]?.nameEn || bookConfig.category,
+            name:
+              BOOK_CATEGORIES[bookConfig.category]?.nameEn ||
+              bookConfig.category,
             bookCount: 0,
             hadithCount: 0,
           };
@@ -1562,7 +1674,6 @@ router.get("/search-stats", async (req, res) => {
     });
   }
 });
-=======
 // Advanced search endpoint with enhanced capabilities
 router.get("/search", async (req, res) => {
   try {
@@ -1590,7 +1701,6 @@ router.get("/search", async (req, res) => {
 
     const results = [];
     const searchTerms = q ? q.toLowerCase().split(/\s+/) : [];
->>>>>>> refs/remotes/origin/main
 
     // Search in local books
     if (includeLocal === "true") {
@@ -1613,22 +1723,32 @@ router.get("/search", async (req, res) => {
             // Search in main query
             if (q) {
               const normalizedSearch = normalizeArabicText(q);
-              const normalizedHadithArabic = normalizeArabicText(hadith.arabic || '');
-              const hadithText = `${normalizedHadithArabic} ${hadith.english.text} ${hadith.english.narrator}`.toLowerCase();
-              matches = matches && searchTerms.every(term => {
-                const normalizedTerm = normalizeArabicText(term);
-                return hadithText.includes(normalizedTerm.toLowerCase());
-              });
+              const normalizedHadithArabic = normalizeArabicText(
+                hadith.arabic || ""
+              );
+              const hadithText =
+                `${normalizedHadithArabic} ${hadith.english.text} ${hadith.english.narrator}`.toLowerCase();
+              matches =
+                matches &&
+                searchTerms.every((term) => {
+                  const normalizedTerm = normalizeArabicText(term);
+                  return hadithText.includes(normalizedTerm.toLowerCase());
+                });
             }
 
             // Filter by narrator
             if (narrator) {
-              matches = matches && hadith.english.narrator.toLowerCase().includes(narrator.toLowerCase());
+              matches =
+                matches &&
+                hadith.english.narrator
+                  .toLowerCase()
+                  .includes(narrator.toLowerCase());
             }
 
             // Filter by chapter
             if (chapter) {
-              matches = matches && hadith.chapterId.toString().includes(chapter);
+              matches =
+                matches && hadith.chapterId.toString().includes(chapter);
             }
 
             return matches;
@@ -1637,15 +1757,24 @@ router.get("/search", async (req, res) => {
           // Transform and add to results with relevance score
           matchingHadiths.forEach((hadith) => {
             let relevanceScore = 0;
-            
+
             if (q) {
               const normalizedSearch = normalizeArabicText(q);
-              const normalizedHadithArabic = normalizeArabicText(hadith.arabic || '');
-              searchTerms.forEach(term => {
+              const normalizedHadithArabic = normalizeArabicText(
+                hadith.arabic || ""
+              );
+              searchTerms.forEach((term) => {
                 const normalizedTerm = normalizeArabicText(term);
-                if (normalizedHadithArabic.toLowerCase().includes(normalizedTerm.toLowerCase())) relevanceScore += 3;
-                if (hadith.english.text.toLowerCase().includes(term)) relevanceScore += 2;
-                if (hadith.english.narrator.toLowerCase().includes(term)) relevanceScore += 1;
+                if (
+                  normalizedHadithArabic
+                    .toLowerCase()
+                    .includes(normalizedTerm.toLowerCase())
+                )
+                  relevanceScore += 3;
+                if (hadith.english.text.toLowerCase().includes(term))
+                  relevanceScore += 2;
+                if (hadith.english.narrator.toLowerCase().includes(term))
+                  relevanceScore += 1;
               });
             }
 
@@ -1694,7 +1823,8 @@ router.get("/search", async (req, res) => {
 
         if (q) queryString += `&hadithEnglish=${encodeURIComponent(q)}`;
         if (book) queryString += `&book=${encodeURIComponent(book)}`;
-        if (narrator) queryString += `&narrator=${encodeURIComponent(narrator)}`;
+        if (narrator)
+          queryString += `&narrator=${encodeURIComponent(narrator)}`;
         if (status) queryString += `&status=${encodeURIComponent(status)}`;
         if (chapter) queryString += `&chapter=${encodeURIComponent(chapter)}`;
 
@@ -1704,17 +1834,26 @@ router.get("/search", async (req, res) => {
 
         if (response.data.status === 200 && response.data.hadiths.data) {
           // Add relevance scores to API results
-          const apiResults = response.data.hadiths.data.map(hadith => {
+          const apiResults = response.data.hadiths.data.map((hadith) => {
             let relevanceScore = 0;
-            
+
             if (q) {
               const normalizedSearch = normalizeArabicText(q);
-              const normalizedHadithArabic = normalizeArabicText(hadith.hadithArabic || '');
-              searchTerms.forEach(term => {
+              const normalizedHadithArabic = normalizeArabicText(
+                hadith.hadithArabic || ""
+              );
+              searchTerms.forEach((term) => {
                 const normalizedTerm = normalizeArabicText(term);
-                if (normalizedHadithArabic.toLowerCase().includes(normalizedTerm.toLowerCase())) relevanceScore += 3;
-                if (hadith.hadithEnglish.toLowerCase().includes(term)) relevanceScore += 2;
-                if (hadith.englishNarrator.toLowerCase().includes(term)) relevanceScore += 1;
+                if (
+                  normalizedHadithArabic
+                    .toLowerCase()
+                    .includes(normalizedTerm.toLowerCase())
+                )
+                  relevanceScore += 3;
+                if (hadith.hadithEnglish.toLowerCase().includes(term))
+                  relevanceScore += 2;
+                if (hadith.englishNarrator.toLowerCase().includes(term))
+                  relevanceScore += 1;
               });
             }
 
@@ -1758,7 +1897,9 @@ router.get("/search", async (req, res) => {
     const paginatedResults = results.slice(startIndex, endIndex);
 
     // Remove relevanceScore from final results
-    const finalResults = paginatedResults.map(({ relevanceScore, ...hadith }) => hadith);
+    const finalResults = paginatedResults.map(
+      ({ relevanceScore, ...hadith }) => hadith
+    );
 
     return res.json({
       status: 200,
@@ -1784,12 +1925,18 @@ router.get("/search", async (req, res) => {
           total: results.length,
           from: results.length > 0 ? startIndex + 1 : 0,
           to: Math.min(endIndex, results.length),
-          next_page_url: page < Math.ceil(results.length / paginate) 
-            ? `/api/islamic-library/search?page=${parseInt(page) + 1}&q=${encodeURIComponent(q || '')}` 
-            : null,
-          prev_page_url: page > 1 
-            ? `/api/islamic-library/search?page=${parseInt(page) - 1}&q=${encodeURIComponent(q || '')}` 
-            : null,
+          next_page_url:
+            page < Math.ceil(results.length / paginate)
+              ? `/api/islamic-library/search?page=${
+                  parseInt(page) + 1
+                }&q=${encodeURIComponent(q || "")}`
+              : null,
+          prev_page_url:
+            page > 1
+              ? `/api/islamic-library/search?page=${
+                  parseInt(page) - 1
+                }&q=${encodeURIComponent(q || "")}`
+              : null,
         },
       },
     });
@@ -1825,15 +1972,19 @@ router.get("/suggestions", async (req, res) => {
         const bookData = await loadLocalBook(bookSlug);
         if (bookData && bookData.hadiths) {
           const narrators = new Set();
-          bookData.hadiths.forEach(hadith => {
-            if (hadith.english.narrator && 
-                (hadith.english.narrator.toLowerCase().includes(query) ||
-                 normalizeArabicText(hadith.english.narrator).toLowerCase().includes(normalizedQuery.toLowerCase()))) {
+          bookData.hadiths.forEach((hadith) => {
+            if (
+              hadith.english.narrator &&
+              (hadith.english.narrator.toLowerCase().includes(query) ||
+                normalizeArabicText(hadith.english.narrator)
+                  .toLowerCase()
+                  .includes(normalizedQuery.toLowerCase()))
+            ) {
               narrators.add(hadith.english.narrator);
             }
           });
-          
-          narrators.forEach(narrator => {
+
+          narrators.forEach((narrator) => {
             suggestions.push({
               type: "narrator",
               value: narrator,
@@ -1847,14 +1998,20 @@ router.get("/suggestions", async (req, res) => {
 
     if (type === "all" || type === "books") {
       // Book suggestions
-      Object.values(LOCAL_BOOKS).forEach(book => {
+      Object.values(LOCAL_BOOKS).forEach((book) => {
         const normalizedBookName = normalizeArabicText(book.bookName);
         const normalizedBookNameEn = normalizeArabicText(book.bookNameEn);
-        
-        if (book.bookNameEn.toLowerCase().includes(query) ||
-            book.bookName.toLowerCase().includes(query) ||
-            normalizedBookNameEn.toLowerCase().includes(normalizedQuery.toLowerCase()) ||
-            normalizedBookName.toLowerCase().includes(normalizedQuery.toLowerCase())) {
+
+        if (
+          book.bookNameEn.toLowerCase().includes(query) ||
+          book.bookName.toLowerCase().includes(query) ||
+          normalizedBookNameEn
+            .toLowerCase()
+            .includes(normalizedQuery.toLowerCase()) ||
+          normalizedBookName
+            .toLowerCase()
+            .includes(normalizedQuery.toLowerCase())
+        ) {
           suggestions.push({
             type: "book",
             value: book.bookNameEn,
@@ -1871,11 +2028,11 @@ router.get("/suggestions", async (req, res) => {
         const bookData = await loadLocalBook(bookSlug);
         if (bookData && bookData.hadiths) {
           const chapters = new Set();
-          bookData.hadiths.forEach(hadith => {
+          bookData.hadiths.forEach((hadith) => {
             chapters.add(hadith.chapterId);
           });
-          
-          chapters.forEach(chapterId => {
+
+          chapters.forEach((chapterId) => {
             if (chapterId.toString().includes(query)) {
               suggestions.push({
                 type: "chapter",
@@ -1891,8 +2048,12 @@ router.get("/suggestions", async (req, res) => {
     }
 
     // Remove duplicates and limit results
-    const uniqueSuggestions = suggestions.filter((suggestion, index, self) =>
-      index === self.findIndex(s => s.value === suggestion.value && s.type === suggestion.type)
+    const uniqueSuggestions = suggestions.filter(
+      (suggestion, index, self) =>
+        index ===
+        self.findIndex(
+          (s) => s.value === suggestion.value && s.type === suggestion.type
+        )
     );
 
     return res.json({
@@ -1925,7 +2086,7 @@ router.get("/search-stats", async (req, res) => {
       if (bookData && bookData.hadiths) {
         const hadithCount = bookData.hadiths.length;
         stats.totalHadiths += hadithCount;
-        
+
         stats.books.push({
           slug: bookSlug,
           name: bookConfig.bookNameEn,
@@ -1936,7 +2097,9 @@ router.get("/search-stats", async (req, res) => {
         // Category statistics
         if (!stats.categories[bookConfig.category]) {
           stats.categories[bookConfig.category] = {
-            name: BOOK_CATEGORIES[bookConfig.category]?.nameEn || bookConfig.category,
+            name:
+              BOOK_CATEGORIES[bookConfig.category]?.nameEn ||
+              bookConfig.category,
             bookCount: 0,
             hadithCount: 0,
           };

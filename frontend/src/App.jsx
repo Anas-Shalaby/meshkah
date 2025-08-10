@@ -133,7 +133,6 @@ function App() {
                   <Route path="/" element={<LandingPage />} />
                   <Route path="/about" element={<AboutPage />} />
                   <Route path="/contact" element={<Contact />} />
-                  <Route path="/contact-page" element={<ContactPage />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
                   <Route path="/google-success" element={<GoogleSuccess />} />
@@ -177,11 +176,9 @@ function App() {
                     path="/shared-card/:shareLink"
                     element={<SharedCard />}
                   />
-                  <Route path="/cards" element={<PublicCards />} />
                   <Route path="/create-card" element={<CreateCardPage />} />
 
                   <Route path="/anas" element={<Anas />} />
-                
 
                   {/* Islamic Library Routes */}
                   <Route
