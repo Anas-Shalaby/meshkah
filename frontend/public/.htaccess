@@ -2,6 +2,19 @@
   RewriteEngine On
   RewriteBase /
   
+  # SEO-friendly redirects
+  RewriteCond %{HTTP_HOST} !^hadith-shareef\.com$ [NC]
+  RewriteRule ^(.*)$ https://hadith-shareef.com/$1 [R=301,L]
+  
+  # Remove trailing slashes
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_URI} (.+)/$
+  RewriteRule ^ %1 [R=301,L]
+  
+  # Redirect duplicate pages
+  RewriteRule ^contact-page/?$ /contact [R=301,L]
+  RewriteRule ^cards/?$ /public-cards [R=301,L]
+  
   # Handle font files with specific rules
   <FilesMatch "\.(ttf|otf|woff|woff2)$">
     Header always set Access-Control-Allow-Origin "*"
@@ -43,6 +56,12 @@
     
     # Security Headers
     Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    
+    # SEO Headers
+    Header set X-Robots-Tag "index, follow"
     
     # Font specific headers
     <FilesMatch "\.(ttf|otf|woff|woff2)$">

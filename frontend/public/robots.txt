@@ -59,13 +59,9 @@ Disallow: /
 User-agent: ia_archiver
 Disallow: /
 
-# Block social media bots that might cause issues
+# Allow social media bots
 User-agent: facebookexternalhit
-Disallow: /
+Allow: /
 
 User-agent: Twitterbot
-Disallow: /
-
-# Allow Google and Bing to crawl everything
-User-agent: *
 Allow: /
