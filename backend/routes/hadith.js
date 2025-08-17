@@ -1,5 +1,6 @@
 const express = require("express");
-const db = require("../config/database"); // Assuming you have a database connection setup
+const db = require("../config/database");
+const axios = require("axios");
 const router = express.Router();
 
 router.get("/hadith-ids", async (req, res) => {
@@ -21,7 +22,7 @@ router.get("/hadith/random", async (req, res) => {
     );
     const randomHadith = results[0];
     res.json({ hadith: randomHadith });
-  } catch (error) {   
+  } catch (error) {
     console.error("Error fetching random hadith :", error);
     res.status(500).json({ message: "Error fetching random hadith ID" });
   }
@@ -34,9 +35,9 @@ router.get("/hadith/:id/details", async (req, res) => {
     const { language = "ar" } = req.query;
 
     if (!id) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Hadith ID is required" 
+        message: "Hadith ID is required",
       });
     }
 
@@ -50,28 +51,28 @@ router.get("/hadith/:id/details", async (req, res) => {
       const hadithResponse = await axios.get(
         `https://hadeethenc.com/api/v1/hadeeths/one/?language=${language}&id=${id}`
       );
-      
+
       hadithData = hadithResponse.data;
-      
+
       // If hadith has categories, fetch category details
       if (hadithData.categories && hadithData.categories.length > 0) {
         // Fetch all categories first
         const categoriesResponse = await axios.get(
           `https://hadeethenc.com/api/v1/categories/list/?language=${language}`
         );
-        
+
         const allCategories = categoriesResponse.data;
-        
+
         // Filter categories that belong to this hadith
-        hadithCategories = allCategories.filter(category => 
+        hadithCategories = allCategories.filter((category) =>
           hadithData.categories.includes(category.id.toString())
         );
       }
     } catch (error) {
       console.error("Error fetching from external API:", error);
-      return res.status(500).json({ 
+      return res.status(500).json({
         success: false,
-        message: "Error fetching hadith from external API" 
+        message: "Error fetching hadith from external API",
       });
     }
 
@@ -93,17 +94,17 @@ router.get("/hadith/:id/details", async (req, res) => {
         metadata: {
           language: language,
           categories: hadithCategories,
-        }
-      }
+        },
+      },
     };
 
     res.json(response);
   } catch (error) {
     console.error("Error fetching hadith details:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: "Internal server error", 
-      error: error.message 
+      message: "Internal server error",
+      error: error.message,
     });
   }
 });
@@ -115,9 +116,9 @@ router.get("/hadith/:id/simple", async (req, res) => {
     const { language = "ar" } = req.query;
 
     if (!id) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Hadith ID is required" 
+        message: "Hadith ID is required",
       });
     }
 
@@ -131,28 +132,28 @@ router.get("/hadith/:id/simple", async (req, res) => {
       const hadithResponse = await axios.get(
         `https://hadeethenc.com/api/v1/hadeeths/one/?language=${language}&id=${id}`
       );
-      
+
       hadithData = hadithResponse.data;
-      
+
       // If hadith has categories, fetch category details
       if (hadithData.categories && hadithData.categories.length > 0) {
         // Fetch all categories first
         const categoriesResponse = await axios.get(
           `https://hadeethenc.com/api/v1/categories/list/?language=${language}`
         );
-        
+
         const allCategories = categoriesResponse.data;
-        
+
         // Filter categories that belong to this hadith
-        hadithCategories = allCategories.filter(category => 
+        hadithCategories = allCategories.filter((category) =>
           hadithData.categories.includes(category.id.toString())
         );
       }
     } catch (error) {
       console.error("Error fetching from external API:", error);
-      return res.status(500).json({ 
+      return res.status(500).json({
         success: false,
-        message: "Error fetching hadith from external API" 
+        message: "Error fetching hadith from external API",
       });
     }
 
@@ -176,10 +177,41 @@ router.get("/hadith/:id/simple", async (req, res) => {
     res.json(response);
   } catch (error) {
     console.error("Error fetching hadith details:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: "Internal server error", 
-      error: error.message 
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+});
+
+router.get("/daily-hadith", async (req, res) => {
+  try {
+    const [hadithId] = await db.query(
+      "SELECT id FROM hadiths ORDER BY RAND() LIMIT 1"
+    );
+    const randomHadith = await axios.get(
+      `https://hadeethenc.com/api/v1/hadeeths/one/?language=ar&id=${hadithId[0].id}`
+    );
+
+    res.json({
+      status: true,
+      data: {
+        title: randomHadith.data.title,
+        hadith: randomHadith.data.hadeeth,
+        attribution: randomHadith.data.attribution,
+        grade: randomHadith.data.grade,
+        explanation: randomHadith.data.explanation,
+        hints: randomHadith.data.hints,
+        words_meanings: randomHadith.data.words_meanings,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching daily hadith:", error);
+    res.status(500).json({
+      status: false,
+      message: "Internal server error",
+      error: error.message,
     });
   }
 });
