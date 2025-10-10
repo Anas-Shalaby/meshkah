@@ -15,6 +15,8 @@ import {
   Star,
   BookOpen,
   Brain,
+  TableCellsMergeIcon,
+  Twitter,
 } from "lucide-react";
 import { useBookmarks } from "../context/BookmarkContext";
 import { useAuth } from "../context/AuthContext";
@@ -241,6 +243,13 @@ const DailyHadith = () => {
       case "facebook":
         shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
         break;
+      case "qabilah":
+        shareUrl = `https://qabilah.com/sharer?text=${encodeURIComponent(
+          text
+        )}&url=${encodeURIComponent(
+          "https://qabilah.com/profile/qabilah/posts"
+        )}`;
+        break;
       case "copy":
         navigator.clipboard.writeText(
           `https://hadith-shareef.com/hadiths/hadith/${dailyHadith.id}`
@@ -289,38 +298,38 @@ const DailyHadith = () => {
       {/* Enhanced Background Elements */}
       <div className="absolute inset-0">
         <motion.div
-          animate={{ 
+          animate={{
             rotate: 360,
             scale: [1, 1.1, 1],
           }}
-          transition={{ 
+          transition={{
             duration: 20,
             repeat: Infinity,
-            ease: "linear"
+            ease: "linear",
           }}
           className="absolute -top-20 -right-20 w-60 h-60 sm:w-80 sm:h-80 bg-purple-500/5 rounded-full blur-3xl"
         />
         <motion.div
-          animate={{ 
+          animate={{
             rotate: -360,
             scale: [1, 1.2, 1],
           }}
-          transition={{ 
+          transition={{
             duration: 25,
             repeat: Infinity,
-            ease: "linear"
+            ease: "linear",
           }}
           className="absolute -bottom-20 -left-20 w-72 h-72 sm:w-96 sm:h-96 bg-blue-500/5 rounded-full blur-3xl"
         />
         <motion.div
-          animate={{ 
+          animate={{
             scale: [1, 1.15, 1],
-            opacity: [0.1, 0.2, 0.1]
+            opacity: [0.1, 0.2, 0.1],
           }}
-          transition={{ 
+          transition={{
             duration: 8,
             repeat: Infinity,
-            ease: "easeInOut"
+            ease: "easeInOut",
           }}
           className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-48 sm:w-64 sm:h-64 bg-indigo-500/5 rounded-full blur-2xl"
         />
@@ -330,7 +339,7 @@ const DailyHadith = () => {
         title="حديث اليوم - مشكاة"
         description="حديث اليوم من الأحاديث النبوية الشريفة مع التحليل والشرح"
       />
-      
+
       <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         {/* Header */}
         <motion.div
@@ -657,7 +666,7 @@ const DailyHadith = () => {
         />
       )}
 
-      {/* Share Modal */}
+      {/* Simple Share Modal */}
       <AnimatePresence>
         {showShareModal && (
           <motion.div
@@ -671,7 +680,7 @@ const DailyHadith = () => {
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-white rounded-2xl sm:rounded-3xl p-6 max-w-sm w-full shadow-2xl"
+              className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="text-center mb-6">
@@ -686,64 +695,81 @@ const DailyHadith = () => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => shareToSocialMedia("whatsapp")}
-                  className="flex items-center gap-2 p-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                  className="inline-flex items-center px-4 text-[18px] h-[2.5rem] bg-transparent text-primary rounded-lg hover:bg-primary/10 font-medium gap-3 border border-primary transition-colors"
                 >
                   <svg
-                    className="w-5 h-5"
+                    className="w-5 h-5 text-green-800"
                     fill="currentColor"
                     viewBox="0 0 24 24"
                   >
                     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488" />
                   </svg>
-                  WhatsApp
+                  الواتس
                 </motion.button>
 
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => shareToSocialMedia("telegram")}
-                  className="flex items-center gap-2 p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  className="inline-flex items-center px-4 text-[18px] h-[2.5rem] bg-transparent text-primary rounded-lg hover:bg-primary/10 font-medium gap-3 border border-primary transition-colors"
                 >
                   <svg
-                    className="w-5 h-5"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
+                    className="w-7 h-7 text-blue-800"
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 640 640"
                   >
-                    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+                    <path d="M320 72C183 72 72 183 72 320C72 457 183 568 320 568C457 568 568 457 568 320C568 183 457 72 320 72zM435 240.7C431.3 279.9 415.1 375.1 406.9 419C403.4 437.6 396.6 443.8 390 444.4C375.6 445.7 364.7 434.9 350.7 425.7C328.9 411.4 316.5 402.5 295.4 388.5C270.9 372.4 286.8 363.5 300.7 349C304.4 345.2 367.8 287.5 369 282.3C369.2 281.6 369.3 279.2 367.8 277.9C366.3 276.6 364.2 277.1 362.7 277.4C360.5 277.9 325.6 300.9 258.1 346.5C248.2 353.3 239.2 356.6 231.2 356.4C222.3 356.2 205.3 351.4 192.6 347.3C177.1 342.3 164.7 339.6 165.8 331C166.4 326.5 172.5 322 184.2 317.3C256.5 285.8 304.7 265 328.8 255C397.7 226.4 412 221.4 421.3 221.2C423.4 221.2 427.9 221.7 430.9 224.1C432.9 225.8 434.1 228.2 434.4 230.8C434.9 234 435 237.3 434.8 240.6z" />
                   </svg>
-                  Telegram
+                  تليجيرام
                 </motion.button>
 
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => shareToSocialMedia("twitter")}
-                  className="flex items-center gap-2 p-3 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition-colors"
+                  className="inline-flex items-center px-4 text-[18px] h-[2.5rem] bg-transparent text-primary rounded-lg hover:bg-primary/10 font-medium gap-3 border border-primary transition-colors"
                 >
-                  <svg
-                    className="w-5 h-5"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z" />
-                  </svg>
-                  Twitter
+                  <Twitter className="w-7 text-blue-800 h-7" />
+                  تويتر
                 </motion.button>
 
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => shareToSocialMedia("facebook")}
-                  className="flex items-center gap-2 p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  onClick={() => shareToSocialMedia("qabilah")}
+                  className="inline-flex items-center hover:bg-[#F3E2DE] border border-[#F3E2DE]  px-4 text-[18px] rounded-lg  font-medium gap-3  transition-colors"
                 >
                   <svg
-                    className="w-5 h-5"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 1080 1080"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
                   >
-                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                    <path
+                      d="M872.55 1080H207.44C92.87 1080 -0.0100098 987.12 -0.0100098 872.55V207.45C-0.0100098 92.88 92.87 0 207.44 0H872.55C987.12 0 1080 92.88 1080 207.45V872.56C1079.99 987.12 987.12 1080 872.55 1080Z"
+                      fill="url(#paint0_linear_212_3)"
+                    ></path>
+                    <path
+                      d="M554.67 965.75C511.13 970.65 477.08 956.76 453.34 938.82C429.61 920.86 417.74 895.76 417.74 863.51C417.74 847.08 420.16 831.25 425.04 816.04L488.16 575.43C450.42 615 405.69 634.77 353.97 634.77C326.58 634.77 301.48 628.24 278.66 615.14C255.84 602.06 237.88 582.59 224.8 556.72C211.71 530.86 205.17 499.98 205.17 464.06C205.17 434.25 208.82 405.64 216.12 378.25C228.9 327.74 248.83 285.29 275.91 250.9C302.98 216.52 334.33 190.96 369.94 174.22C405.54 157.49 442.51 149.12 480.85 149.12C516.75 149.12 547.03 154.3 571.68 164.64C596.33 175 618.38 190.81 637.86 212.11L683.84 174.18C696.32 163.89 711.99 158.25 728.17 158.25H823.65C833.82 158.25 841.17 167.99 838.37 177.77L662.38 792.31C657.5 809.95 655.08 822.12 655.08 828.82C655.08 836.72 657.05 842.2 661.01 845.25C664.96 848.29 671.51 849.81 680.64 849.81C684.59 849.81 688.96 849.54 693.75 849.01C701.55 848.14 709.26 846.65 716.88 844.74L749.5 836.72C756.58 834.98 762.22 842.67 758.44 848.9C758.44 848.9 676.85 952.01 554.67 965.75Z"
+                      fill="white"
+                    ></path>
+                    <defs>
+                      <linearGradient
+                        id="paint0_linear_212_3"
+                        x1="129.461"
+                        y1="922.231"
+                        x2="958.044"
+                        y2="150.773"
+                        gradientUnits="userSpaceOnUse"
+                      >
+                        <stop stop-color="#FF544F"></stop>
+                        <stop offset="0.5532" stop-color="#FF923F"></stop>
+                        <stop offset="1" stop-color="#FFBF33"></stop>
+                      </linearGradient>
+                    </defs>
                   </svg>
-                  Facebook
+                  قبيلة
                 </motion.button>
 
                 <motion.button

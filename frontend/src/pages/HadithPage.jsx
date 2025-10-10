@@ -4,7 +4,12 @@ import axios from "axios";
 import { toast } from "react-hot-toast";
 import "react-toastify/dist/ReactToastify.css";
 import SEO from "../components/SEO";
-import { motion, AnimatePresence, LazyMotion, domAnimation } from "framer-motion";
+import {
+  motion,
+  AnimatePresence,
+  LazyMotion,
+  domAnimation,
+} from "framer-motion";
 import PropTypes from "prop-types";
 import {
   ClipboardDocumentIcon,
@@ -40,13 +45,19 @@ import {
   BookOpen,
   ArrowRight,
 } from "lucide-react";
-import { TranslationOutlined } from "@ant-design/icons";
+import {
+  FacebookFilled,
+  FacebookOutlined,
+  TranslationOutlined,
+  WhatsAppOutlined,
+} from "@ant-design/icons";
 import { useHadithCategories } from "../hooks/useHadithCategories";
 import { Dialog } from "@headlessui/react";
 import BookmarkModal from "../components/BookmarkModal";
 import SunnahPlannerModal from "../components/SunnahPlannerModal";
 import Joyride, { STATUS } from "react-joyride";
 import { useAuth } from "../context/AuthContext";
+import { useHadithTracking } from "../hooks/useHadithTracking";
 
 const ShareModal = ({ isOpen, onClose, hadithDetails }) => {
   const url = window.location.href;
@@ -63,24 +74,41 @@ const ShareModal = ({ isOpen, onClose, hadithDetails }) => {
   const shareOptions = [
     {
       name: "تويتر",
-      icon: <X className="w-6 h-6 text-black" />,
+      icon: (
+        <svg
+          className="w-8 h-8 text-blue-600"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 640 640"
+        >
+          <path d="M453.2 112L523.8 112L369.6 288.2L551 528L409 528L297.7 382.6L170.5 528L99.8 528L264.7 339.5L90.8 112L236.4 112L336.9 244.9L453.2 112zM428.4 485.8L467.5 485.8L215.1 152L173.1 152L428.4 485.8z" />
+        </svg>
+      ),
       url: `https://twitter.com/intent/tweet?url=${encodeURIComponent(
         url
       )}&text=${encodeURIComponent(text)}`,
     },
     {
       name: "فيسبوك",
-      icon: <FacebookIcon className="w-6 h-6 text-blue-600" />,
+      icon: <FacebookFilled className="w-8 h-8 text-2xl text-blue-600" />,
       url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
         url
       )}`,
     },
     {
       name: "واتساب",
-      icon: <MessageCircle className="w-6 h-6 text-green-500" />,
+      icon: <WhatsAppOutlined className="w-8 h-8 text-2xl text-green-500" />,
       url: `https://api.whatsapp.com/send?text=${encodeURIComponent(
         text + " " + url
       )}`,
+    },
+    {
+      name: "شارك على قبيلة",
+      url: `https://qabilah.com/sharer?text=${encodeURIComponent(
+        text
+      )}&url=${encodeURIComponent(url)}`,
+      dataSize: "medium",
+      dataVariant: "button",
+      dataLang: "ar",
     },
   ];
 
@@ -123,19 +151,76 @@ const ShareModal = ({ isOpen, onClose, hadithDetails }) => {
               <Copy className="w-5 h-5" />
             </button>
           </div>
-          <div className="grid grid-cols-3 gap-4">
-            {shareOptions.map((option) => (
-              <a
-                key={option.name}
-                href={option.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex flex-col items-center hover:bg-gray-100 justify-center gap-2 p-4 rounded-xl  transition-colors"
-              >
-                {option.icon}
-                <span className="text-sm text-indigo-600">{option.name}</span>
-              </a>
-            ))}
+          <div className="grid grid-cols-4 items-center gap-4">
+            {shareOptions.map((option) =>
+              option.name === "شارك على قبيلة" ? (
+                <div key={option.name} className="flex flex-col items-center">
+                  <a
+                    className="flex hover:bg-[#F3E2DE]  border-[#F3E2DE] flex-col items-center px-4 text-[18px] p-4 rounded-lg  font-medium gap-3  transition-colors"
+                    target="_blank"
+                    href={option.url}
+                    data-size={option.dataSize}
+                    data-variant={option.dataVariant}
+                    data-lang={option.dataLang}
+                    title={option.name}
+                  >
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 1080 1080"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M872.55 1080H207.44C92.87 1080 -0.0100098 987.12 -0.0100098 872.55V207.45C-0.0100098 92.88 92.87 0 207.44 0H872.55C987.12 0 1080 92.88 1080 207.45V872.56C1079.99 987.12 987.12 1080 872.55 1080Z"
+                        fill="url(#paint0_linear_212_3)"
+                      ></path>
+                      <path
+                        d="M554.67 965.75C511.13 970.65 477.08 956.76 453.34 938.82C429.61 920.86 417.74 895.76 417.74 863.51C417.74 847.08 420.16 831.25 425.04 816.04L488.16 575.43C450.42 615 405.69 634.77 353.97 634.77C326.58 634.77 301.48 628.24 278.66 615.14C255.84 602.06 237.88 582.59 224.8 556.72C211.71 530.86 205.17 499.98 205.17 464.06C205.17 434.25 208.82 405.64 216.12 378.25C228.9 327.74 248.83 285.29 275.91 250.9C302.98 216.52 334.33 190.96 369.94 174.22C405.54 157.49 442.51 149.12 480.85 149.12C516.75 149.12 547.03 154.3 571.68 164.64C596.33 175 618.38 190.81 637.86 212.11L683.84 174.18C696.32 163.89 711.99 158.25 728.17 158.25H823.65C833.82 158.25 841.17 167.99 838.37 177.77L662.38 792.31C657.5 809.95 655.08 822.12 655.08 828.82C655.08 836.72 657.05 842.2 661.01 845.25C664.96 848.29 671.51 849.81 680.64 849.81C684.59 849.81 688.96 849.54 693.75 849.01C701.55 848.14 709.26 846.65 716.88 844.74L749.5 836.72C756.58 834.98 762.22 842.67 758.44 848.9C758.44 848.9 676.85 952.01 554.67 965.75Z"
+                        fill="white"
+                      ></path>
+                      <defs>
+                        <linearGradient
+                          id="paint0_linear_212_3"
+                          x1="129.461"
+                          y1="922.231"
+                          x2="958.044"
+                          y2="150.773"
+                          gradientUnits="userSpaceOnUse"
+                        >
+                          <stop stop-color="#FF544F"></stop>
+                          <stop offset="0.5532" stop-color="#FF923F"></stop>
+                          <stop offset="1" stop-color="#FFBF33"></stop>
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                    قبيلة
+                  </a>
+                  {/* Fallback button in case Qabilah script doesn't work */}
+                  <a
+                    href={option.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex flex-col items-center  hover:bg-gray-100 justify-center gap-2 p-4 rounded-xl transition-colors text-sm text-indigo-600"
+                    style={{ display: "none" }}
+                    id="qabilah-fallback"
+                  >
+                    <span>قبيلة</span>
+                  </a>
+                </div>
+              ) : (
+                <a
+                  key={option.name}
+                  href={option.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-col text-[18px]  font-medium items-center hover:bg-gray-100 justify-center gap-2 p-4 rounded-xl transition-colors"
+                >
+                  {option.icon}
+                  <span className="">{option.name}</span>
+                </a>
+              )
+            )}
           </div>
         </div>
       </Dialog.Panel>
@@ -380,6 +465,8 @@ const HadithPage = () => {
   const { isAuthenticated } = useAuth();
   const { addBookmark, removeBookmark, bookmarks } = useBookmarks();
   const { categories } = useHadithCategories();
+  const { trackHadithView, trackHadithRead, startReading } =
+    useHadithTracking();
 
   // Performance optimizations with useMemo and useCallback
   const [hadithDetails, setHadithDetails] = useState(null);
@@ -429,11 +516,15 @@ const HadithPage = () => {
 
   // Memoized values for performance
   const isBookmarked = useMemo(() => {
-    return bookmarks.some((bookmark) => bookmark.hadithId === parseInt(hadithId));
+    return bookmarks.some(
+      (bookmark) => bookmark.hadithId === parseInt(hadithId)
+    );
   }, [bookmarks, hadithId]);
 
   const bookmarkItem = useMemo(() => {
-    return bookmarks.find((bookmark) => bookmark.hadithId === parseInt(hadithId));
+    return bookmarks.find(
+      (bookmark) => bookmark.hadithId === parseInt(hadithId)
+    );
   }, [bookmarks, hadithId]);
 
   // Optimized fetch functions with useCallback
@@ -444,7 +535,14 @@ const HadithPage = () => {
         `https://hadeethenc.com/api/v1/hadeeths/one/?language=ar&id=${hadithId}`
       );
       setHadithDetails(response.data);
-      
+
+      // تتبع مشاهدة الحديث
+      if (response.data && isAuthenticated) {
+        await trackHadithView(hadithId);
+        // بدء تتبع وقت القراءة
+        startReading(hadithId);
+      }
+
       // Preload similar hadiths after we have the hadith details
       if (response.data) {
         fetchSimilarHadiths(response.data);
@@ -455,11 +553,11 @@ const HadithPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [hadithId]);
+  }, [hadithId, isAuthenticated]);
 
   const fetchSimilarHadiths = useCallback(async (hadithData) => {
     if (!hadithData?.categories?.length) return;
-    
+
     try {
       setIsLoadingSimilar(true);
       const categoryId = hadithData.categories[0];
@@ -467,9 +565,7 @@ const HadithPage = () => {
         `https://hadeethenc.com/api/v1/hadeeths/list/?language=ar&category_id=${categoryId}&page=1&per_page=6`
       );
       setSimilarHadiths(
-        response.data.data.filter(
-          (h) => String(h.id) !== String(hadithData.id)
-        )
+        response.data.data.filter((h) => String(h.id) !== String(hadithData.id))
       );
     } catch (error) {
       console.error("Error fetching similar hadiths:", error);
@@ -480,7 +576,7 @@ const HadithPage = () => {
 
   const fetchRemainingQuestions = useCallback(async () => {
     if (!isAuthenticated) return;
-    
+
     try {
       const response = await axios.get(
         `${import.meta.env.VITE_API_URL}/ai/remaining-questions`,
@@ -490,7 +586,7 @@ const HadithPage = () => {
           },
         }
       );
-      
+
       // إذا كان المستخدم رقم 5، عيّن عدد غير محدود
       if (response.data.unlimited) {
         setRemainingQuestions(-1);
@@ -569,7 +665,13 @@ const HadithPage = () => {
     } else {
       setIsBookmarkModalOpen(true);
     }
-  }, [isAuthenticated, isBookmarked, hadithId, removeBookmark, handleAuthRedirect]);
+  }, [
+    isAuthenticated,
+    isBookmarked,
+    hadithId,
+    removeBookmark,
+    handleAuthRedirect,
+  ]);
 
   const copyToClipboard = useCallback(() => {
     if (hadithDetails?.hadeeth) {
@@ -590,132 +692,140 @@ const HadithPage = () => {
   }, [isAuthenticated, fetchShortAnalysis]);
 
   // CollapsibleSection component - Mobile Friendly
-  const CollapsibleSection = useCallback(({
-    title,
-    children,
-    icon: Icon,
-    defaultOpen = false,
-  }) => {
-    const [isOpen, setIsOpen] = useState(defaultOpen);
-    return (
-      <motion.div className="w-full">
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="w-full flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4 rounded-lg sm:rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 text-right cursor-pointer transition-all duration-300 shadow-inner hover:from-purple-100 hover:to-indigo-100"
-        >
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
-            <span className="font-bold text-purple-600 text-sm sm:text-base">{title}</span>
-          </div>
-          <ChevronDownIcon
-            className={`w-4 h-4 sm:w-5 sm:h-5 text-purple-600 transition-transform duration-300 ${
-              isOpen ? "transform rotate-180" : ""
-            }`}
-          />
-        </button>
-        <AnimatePresence>
-          {isOpen && (
-            <motion.div
-              initial="collapsed"
-              animate="open"
-              exit="collapsed"
-              variants={{
-                open: { opacity: 1, height: "auto", marginTop: "0.75rem" },
-                collapsed: { opacity: 0, height: 0, marginTop: "0rem" },
-              }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="overflow-hidden"
-            >
-              <div className="p-4 sm:p-5 bg-white/80 rounded-lg sm:rounded-xl border border-purple-200/50 shadow-sm text-gray-800 text-sm sm:text-base leading-relaxed text-right">
-                {children}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
-    );
-  }, []);
+  const CollapsibleSection = useCallback(
+    ({ title, children, icon: Icon, defaultOpen = false }) => {
+      const [isOpen, setIsOpen] = useState(defaultOpen);
+      return (
+        <motion.div className="w-full">
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="w-full flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4 rounded-lg sm:rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 text-right cursor-pointer transition-all duration-300 shadow-inner hover:from-purple-100 hover:to-indigo-100"
+          >
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
+              <span className="font-bold text-purple-600 text-sm sm:text-base">
+                {title}
+              </span>
+            </div>
+            <ChevronDownIcon
+              className={`w-4 h-4 sm:w-5 sm:h-5 text-purple-600 transition-transform duration-300 ${
+                isOpen ? "transform rotate-180" : ""
+              }`}
+            />
+          </button>
+          <AnimatePresence>
+            {isOpen && (
+              <motion.div
+                initial="collapsed"
+                animate="open"
+                exit="collapsed"
+                variants={{
+                  open: { opacity: 1, height: "auto", marginTop: "0.75rem" },
+                  collapsed: { opacity: 0, height: 0, marginTop: "0rem" },
+                }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+                className="overflow-hidden"
+              >
+                <div className="p-4 sm:p-5 bg-white/80 rounded-lg sm:rounded-xl border border-purple-200/50 shadow-sm text-gray-800 text-sm sm:text-base leading-relaxed text-right">
+                  {children}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      );
+    },
+    []
+  );
 
   // Enhanced SimilarHadithCard component - Mobile Friendly
-  const EnhancedSimilarHadithCard = useCallback(({ hadith }) => (
-    <Link to={`/hadiths/hadith/${hadith.id}`} className="block h-full group">
-      <motion.div
-        whileHover={{
-          y: -8,
-          boxShadow: "0px 20px 40px rgba(116, 64, 233, 0.15)",
-        }}
-        className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-purple-200/50 h-full flex flex-col text-right shadow-lg hover:shadow-2xl transition-all duration-300 relative overflow-hidden"
-      >
-        {/* Decorative background element */}
-        <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-full opacity-20 -translate-y-2 translate-x-2"></div>
-        
-        {/* Header with icon */}
-        <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4 relative z-10">
-          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-md">
-            <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-          </div>
-          <div className="flex-1">
-            <h4 className="font-semibold text-gray-800 text-xs sm:text-sm mb-1">حديث مشابه</h4>
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-purple-500 rounded-full"></div>
-              <span className="text-xs text-gray-500">ذات صلة</span>
-            </div>
-          </div>
-        </div>
+  const EnhancedSimilarHadithCard = useCallback(
+    ({ hadith }) => (
+      <Link to={`/hadiths/hadith/${hadith.id}`} className="block h-full group">
+        <motion.div
+          whileHover={{
+            y: -8,
+            boxShadow: "0px 20px 40px rgba(116, 64, 233, 0.15)",
+          }}
+          className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-purple-200/50 h-full flex flex-col text-right shadow-lg hover:shadow-2xl transition-all duration-300 relative overflow-hidden"
+        >
+          {/* Decorative background element */}
+          <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-full opacity-20 -translate-y-2 translate-x-2"></div>
 
-        {/* Hadith content */}
-        <div className="flex-1 relative z-10">
-          <p className="text-gray-700 text-sm sm:text-base leading-relaxed line-clamp-4 mb-3 sm:mb-4 font-medium">
-            {hadith.hadeeth || hadith.title}
-          </p>
-          
-          {/* Attribution if available */}
-          {hadith.attribution && (
-            <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-gray-500 mb-2 sm:mb-3">
-              <Users className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-              <span className="text-xs">{hadith.attribution}</span>
+          {/* Header with icon */}
+          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4 relative z-10">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-md">
+              <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
-          )}
-          
-          {/* Grade if available */}
-          {hadith.grade && (
-            <div className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-green-50 text-green-700 rounded-full text-xs font-medium">
-              <Shield className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-              <span className="text-xs">{hadith.grade}</span>
+            <div className="flex-1">
+              <h4 className="font-semibold text-gray-800 text-xs sm:text-sm mb-1">
+                حديث مشابه
+              </h4>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-purple-500 rounded-full"></div>
+                <span className="text-xs text-gray-500">ذات صلة</span>
+              </div>
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* Footer with arrow */}
-        <div className="flex items-center justify-between mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-purple-100/50 relative z-10">
-          <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-gray-500">
-            <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-            <span className="text-xs">انقر للقراءة</span>
+          {/* Hadith content */}
+          <div className="flex-1 relative z-10">
+            <p className="text-gray-700 text-sm sm:text-base leading-relaxed line-clamp-4 mb-3 sm:mb-4 font-medium">
+              {hadith.hadeeth || hadith.title}
+            </p>
+
+            {/* Attribution if available */}
+            {hadith.attribution && (
+              <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-gray-500 mb-2 sm:mb-3">
+                <Users className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                <span className="text-xs">{hadith.attribution}</span>
+              </div>
+            )}
+
+            {/* Grade if available */}
+            {hadith.grade && (
+              <div className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-green-50 text-green-700 rounded-full text-xs font-medium">
+                <Shield className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                <span className="text-xs">{hadith.grade}</span>
+              </div>
+            )}
           </div>
-          <div className="w-5 h-5 sm:w-6 sm:h-6 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-            <ArrowRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
+
+          {/* Footer with arrow */}
+          <div className="flex items-center justify-between mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-purple-100/50 relative z-10">
+            <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-gray-500">
+              <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+              <span className="text-xs">انقر للقراءة</span>
+            </div>
+            <div className="w-5 h-5 sm:w-6 sm:h-6 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+              <ArrowRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
+            </div>
           </div>
-        </div>
-      </motion.div>
-    </Link>
-  ), []);
+        </motion.div>
+      </Link>
+    ),
+    []
+  );
 
   // Original SimilarHadithCard component (kept for backward compatibility)
-  const SimilarHadithCard = useCallback(({ hadith }) => (
-    <Link to={`/hadiths/hadith/${hadith.id}`} className="block h-full">
-      <motion.div
-        whileHover={{
-          y: -5,
-          boxShadow: "0px 10px 20px rgba(116, 64, 233, 0.1)",
-        }}
-        className="bg-white/70 backdrop-blur-md rounded-2xl p-4 border border-purple-100/80 h-full flex flex-col text-right"
-      >
-        <p className="text-gray-600 text-md leading-relaxed line-clamp-4 flex-grow">
-          {hadith.title}
-        </p>
-      </motion.div>
-    </Link>
-  ), []);
+  const SimilarHadithCard = useCallback(
+    ({ hadith }) => (
+      <Link to={`/hadiths/hadith/${hadith.id}`} className="block h-full">
+        <motion.div
+          whileHover={{
+            y: -5,
+            boxShadow: "0px 10px 20px rgba(116, 64, 233, 0.1)",
+          }}
+          className="bg-white/70 backdrop-blur-md rounded-2xl p-4 border border-purple-100/80 h-full flex flex-col text-right"
+        >
+          <p className="text-gray-600 text-md leading-relaxed line-clamp-4 flex-grow">
+            {hadith.title}
+          </p>
+        </motion.div>
+      </Link>
+    ),
+    []
+  );
 
   // PropTypes for components
   CollapsibleSection.propTypes = {
@@ -760,13 +870,54 @@ const HadithPage = () => {
   useEffect(() => {
     fetchHadithDetails();
     fetchRemainingQuestions();
-    
+
     // Check if tour should run
     const hasSeenTour = localStorage.getItem("hadithpage_tour");
     if (!hasSeenTour) {
       setRunTour(true);
     }
   }, [fetchHadithDetails, fetchRemainingQuestions]);
+
+  // Ensure Qabilah script is loaded
+  useEffect(() => {
+    const checkQabilahScript = () => {
+      if (
+        window.qabilah ||
+        document.querySelector('script[src*="qabilah.com/widgets.js"]')
+      ) {
+        return;
+      }
+
+      // If script not loaded, load it manually
+      const script = document.createElement("script");
+      script.src = "https://qabilah.com/widgets.js";
+      script.async = true;
+      document.head.appendChild(script);
+    };
+
+    // Check immediately and also after a delay
+    checkQabilahScript();
+    const timer = setTimeout(checkQabilahScript, 1000);
+
+    // Show fallback button if Qabilah script doesn't work after 3 seconds
+    const fallbackTimer = setTimeout(() => {
+      const qabilahButton = document.querySelector(".qabilah-share-button");
+      const fallbackButton = document.getElementById("qabilah-fallback");
+
+      if (
+        (qabilahButton && fallbackButton && !qabilahButton.style.display) ||
+        qabilahButton.style.display === "none"
+      ) {
+        qabilahButton.style.display = "none";
+        fallbackButton.style.display = "flex";
+      }
+    }, 3000);
+
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(fallbackTimer);
+    };
+  }, []);
 
   // Generate siraj data
   useEffect(() => {
@@ -823,7 +974,10 @@ const HadithPage = () => {
           >
             <div className="relative">
               <div className="w-20 h-20 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
-              <div className="absolute inset-0 w-20 h-20 border-4 border-transparent border-t-purple-400 rounded-full animate-spin" style={{ animationDelay: '0.5s' }}></div>
+              <div
+                className="absolute inset-0 w-20 h-20 border-4 border-transparent border-t-purple-400 rounded-full animate-spin"
+                style={{ animationDelay: "0.5s" }}
+              ></div>
             </div>
             <motion.p
               initial={{ opacity: 0, y: 10 }}
@@ -861,7 +1015,7 @@ const HadithPage = () => {
           }
         }}
       />
-      
+
       <div className="min-h-screen relative bg-gradient-to-br from-[#f7f6fb] via-[#f3edff] to-[#e9e4f5] overflow-x-hidden">
         <SEO
           title={`شرح حديث ${hadithDetails.title?.substring(0, 50)}...`}
@@ -870,21 +1024,23 @@ const HadithPage = () => {
         />
 
         {/* Enhanced AI Assistant Button - Mobile Friendly */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
           className="fixed bottom-4 sm:bottom-8 right-4 sm:right-8 z-50 flex flex-col items-center gap-2 sm:gap-3"
         >
           {isAuthenticated && remainingQuestions !== null && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               className="px-3 sm:px-4 py-2 sm:py-3 bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-2xl border border-purple-200/50 text-xs sm:text-sm text-purple-800 text-center max-w-[280px] sm:max-w-xs"
             >
               <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
                 <Zap className="w-3 h-3 sm:w-4 sm:h-4 text-purple-600" />
-                <p className="font-bold text-xs sm:text-sm">أنا سراج، مساعدك الذكي</p>
+                <p className="font-bold text-xs sm:text-sm">
+                  أنا سراج، مساعدك الذكي
+                </p>
               </div>
               <p className="text-xs">
                 {remainingQuestions === -1
@@ -893,7 +1049,7 @@ const HadithPage = () => {
               </p>
             </motion.div>
           )}
-          
+
           <motion.button
             whileHover={{ scale: 1.05, y: -2 }}
             whileTap={{ scale: 0.95 }}
@@ -914,7 +1070,7 @@ const HadithPage = () => {
 
         {/* Enhanced Main Content - Mobile Friendly */}
         <div className="relative z-10 max-w-5xl mx-auto sm:px-6 lg:px-8  sm:py-8">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
@@ -929,7 +1085,9 @@ const HadithPage = () => {
                 className="flex items-center gap-2 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl shadow-xl bg-white/90 hover:bg-white transition-all duration-300"
               >
                 <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
-                <span className="text-xs sm:text-sm font-medium text-purple-700">رجوع</span>
+                <span className="text-xs sm:text-sm font-medium text-purple-700">
+                  رجوع
+                </span>
               </motion.button>
 
               <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-center">
@@ -943,7 +1101,7 @@ const HadithPage = () => {
                   <span className="hidden sm:inline">تحليل سريع</span>
                   <span className="sm:hidden">تحليل</span>
                 </motion.button>
-                
+
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   onClick={copyToClipboard}
@@ -952,7 +1110,7 @@ const HadithPage = () => {
                 >
                   <Copy className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
                 </motion.button>
-                
+
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   onClick={() => setIsShareModalOpen(true)}
@@ -961,56 +1119,58 @@ const HadithPage = () => {
                 >
                   <ShareIcon className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
                 </motion.button>
-                
+
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   onClick={handleBookmarkToggle}
                   className={`p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-300 shadow-lg ${
-                    isBookmarked 
-                      ? "bg-gradient-to-r from-yellow-400 to-orange-400 text-white" 
+                    isBookmarked
+                      ? "bg-gradient-to-r from-yellow-400 to-orange-400 text-white"
                       : "bg-white/90 hover:bg-white"
                   }`}
                   title="حفظ"
                 >
-                  <Bookmark className={`w-4 h-4 sm:w-5 sm:h-5 ${isBookmarked ? "fill-current" : "text-purple-600"}`} />
+                  <Bookmark
+                    className={`w-4 h-4 sm:w-5 sm:h-5 ${
+                      isBookmarked ? "fill-current" : "text-purple-600"
+                    }`}
+                  />
                 </motion.button>
-                
+
                 <motion.button
                   whileHover={{ scale: 1.05 }}
-                  onClick={() => {
+                  onClick={async () => {
                     if (!isAuthenticated) {
                       handleAuthRedirect();
                       return;
                     }
-                    setIsSunnahModalOpen(true);
+                    await trackHadithRead(hadithId);
+                    toast.success("تم تسجيل قراءة الحديث بنجاح! 📖");
                   }}
                   className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-white/90 hover:bg-white transition-all duration-300 shadow-lg"
-                  title="أضف السنّة إلى مخططك"
+                  title="تمت القراءة"
                 >
-                  <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
+                  <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
                 </motion.button>
               </div>
             </div>
 
-            {/* Enhanced Hadith Text - Mobile Friendly */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
               className="w-full bg-gradient-to-br from-white/80 to-purple-50/80 rounded-2xl sm:rounded-3xl p-2 sm:p-6 md:p-8 mb-6 sm:mb-8 shadow-inner border border-purple-200/50"
             >
               <div className="relative">
-              
-                
                 <p
                   style={{ lineHeight: "2.5" }}
                   className="prose max-w-none text-lg sm:text-xl md:text-2xl text-gray-800 leading-loose amiri-regular text-right relative z-10"
                 >
                   {hadithDetails?.hadeeth}
                 </p>
-                
+
                 {hadithDetails?.attribution && (
-                  <motion.p 
+                  <motion.p
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.5 }}
@@ -1020,9 +1180,9 @@ const HadithPage = () => {
                     المحدث - {hadithDetails.attribution}
                   </motion.p>
                 )}
-                
+
                 {hadithDetails?.grade && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.7 }}
@@ -1038,7 +1198,7 @@ const HadithPage = () => {
             </motion.div>
 
             {/* Enhanced Collapsible sections container - Mobile Friendly */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
@@ -1104,7 +1264,7 @@ const HadithPage = () => {
             className="mt-12 w-full max-w-5xl mx-auto mb-12"
           >
             {/* Enhanced Header - Mobile Friendly */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.8 }}
@@ -1115,11 +1275,15 @@ const HadithPage = () => {
                   <BookA className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                 </div>
                 <div className="text-center sm:text-right">
-                  <h2 className="text-2xl sm:text-3xl font-bold text-purple-700">أحاديث مشابهة</h2>
-                  <p className="text-gray-500 text-xs sm:text-sm mt-1">اكتشف أحاديث ذات صلة وثيقة</p>
+                  <h2 className="text-2xl sm:text-3xl font-bold text-purple-700">
+                    أحاديث مشابهة
+                  </h2>
+                  <p className="text-gray-500 text-xs sm:text-sm mt-1">
+                    اكتشف أحاديث ذات صلة وثيقة
+                  </p>
                 </div>
               </div>
-              
+
               {similarHadiths.length > 0 && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.8 }}
@@ -1134,7 +1298,7 @@ const HadithPage = () => {
                 </motion.div>
               )}
             </motion.div>
-            
+
             {/* Enhanced Loading State - Mobile Friendly */}
             {isLoadingSimilar ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 px-4 sm:px-0">
@@ -1169,19 +1333,19 @@ const HadithPage = () => {
                     key={hadith.id}
                     initial={{ opacity: 0, y: 20, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ 
-                      duration: 0.6, 
+                    transition={{
+                      duration: 0.6,
                       delay: index * 0.1,
-                      ease: [0.4, 0, 0.2, 1]
+                      ease: [0.4, 0, 0.2, 1],
                     }}
-                    whileHover={{ 
+                    whileHover={{
                       y: -4,
                       scale: 1.01,
-                      transition: { duration: 0.3 }
+                      transition: { duration: 0.3 },
                     }}
-                    whileTap={{ 
+                    whileTap={{
                       scale: 0.98,
-                      transition: { duration: 0.1 }
+                      transition: { duration: 0.1 },
                     }}
                   >
                     <EnhancedSimilarHadithCard hadith={hadith} />
@@ -1189,7 +1353,7 @@ const HadithPage = () => {
                 ))}
               </div>
             ) : (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="text-center py-12 sm:py-16 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl sm:rounded-3xl border border-purple-200/50 mx-4 sm:mx-0"
@@ -1197,9 +1361,12 @@ const HadithPage = () => {
                 <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
                   <BookA className="w-10 h-10 sm:w-12 sm:h-12 text-purple-600" />
                 </div>
-                <h4 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2 sm:mb-3">لا توجد أحاديث مشابهة</h4>
+                <h4 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2 sm:mb-3">
+                  لا توجد أحاديث مشابهة
+                </h4>
                 <p className="text-gray-500 text-xs sm:text-sm max-w-md mx-auto mb-4 sm:mb-6 px-4">
-                  جرب البحث عن أحاديث أخرى أو استكشف الفئات المختلفة للعثور على محتوى مشابه
+                  جرب البحث عن أحاديث أخرى أو استكشف الفئات المختلفة للعثور على
+                  محتوى مشابه
                 </p>
                 <Link
                   to="/hadiths"
