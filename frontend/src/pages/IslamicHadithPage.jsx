@@ -28,6 +28,7 @@ import { Dialog } from "@headlessui/react";
 import { getTranslation, getBookTranslation } from "../utils/translations";
 import PropTypes from "prop-types";
 import BookmarkModal from "../components/BookmarkModal";
+import { FacebookFilled, WhatsAppOutlined } from "@ant-design/icons";
 
 const ShareModal = ({ isOpen, onClose, hadithDetails, language }) => {
   const url = window.location.href;
@@ -45,24 +46,41 @@ const ShareModal = ({ isOpen, onClose, hadithDetails, language }) => {
   const shareOptions = [
     {
       name: "تويتر",
-      icon: <X className="w-6 h-6 text-black" />,
+      icon: (
+        <svg
+          className="w-8 h-8 text-blue-600"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 640 640"
+        >
+          <path d="M453.2 112L523.8 112L369.6 288.2L551 528L409 528L297.7 382.6L170.5 528L99.8 528L264.7 339.5L90.8 112L236.4 112L336.9 244.9L453.2 112zM428.4 485.8L467.5 485.8L215.1 152L173.1 152L428.4 485.8z" />
+        </svg>
+      ),
       url: `https://twitter.com/intent/tweet?url=${encodeURIComponent(
         url
       )}&text=${encodeURIComponent(text)}`,
     },
     {
       name: "فيسبوك",
-      icon: <FacebookIcon className="w-6 h-6 text-blue-600" />,
+      icon: <FacebookFilled className="w-8 h-8 text-2xl text-blue-600" />,
       url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
         url
       )}`,
     },
     {
       name: "واتساب",
-      icon: <MessageCircle className="w-6 h-6 text-green-500" />,
+      icon: <WhatsAppOutlined className="w-8 h-8 text-2xl text-green-500" />,
       url: `https://api.whatsapp.com/send?text=${encodeURIComponent(
         text + " " + url
       )}`,
+    },
+    {
+      name: "شارك على قبيلة",
+      url: `https://qabilah.com/sharer?text=${encodeURIComponent(
+        text
+      )}&url=${encodeURIComponent(url)}`,
+      dataSize: "medium",
+      dataVariant: "button",
+      dataLang: "ar",
     },
   ];
 
@@ -83,7 +101,7 @@ const ShareModal = ({ isOpen, onClose, hadithDetails, language }) => {
       <Dialog.Panel className="relative z-10 w-full max-w-md bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-purple-200/50">
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h3 className="font-bold text-lg text-gray-900">
-            {getTranslation(language, "shareHadith")}
+            {getTranslation(language, "شير الحديث")}
           </h3>
           <button
             onClick={onClose}
@@ -93,26 +111,85 @@ const ShareModal = ({ isOpen, onClose, hadithDetails, language }) => {
           </button>
         </div>
         <div className="p-6 space-y-4">
-          <div className="space-y-3">
-            {shareOptions.map((option) => (
-              <a
-                key={option.name}
-                href={option.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center space-x-3 space-x-reverse p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-              >
-                {option.icon}
-                <span className="font-medium">{option.name}</span>
-              </a>
-            ))}
+          <div className="grid grid-cols-4 items-center gap-4">
+            {shareOptions.map((option) =>
+              option.name === "شارك على قبيلة" ? (
+                <div key={option.name} className="flex flex-col items-center">
+                  <a
+                    className="flex hover:bg-[#F3E2DE]  border-[#F3E2DE] flex-col items-center px-4 text-[18px] p-4 rounded-lg  font-medium gap-3  transition-colors"
+                    target="_blank"
+                    href={option.url}
+                    data-size={option.dataSize}
+                    data-variant={option.dataVariant}
+                    data-lang={option.dataLang}
+                    title={option.name}
+                  >
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 1080 1080"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M872.55 1080H207.44C92.87 1080 -0.0100098 987.12 -0.0100098 872.55V207.45C-0.0100098 92.88 92.87 0 207.44 0H872.55C987.12 0 1080 92.88 1080 207.45V872.56C1079.99 987.12 987.12 1080 872.55 1080Z"
+                        fill="url(#paint0_linear_212_3)"
+                      ></path>
+                      <path
+                        d="M554.67 965.75C511.13 970.65 477.08 956.76 453.34 938.82C429.61 920.86 417.74 895.76 417.74 863.51C417.74 847.08 420.16 831.25 425.04 816.04L488.16 575.43C450.42 615 405.69 634.77 353.97 634.77C326.58 634.77 301.48 628.24 278.66 615.14C255.84 602.06 237.88 582.59 224.8 556.72C211.71 530.86 205.17 499.98 205.17 464.06C205.17 434.25 208.82 405.64 216.12 378.25C228.9 327.74 248.83 285.29 275.91 250.9C302.98 216.52 334.33 190.96 369.94 174.22C405.54 157.49 442.51 149.12 480.85 149.12C516.75 149.12 547.03 154.3 571.68 164.64C596.33 175 618.38 190.81 637.86 212.11L683.84 174.18C696.32 163.89 711.99 158.25 728.17 158.25H823.65C833.82 158.25 841.17 167.99 838.37 177.77L662.38 792.31C657.5 809.95 655.08 822.12 655.08 828.82C655.08 836.72 657.05 842.2 661.01 845.25C664.96 848.29 671.51 849.81 680.64 849.81C684.59 849.81 688.96 849.54 693.75 849.01C701.55 848.14 709.26 846.65 716.88 844.74L749.5 836.72C756.58 834.98 762.22 842.67 758.44 848.9C758.44 848.9 676.85 952.01 554.67 965.75Z"
+                        fill="white"
+                      ></path>
+                      <defs>
+                        <linearGradient
+                          id="paint0_linear_212_3"
+                          x1="129.461"
+                          y1="922.231"
+                          x2="958.044"
+                          y2="150.773"
+                          gradientUnits="userSpaceOnUse"
+                        >
+                          <stop stop-color="#FF544F"></stop>
+                          <stop offset="0.5532" stop-color="#FF923F"></stop>
+                          <stop offset="1" stop-color="#FFBF33"></stop>
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                    قبيلة
+                  </a>
+                  {/* Fallback button in case Qabilah script doesn't work */}
+                  <a
+                    href={option.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex flex-col items-center  hover:bg-gray-100 justify-center gap-2 p-4 rounded-xl transition-colors text-sm text-indigo-600"
+                    style={{ display: "none" }}
+                    id="qabilah-fallback"
+                  >
+                    <span>قبيلة</span>
+                  </a>
+                </div>
+              ) : (
+                <a
+                  key={option.name}
+                  href={option.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-col text-[18px]  font-medium items-center hover:bg-gray-100 justify-center gap-2 p-4 rounded-xl transition-colors"
+                >
+                  {option.icon}
+                  <span className="">{option.name}</span>
+                </a>
+              )
+            )}
           </div>
           <button
             onClick={copyLink}
             className="w-full flex items-center justify-center space-x-2 space-x-reverse p-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
           >
             <Copy className="w-5 h-5" />
-            <span>{getTranslation(language, "copyLink")}</span>
+            <span className="text-white font-bold text-md">
+              {getTranslation(language, "نسخ الحديث")}
+            </span>
           </button>
         </div>
       </Dialog.Panel>

@@ -1,7 +1,21 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useBookmarks } from "../context/BookmarkContext";
-import { Plus, Copy, Edit, Trash2, User, Calendar, Mail, BookOpen, Share2, Heart, Settings, Award, Clock } from "lucide-react";
+import {
+  Plus,
+  Copy,
+  Edit,
+  Trash2,
+  User,
+  Calendar,
+  Mail,
+  BookOpen,
+  Share2,
+  Heart,
+  Settings,
+  Award,
+  Clock,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import { Link } from "react-router-dom";
@@ -9,9 +23,6 @@ import toast from "react-hot-toast";
 import { useHadithCategories } from "../hooks/useHadithCategories";
 import { Dialog } from "@headlessui/react";
 import EditCardModal from "../components/EditCardModal";
-
-
-
 
 const ProfilePage = () => {
   const { user, setUser } = useAuth();
@@ -288,7 +299,7 @@ const ProfilePage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 font-[Cairo,Amiri,sans-serif] text-right">
       {/* Hero Section with Animated Background */}
-      <motion.section 
+      <motion.section
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="relative w-full flex flex-col items-center justify-center py-12 sm:py-16 mb-8 bg-gradient-to-br from-purple-900/90 via-indigo-800/90 to-blue-900/90 overflow-hidden"
@@ -296,26 +307,26 @@ const ProfilePage = () => {
         {/* Animated Background Elements */}
         <div className="absolute inset-0 overflow-hidden">
           <motion.div
-            animate={{ 
+            animate={{
               rotate: 360,
               scale: [1, 1.1, 1],
             }}
-            transition={{ 
+            transition={{
               duration: 20,
               repeat: Infinity,
-              ease: "linear"
+              ease: "linear",
             }}
             className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl"
           />
           <motion.div
-            animate={{ 
+            animate={{
               rotate: -360,
               scale: [1, 1.2, 1],
             }}
-            transition={{ 
+            transition={{
               duration: 25,
               repeat: Infinity,
-              ease: "linear"
+              ease: "linear",
             }}
             className="absolute -bottom-40 -left-40 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl"
           />
@@ -337,14 +348,14 @@ const ProfilePage = () => {
             onClick={() => setShowAvatarModal(true)}
           />
           <motion.div
-            animate={{ 
+            animate={{
               scale: [1, 1.1, 1],
-              opacity: [0.5, 1, 0.5]
+              opacity: [0.5, 1, 0.5],
             }}
-            transition={{ 
+            transition={{
               duration: 2,
               repeat: Infinity,
-              ease: "easeInOut"
+              ease: "easeInOut",
             }}
             className="absolute inset-0 rounded-full border-4 border-purple-400/50"
           />
@@ -360,7 +371,7 @@ const ProfilePage = () => {
           <h2 className="text-3xl sm:text-4xl font-extrabold text-white drop-shadow-lg mb-2">
             {user?.username}
           </h2>
-          <motion.p 
+          <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6 }}
@@ -371,13 +382,13 @@ const ProfilePage = () => {
         </motion.div>
 
         {/* Stats Cards */}
-        <motion.div 
+        <motion.div
           initial={{ y: 30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.6 }}
           className="flex gap-6 mt-6 z-10 flex-wrap justify-center"
         >
-          <motion.div 
+          <motion.div
             whileHover={{ scale: 1.05 }}
             className="flex flex-col items-center bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20"
           >
@@ -392,8 +403,8 @@ const ProfilePage = () => {
             </span>
             <span className="text-purple-200 text-sm">أحاديث محفوظة</span>
           </motion.div>
-          
-          <motion.div 
+
+          <motion.div
             whileHover={{ scale: 1.05 }}
             className="flex flex-col items-center bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20"
           >
@@ -412,19 +423,19 @@ const ProfilePage = () => {
       </motion.section>
 
       {/* Account Information Card */}
-      <motion.section 
+      <motion.section
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.8 }}
         className="max-w-4xl mx-auto px-4 sm:px-6 mb-8"
       >
-        <motion.div 
+        <motion.div
           whileHover={{ y: -5 }}
           className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-purple-200/50 p-6 sm:p-8"
         >
           <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
             <div className="flex-1 space-y-4">
-              <motion.div 
+              <motion.div
                 initial={{ x: -20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ delay: 1 }}
@@ -434,12 +445,14 @@ const ProfilePage = () => {
                   <User className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900">{user?.username}</h3>
+                  <h3 className="text-xl font-bold text-gray-900">
+                    {user?.username}
+                  </h3>
                   <p className="text-gray-600">اسم المستخدم</p>
                 </div>
               </motion.div>
 
-              <motion.div 
+              <motion.div
                 initial={{ x: -20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ delay: 1.1 }}
@@ -449,12 +462,14 @@ const ProfilePage = () => {
                   <Mail className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{user?.email}</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {user?.email}
+                  </h3>
                   <p className="text-gray-600">البريد الإلكتروني</p>
                 </div>
               </motion.div>
 
-              <motion.div 
+              <motion.div
                 initial={{ x: -20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ delay: 1.2 }}
@@ -494,7 +509,7 @@ const ProfilePage = () => {
 
       {/* Bookmarked Cards Section */}
       {bookmarkedCards.length > 0 && (
-        <motion.section 
+        <motion.section
           initial={{ y: 30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 1 }}
@@ -570,7 +585,7 @@ const ProfilePage = () => {
       )}
 
       {/* My Dawah Cards Section */}
-      <motion.section 
+      <motion.section
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 1.4 }}
@@ -755,35 +770,29 @@ const ProfilePage = () => {
               <Dialog.Title className="text-2xl font-bold mb-6 text-gray-900">
                 تعديل الحساب
               </Dialog.Title>
-              
+
               <div className="flex flex-col items-center gap-6 mb-6">
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  className="relative"
-                >
+                <motion.div whileHover={{ scale: 1.05 }} className="relative">
                   <img
                     src={editImagePreview}
                     alt="avatar preview"
                     className="w-32 h-32 rounded-full border-4 border-purple-300 object-cover shadow-lg"
                   />
                   <motion.div
-                    animate={{ 
+                    animate={{
                       scale: [1, 1.1, 1],
-                      opacity: [0.5, 1, 0.5]
+                      opacity: [0.5, 1, 0.5],
                     }}
-                    transition={{ 
+                    transition={{
                       duration: 2,
                       repeat: Infinity,
-                      ease: "easeInOut"
+                      ease: "easeInOut",
                     }}
                     className="absolute inset-0 rounded-full border-4 border-purple-400/50"
                   />
                 </motion.div>
-                
-                <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  className="w-full"
-                >
+
+                <motion.div whileHover={{ scale: 1.02 }} className="w-full">
                   <input
                     type="file"
                     accept="image/*"
@@ -792,7 +801,7 @@ const ProfilePage = () => {
                   />
                 </motion.div>
               </div>
-              
+
               <motion.input
                 whileFocus={{ scale: 1.02 }}
                 type="text"
@@ -801,7 +810,7 @@ const ProfilePage = () => {
                 placeholder="اسم المستخدم الجديد"
                 className="w-full mb-6 px-6 py-4 rounded-2xl bg-gray-50 text-gray-900 border-2 border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-lg transition-all duration-300"
               />
-              
+
               <div className="flex gap-4 justify-center">
                 <motion.button
                   whileHover={{ scale: 1.05 }}

@@ -1,6 +1,15 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, User, BookOpen, Sparkles, Heart, Shield } from "lucide-react";
+import {
+  Menu,
+  X,
+  User,
+  BookOpen,
+  Sparkles,
+  Heart,
+  Shield,
+  Star,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 
@@ -9,6 +18,7 @@ const NAV_LINKS_MOBILE = [
   { name: "حديث اليوم", to: "/daily-hadith", icon: BookOpen },
   { name: "الأحاديث", to: "/hadiths", icon: BookOpen },
   { name: "المكتبة الإسلامية", to: "/islamic-library", icon: BookOpen },
+  { name: "التوصيات الذكية", to: "/recommendations", icon: Star },
   { name: "المحفوظات", to: "/saved", icon: Heart },
   { name: "البطاقات الدعوية", to: "/public-cards", icon: Shield },
   { name: "من نحن", to: "/about", icon: Shield },
@@ -20,6 +30,7 @@ const NAV_LINKS = [
   { name: "حديث اليوم", to: "/daily-hadith" },
   { name: "الأحاديث", to: "/hadiths" },
   { name: "المكتبة الإسلامية", to: "/islamic-library" },
+  { name: "التوصيات الذكية", to: "/recommendations" },
   { name: "البطاقات الدعوية", to: "/public-cards" },
   { name: "من نحن", to: "/about" },
   { name: "تواصل معنا", to: "/contact" },
@@ -114,10 +125,7 @@ const Navbar = () => {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-8 flex items-center justify-between h-16">
           {/* Logo */}
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <Link
               to="/"
               className="flex font-['MeshkahFont'] items-center gap-2 text-[#7440E9] text-2xl sm:text-3xl font-bold tracking-tight select-none"
@@ -175,10 +183,7 @@ const Navbar = () => {
           {/* Desktop User/Profile or CTA Button */}
           <div className="hidden md:flex items-center">
             {isAuthenticated && user ? (
-              <motion.div 
-                className="relative"
-                whileHover={{ scale: 1.02 }}
-              >
+              <motion.div className="relative" whileHover={{ scale: 1.02 }}>
                 <button
                   className="flex items-center gap-3 p-2 rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#7440E9]"
                   onClick={() => setDropdownOpen((v) => !v)}
@@ -194,7 +199,7 @@ const Navbar = () => {
                   </span>
                   <User className="w-4 h-4 text-[#7440E9]" />
                 </button>
-                
+
                 <AnimatePresence>
                   {dropdownOpen && (
                     <motion.div

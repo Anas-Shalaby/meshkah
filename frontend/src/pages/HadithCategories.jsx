@@ -80,55 +80,26 @@ const HadithCategories = () => {
       setSearchLoading(true);
       setSearchError(null);
       setSearchResults(null);
-      try {
-        const formData = new FormData();
-        formData.append("term", searchTerm);
-        formData.append("trans", "ar");
 
-        const res = await axios.post(
-          "https://hadeethenc.com/en/ajax/search",
-          formData,
+      try {
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_URL}/search`,
+          { searchTerm },
           {
             headers: {
-              "Content-Type": "multipart/form-data",
+              "Content-Type": "application/json",
             },
           }
         );
-        const html = res.data || "";
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(`<div>${html}</div>`, "text/html");
-        const hadithDivs = Array.from(
-          doc.querySelectorAll("div.rtl.text-right")
-        );
-        const ids = hadithDivs
-          .map((div) => {
-            const a = div.querySelector("a[href]");
-            let id = null;
-            if (a && a.getAttribute("href")) {
-              const match = a.getAttribute("href").match(/\/hadith\/(\d+)/);
-              if (match) id = match[1];
-            }
-            return id;
-          })
-          .filter(Boolean);
-        const fetchHadithDetails = async (id) => {
-          try {
-            const res = await axios.get(
-              `${import.meta.env.VITE_API_URL}/hadith/${id}`
-            );
-            return res.data;
-          } catch {
-            return null;
-          }
-        };
-        const hadithDetailsList = await Promise.all(
-          ids.map(fetchHadithDetails)
-        );
 
-        const results = hadithDetailsList.filter(Boolean);
-        setSearchResults(results);
-      } catch {
+        if (response.data.success) {
+          setSearchResults(response.data.results);
+        } else {
+          setSearchError(response.data.message);
+        }
+      } catch (error) {
         setSearchError("حدث خطأ أثناء البحث.");
+        console.error("Search error:", error);
       } finally {
         setSearchLoading(false);
       }

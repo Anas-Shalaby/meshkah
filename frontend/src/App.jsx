@@ -43,6 +43,7 @@ import SmallBookPage from "./pages/SmallBookPage";
 import LocalBookPage from "./pages/LocalBookPage";
 import IslamicBookmarksPage from "./pages/IslamicBookmarksPage";
 import HelpSupportPage from "./pages/HelpSupportPage";
+import SmartRecommendationsPage from "./pages/SmartRecommendationsPage";
 
 const websiteMetadata = {
   title: "مشكاة الأحاديث - موسوعة الحديث الشريف",
@@ -248,6 +249,16 @@ function App() {
                   <Route
                     path="/islamic-library/help-support"
                     element={<HelpSupportPage />}
+                  />
+
+                  {/* Smart Recommendations Routes */}
+                  <Route
+                    path="/recommendations"
+                    element={
+                      <PrivateRoute>
+                        <SmartRecommendationsPage />
+                      </PrivateRoute>
+                    }
                   />
 
                   <Route path="*" element={<NotFoundPage />} />
