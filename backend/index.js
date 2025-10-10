@@ -3,6 +3,7 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const path = require("path");
 const { setupTaskReminders } = require("./config/taskReminderScheduler");
+const recommendationScheduler = require("./config/recommendationScheduler");
 const http = require("http");
 const mailService = require("./services/mailService");
 const notificationRoutes = require("./routes/notification");
@@ -107,6 +108,7 @@ app.use("/api/ai", aiProxyRoutes);
 app.use("/api/sunnah", require("./routes/sunnah"));
 app.use("/api/islamic-library", require("./routes/islamicLibrary")); // إضافة المكتبة الإسلامية
 app.use("/api/support", require("./routes/support")); // إضافة نظام الدعم
+app.use("/api/recommendations", require("./routes/recommendations")); // إضافة نظام التوصيات الذكية
 app.post("/send-welcome-email", async (req, res) => {
   try {
     const { email, username } = req.body;
@@ -128,6 +130,7 @@ app.post("/send-welcome-email", async (req, res) => {
 
 // Initialize schedulers
 setupTaskReminders();
+recommendationScheduler.start();
 
 app.set("io", io);
 

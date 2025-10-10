@@ -17,14 +17,56 @@ router.get("/hadith-ids", async (req, res) => {
 
 router.get("/hadith/random", async (req, res) => {
   try {
-    const [results] = await db.query(
-      "SELECT * FROM hadiths ORDER BY RAND() LIMIT 1"
+    const [rows] = await db.query(
+      "SELECT id FROM hadiths ORDER BY RAND() LIMIT 4"
     );
-    const randomHadith = results[0];
-    res.json({ hadith: randomHadith });
+    const idList = rows.map((row) => row.id);
+    const randomHadiths = await Promise.all(
+      idList.map(async (id) => {
+        const response = await axios.get(
+          `https://hadeethenc.com/api/v1/hadeeths/one/?language=ar&id=${id}`
+        );
+        return response.data;
+      })
+    );
+
+    // جلب أسماء الفئات
+    const categoriesNames = await getCategoriesNamesFromIds(
+      randomHadiths.map((hadith) => hadith.categories)
+    );
+
+    const hadithsArray = randomHadiths.map((hadith, index) => ({
+      hadithId: hadith.id,
+      hadith: hadith.hadeeth,
+      title: hadith.title,
+      attribution: hadith.attribution,
+      grade: hadith.grade,
+      explanation: hadith.explanation,
+      hints: hadith.hints,
+      words_meanings: hadith.words_meanings,
+      categoriesIds: hadith.categories,
+      reference: hadith.reference,
+      language: "ar",
+    }));
+
+    // إضافة أسماء الفئات لكل حديث
+    hadithsArray.forEach((hadith) => {
+      if (hadith.categoriesIds && hadith.categoriesIds.length > 0) {
+        hadith.categories = categoriesNames
+          .filter((category) => hadith.categoriesIds.includes(category.id))
+          .map((category) => category.title);
+      } else {
+        hadith.categories = [];
+      }
+    });
+
+    res.json({ hadiths: hadithsArray });
   } catch (error) {
     console.error("Error fetching random hadith :", error);
-    res.status(500).json({ message: "Error fetching random hadith ID" });
+    res.status(500).json({
+      message: "Error fetching random hadith ID",
+      error: error.message,
+    });
   }
 });
 
@@ -190,13 +232,48 @@ router.get("/daily-hadith", async (req, res) => {
     const [hadithId] = await db.query(
       "SELECT id FROM hadiths ORDER BY RAND() LIMIT 1"
     );
-    const randomHadith = await axios.get(
+    let randomHadith = await axios.get(
       `https://hadeethenc.com/api/v1/hadeeths/one/?language=ar&id=${hadithId[0].id}`
     );
+
+    // جلب أسماء الفئات
+    let categoryNames = [];
+    if (
+      randomHadith.data.categories &&
+      randomHadith.data.categories.length > 0
+    ) {
+      const categoriesResponse = await axios.get(
+        "https://hadeethenc.com/api/v1/categories/list/?language=ar"
+      );
+      const allCategories = categoriesResponse.data;
+
+      categoryNames = allCategories
+        .filter((cat) =>
+          randomHadith.data.categories.includes(cat.id.toString())
+        )
+        .map((cat) => ({ id: cat.id, title: cat.title }));
+    }
+
+    let today = new Date();
+
+    let dayOfWeek = today.getDay();
+    if (dayOfWeek === 5 || dayOfWeek === "5") {
+      const categoryResponse = await axios.get(
+        `https://hadeethenc.com/api/v1/hadeeths/list/?language=ar&category_id=477`
+      );
+      let category = categoryResponse.data.data;
+      let getRandomId =
+        category[Math.floor(Math.random() * category.length)].id;
+      let hadithResponse = await axios.get(
+        `https://hadeethenc.com/api/v1/hadeeths/one/?language=ar&id=${getRandomId}`
+      );
+      randomHadith = hadithResponse;
+    }
 
     res.json({
       status: true,
       data: {
+        id: randomHadith.data.id,
         title: randomHadith.data.title,
         hadith: randomHadith.data.hadeeth,
         attribution: randomHadith.data.attribution,
@@ -204,6 +281,8 @@ router.get("/daily-hadith", async (req, res) => {
         explanation: randomHadith.data.explanation,
         hints: randomHadith.data.hints,
         words_meanings: randomHadith.data.words_meanings,
+        categories: randomHadith.data.categories,
+        category_names: categoryNames,
       },
     });
   } catch (error) {
@@ -215,5 +294,20 @@ router.get("/daily-hadith", async (req, res) => {
     });
   }
 });
+
+async function getCategoriesNamesFromIds(categoriesIds) {
+  const categories = await axios.get(
+    "https://hadeethenc.com/api/v1/categories/list/?language=ar"
+  );
+  const flatArray = categoriesIds.flat();
+  const finalArray = flatArray.map((item) => [parseInt(item, 10)]);
+  const categoriesIdsArr = finalArray.map((id) => id.toString());
+
+  const categoriesNames = categories.data
+    .filter((category) => categoriesIdsArr.some((id) => id === category.id))
+    .map((category) => ({ title: category.title, id: category.id }));
+
+  return categoriesNames;
+}
 
 module.exports = router;

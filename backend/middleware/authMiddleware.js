@@ -1,26 +1,26 @@
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
 class AppError extends Error {
   constructor(message, statusCode) {
     super(message);
     this.statusCode = statusCode;
-    this.status = `${statusCode}`.startsWith('4') ? 'fail' : 'error';
+    this.status = `${statusCode}`.startsWith("4") ? "fail" : "error";
     this.isOperational = true;
 
     Error.captureStackTrace(this, this.constructor);
   }
 }
 const authMiddleware = (req, res, next) => {
-  const token = req.header('x-auth-token');
+  const token = req.header("x-auth-token");
   if (!token) {
-    return res.status(401).json({ msg: 'No token, authorization denied' });
+    return res.status(401).json({ msg: "No token, authorization denied" });
   }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded.user;
+    req.user = decoded.user || decoded; // دعم كلا التنسيقين
     next();
   } catch (err) {
-    res.status(401).json({ msg: 'Token is not valid' });
+    res.status(401).json({ msg: "Token is not valid" });
   }
 };
 
@@ -29,14 +29,14 @@ const restrictTo = (...roles) => {
     // Check if user exists and has the required role
     if (!req.user) {
       return next(
-        new AppError('You are not logged in. Please log in to get access.', 401)
+        new AppError("You are not logged in. Please log in to get access.", 401)
       );
     }
 
     // Check if user's role is in the allowed roles
     if (!roles.includes(req.user.role)) {
       return next(
-        new AppError('You do not have permission to perform this action', 403)
+        new AppError("You do not have permission to perform this action", 403)
       );
     }
 
@@ -44,4 +44,4 @@ const restrictTo = (...roles) => {
   };
 };
 
-module.exports = {authMiddleware , restrictTo};
+module.exports = { authMiddleware, restrictTo };

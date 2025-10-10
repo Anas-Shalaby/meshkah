@@ -13,7 +13,7 @@ const AI_MODELS = [
     baseUrl: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
     dailyLimit: 10,
   },
-  
+
   {
     name: "groq",
     provider: "groq",
@@ -116,7 +116,6 @@ const classifyError = (error) => {
   }
   return ERROR_TYPES.TEMPORARY_ERROR;
 };
-
 
 // Enhanced system prompt for comprehensive Hadith analysis
 const enhancedSystemPrompt = `أنت مشكاة، مساعد ذكي متخصص في شرح الأحاديث النبوية.
@@ -319,18 +318,17 @@ const makeApiRequest = async (model, messages) => {
 const rateLimit = async (req, res, next) => {
   try {
     const key = req.user ? req.user.id : req.ip;
-    
+
     const windowMs = 24 * 60 * 60 * 1000; // 24 hours
-	  const max = 15; // 10 questions per day
-  if (req.user && req.user.id === 5) {
+    const max = 15; // 10 questions per day
+    if (req.user && req.user.id === 5) {
       await redisClient.incrementWithExpiry(
         `rate-limit:${key}`,
         Math.floor(windowMs / 1000)
       );
       return next();
     }
-	  
-	  
+
     // Get current count and TTL
     const { value: count, ttl } = await redisClient.getWithTTL(
       `rate-limit:${key}`
@@ -382,6 +380,231 @@ const getGreetingResponse = () => {
   return responses[Math.floor(Math.random() * responses.length)];
 };
 
+// Helper function to analyze conversation context
+const analyzeConversationContext = (messages) => {
+  if (messages.length <= 1) return "";
+
+  // Get the last few messages for context
+  const recentMessages = messages.slice(-6); // Last 6 messages for better context
+  let contextSummary = "";
+
+  // Analyze the conversation flow
+  for (let i = 0; i < recentMessages.length - 1; i += 2) {
+    const userMessage = recentMessages[i];
+    const aiResponse = recentMessages[i + 1];
+
+    if (userMessage && aiResponse) {
+      contextSummary += `المستخدم: ${userMessage.content}\nالمساعد: ${aiResponse.content}\n\n`;
+    }
+  }
+
+  return contextSummary ? `السياق السابق للمحادثة:\n${contextSummary}` : "";
+};
+
+// Helper function to extract the main topic from previous conversation
+const extractMainTopic = (messages) => {
+  if (messages.length <= 1) return "";
+
+  const lastUserMessage = messages[messages.length - 1];
+  const previousUserMessage = messages[messages.length - 3];
+
+  // If current message is a short follow-up, extract topic from previous question
+  if (lastUserMessage.content.trim().length <= 10 && previousUserMessage) {
+    return `الموضوع الأساسي من السؤال السابق: ${previousUserMessage.content}`;
+  }
+
+  return "";
+};
+
+// Helper function to extract key topics from conversation
+const extractConversationTopics = (messages) => {
+  if (messages.length <= 1) return "";
+
+  const topics = [];
+  const recentMessages = messages.slice(-4);
+
+  // Look for key Islamic terms and concepts
+  const islamicTerms = [
+    "الصلاة",
+    "الزكاة",
+    "الصوم",
+    "الحج",
+    "الوضوء",
+    "الطهارة",
+    "النية",
+    "الخشوع",
+    "الصحابة",
+    "التابعين",
+    "التابعين",
+    "الخلفاء",
+    "الرسول",
+    "النبي",
+    "الوحي",
+    "القرآن",
+    "السنة",
+    "الحديث",
+    "الرواية",
+    "الإسناد",
+    "المتن",
+    "الدرجة",
+    "العبادة",
+    "الطاعة",
+    "البر",
+    "التقوى",
+    "الإيمان",
+    "الإسلام",
+    "الإحسان",
+    "الحديث",
+    "الرواية",
+    "الصحابي",
+    "الراوي",
+    "الإسناد",
+    "المتن",
+    "الدرجة",
+    "صحيح",
+    "حسن",
+    "ضعيف",
+    "موضوع",
+    "مرفوع",
+    "موقوف",
+    "مقطوع",
+  ];
+
+  recentMessages.forEach((msg) => {
+    if (msg.role === "user") {
+      islamicTerms.forEach((term) => {
+        if (msg.content.includes(term) && !topics.includes(term)) {
+          topics.push(term);
+        }
+      });
+    }
+  });
+
+  return topics.length > 0 ? `المواضيع المطروحة: ${topics.join(", ")}` : "";
+};
+
+// Helper function to detect conversation flow and relationships
+const analyzeConversationFlow = (messages) => {
+  if (messages.length <= 1) return "";
+
+  const lastUserMessage = messages[messages.length - 1];
+  const previousMessages = messages.slice(-6, -1);
+
+  // Look for question patterns
+  const questionPatterns = [
+    "ما هو",
+    "ما هي",
+    "من هو",
+    "من هي",
+    "متى",
+    "أين",
+    "كيف",
+    "لماذا",
+    "ماذا",
+    "هل",
+    "أليس",
+    "أم",
+    "أو",
+    "ثم",
+    "بعد",
+    "قبل",
+    "خلال",
+    "في",
+    "عند",
+  ];
+
+  const hasQuestionPattern = questionPatterns.some((pattern) =>
+    lastUserMessage.content.includes(pattern)
+  );
+
+  if (hasQuestionPattern) {
+    return "هذا سؤال يحتاج إلى فهم السياق السابق للإجابة بدقة.";
+  }
+
+  return "";
+};
+
+// Helper function to detect if current question is a follow-up
+const isFollowUpQuestion = (messages) => {
+  if (messages.length < 3) return false;
+
+  const lastUserMessage = messages[messages.length - 1];
+  const previousUserMessage = messages[messages.length - 3];
+  const previousAIMessage = messages[messages.length - 2];
+
+  // Check for follow-up indicators
+  const followUpIndicators = [
+    "ماذا عن",
+    "وكيف",
+    "وما",
+    "وأين",
+    "ومتى",
+    "ولماذا",
+    "وكذلك",
+    "أيضاً",
+    "بالإضافة",
+    "علاوة على",
+    "كذلك",
+    "مثلاً",
+    "مثل",
+    "هذا",
+    "ذلك",
+    "هذه",
+    "تلك",
+    "هؤلاء",
+    "أولئك",
+    "و",
+    "أو",
+    "ثم",
+  ];
+
+  // Check for pronouns that refer to previous context
+  const contextPronouns = ["هو", "هي", "هم", "هن", "هذا", "ذلك", "هذه", "تلك"];
+
+  // Check for short follow-up questions
+  const shortFollowUpQuestions = [
+    "كيف",
+    "لماذا",
+    "متى",
+    "أين",
+    "ماذا",
+    "من",
+    "ما",
+    "هل",
+    "أليس",
+  ];
+
+  const hasFollowUpIndicator = followUpIndicators.some((indicator) =>
+    lastUserMessage.content.includes(indicator)
+  );
+
+  const hasContextPronoun = contextPronouns.some((pronoun) =>
+    lastUserMessage.content.includes(pronoun)
+  );
+
+  // Check if it's a short follow-up question (like "كيف" alone)
+  const isShortFollowUp = shortFollowUpQuestions.some(
+    (question) =>
+      lastUserMessage.content.trim().toLowerCase() === question.toLowerCase()
+  );
+
+  // Check if the previous AI response was positive (like "نعم")
+  const previousResponseWasPositive =
+    previousAIMessage &&
+    (previousAIMessage.content.includes("نعم") ||
+      previousAIMessage.content.includes("بلى") ||
+      previousAIMessage.content.includes("أجل") ||
+      previousAIMessage.content.includes("صحيح") ||
+      previousAIMessage.content.includes("نعم،") ||
+      previousAIMessage.content.includes("بلى،"));
+
+  return (
+    hasFollowUpIndicator ||
+    hasContextPronoun ||
+    (isShortFollowUp && previousResponseWasPositive)
+  );
+};
+
 // AI proxy endpoint with rate limiting
 router.post("/chat", authMiddleware, rateLimit, async (req, res) => {
   try {
@@ -401,16 +624,41 @@ router.post("/chat", authMiddleware, rateLimit, async (req, res) => {
       });
     }
 
-    // Add system message with hadith context
-     const systemMessage = {
-      role: "system",
-      content: `أجب على سؤال المستخدم بشكل محدد فقط. إذا سُئلت عن صحابي، أجب فقط عن الصحابي ولا تشرح الحديث إلا إذا طلب المستخدم ذلك صراحة. تجنب الشرح الزائد أو المعلومات غير المطلوبة.
+    // Analyze conversation context
+    const contextSummary = analyzeConversationContext(messages);
+    const conversationTopics = extractConversationTopics(messages);
+    const conversationFlow = analyzeConversationFlow(messages);
+    const mainTopic = extractMainTopic(messages);
+    const isFollowUp = isFollowUpQuestion(messages);
 
-أنت سراج مساعد ذكي متخصص في شرح وتفسير الأحاديث النبوية. مهمتك:
+    // Enhanced system message with context awareness
+    const systemMessage = {
+      role: "system",
+      content: `أنت مشكاة، مساعد ذكي متخصص في شرح وتفسير الأحاديث النبوية.
+
+${contextSummary}
+
+${conversationTopics}
+
+${conversationFlow}
+
+${mainTopic}
+
+${
+  isFollowUp
+    ? `
+تنبيه مهم: هذا سؤال متابعة مرتبط بالسياق السابق. يجب أن تفهم تماماً ما تم مناقشته سابقاً وتجيب بناءً على السياق الكامل للمحادثة. لا تعامل هذا السؤال كسؤال منفصل.
+
+`
+    : ""
+}
+
+مهمتك:
 1. شرح معنى الحديث بشكل واضح ومبسط
 2. توضيح المفردات الصعبة
 3. استخراج الدروس والعبر
 4. ربط الحديث بالواقع المعاصر
+5. فهم السياق الكامل للمحادثة والإجابة بناءً عليه
 
 يجب أن تكون إجاباتك:
 - دقيقة ومتوافقة مع فهم العلماء
@@ -425,6 +673,7 @@ router.post("/chat", authMiddleware, rateLimit, async (req, res) => {
 - تجنب استخدام الكلمات الأجنبية أو المختلطة
 - إجابات مختصرة وواضحة
 - استخدم المصطلحات الإسلامية العربية المناسبة
+- ${isFollowUp ? "تأكد من فهم السياق السابق والإجابة بناءً عليه" : ""}
 
 معلومات الحديث:
 ${hadith?.hadeeth ? `الحديث: ${hadith.hadeeth}` : ""}
@@ -460,7 +709,6 @@ ${hadith?.takhrij_ar ? `التخريج: ${hadith.takhrij_ar}` : ""}`,
     });
   }
 });
-
 
 router.post("/ai-chat", async (req, res) => {
   try {
@@ -480,16 +728,41 @@ router.post("/ai-chat", async (req, res) => {
       });
     }
 
-    // Add system message with hadith context
-     const systemMessage = {
-      role: "system",
-      content: `أجب على سؤال المستخدم بشكل محدد فقط. إذا سُئلت عن صحابي، أجب فقط عن الصحابي ولا تشرح الحديث إلا إذا طلب المستخدم ذلك صراحة.
+    // Analyze conversation context
+    const contextSummary = analyzeConversationContext(messages);
+    const conversationTopics = extractConversationTopics(messages);
+    const conversationFlow = analyzeConversationFlow(messages);
+    const mainTopic = extractMainTopic(messages);
+    const isFollowUp = isFollowUpQuestion(messages);
 
-أنت سراج مساعد ذكي متخصص في شرح وتفسير الأحاديث النبوية. مهمتك:
+    // Enhanced system message with context awareness
+    const systemMessage = {
+      role: "system",
+      content: `أنت مشكاة، مساعد ذكي متخصص في شرح وتفسير الأحاديث النبوية.
+
+${contextSummary}
+
+${conversationTopics}
+
+${conversationFlow}
+
+${mainTopic}
+
+${
+  isFollowUp
+    ? `
+تنبيه مهم: هذا سؤال متابعة مرتبط بالسياق السابق. يجب أن تفهم تماماً ما تم مناقشته سابقاً وتجيب بناءً على السياق الكامل للمحادثة. لا تعامل هذا السؤال كسؤال منفصل.
+
+`
+    : ""
+}
+
+مهمتك:
 1. شرح معنى الحديث بشكل واضح ومبسط
 2. توضيح المفردات الصعبة
 3. استخراج الدروس والعبر
 4. ربط الحديث بالواقع المعاصر
+5. فهم السياق الكامل للمحادثة والإجابة بناءً عليه
 
 يجب أن تكون إجاباتك:
 - دقيقة ومتوافقة مع فهم العلماء
@@ -504,6 +777,7 @@ router.post("/ai-chat", async (req, res) => {
 - تجنب استخدام الكلمات الأجنبية أو المختلطة
 - إجابات مختصرة وواضحة
 - استخدم المصطلحات الإسلامية العربية المناسبة
+- ${isFollowUp ? "تأكد من فهم السياق السابق والإجابة بناءً عليه" : ""}
 
 معلومات الحديث:
 ${hadith?.hadeeth ? `الحديث: ${hadith.hadeeth}` : ""}
@@ -539,7 +813,6 @@ ${hadith?.takhrij_ar ? `التخريج: ${hadith.takhrij_ar}` : ""}`,
     });
   }
 });
-
 
 // Get remaining questions endpoint
 router.get("/remaining-questions", authMiddleware, async (req, res) => {
@@ -578,7 +851,6 @@ router.get("/remaining-questions", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-
 
 router.post("/analyze-hadith", authMiddleware, async (req, res) => {
   try {
