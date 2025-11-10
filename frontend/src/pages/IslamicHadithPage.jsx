@@ -799,7 +799,7 @@ const IslamicHadithPage = () => {
                   <div className="relative">
                     <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-xl">
                       <span className="font-cairo font-bold text-white text-lg sm:text-xl">
-                        {hadithDetails.hadithNumber || hadithDetails.id}
+                        {hadithDetails.idInBook || hadithDetails.id}
                       </span>
                     </div>
                     <div className="absolute -top-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 bg-green-500 rounded-full flex items-center justify-center shadow-md border-2 border-white">

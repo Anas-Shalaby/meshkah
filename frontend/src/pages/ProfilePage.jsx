@@ -79,23 +79,6 @@ const ProfilePage = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
-  // Fasting data effect
-  useEffect(() => {
-    const fetchFastingData = async () => {
-      if (!user) return;
-
-      try {
-        if (fastingStatus) {
-          // No need to set fastingData, fastingStatus is already available
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    fetchFastingData();
-  }, [user, fastingStatus]);
-
   const fetchUserCards = async () => {
     try {
       const token = localStorage.getItem("token");

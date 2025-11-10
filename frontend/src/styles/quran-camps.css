@@ -1,0 +1,599 @@
+/* تحسينات إضافية للـ animations في صفحات المخيمات القرآنية */
+
+/* تحسينات الخطوط العالمية */
+.font-global {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
+}
+
+.font-arabic {
+  font-family: "Cairo", "Noto Sans Arabic", "Tajawal", sans-serif;
+}
+
+.font-naskh {
+  font-family: "Noto Naskh Arabic", "Amiri", "Scheherazade", serif;
+}
+
+/* تحسينات الخطوط للعربية */
+.arabic-text {
+  font-family: "Cairo", "Noto Sans Arabic", "Tajawal", sans-serif;
+  font-feature-settings: "liga" 1, "calt" 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-synthesis: none;
+}
+
+.quran-text {
+  font-family: "Noto Naskh Arabic", "Amiri", "Scheherazade", serif;
+  font-feature-settings: "liga" 1, "calt" 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-synthesis: none;
+}
+
+/* تحسينات إضافية للخطوط العالمية */
+.font-global {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-synthesis: none;
+}
+
+/* تحسينات الخطوط للعربية */
+.arabic-text {
+  font-family: "Cairo", "Noto Sans Arabic", "Tajawal", sans-serif;
+  font-feature-settings: "liga" 1, "calt" 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-synthesis: none;
+}
+
+.quran-text {
+  font-family: "Noto Naskh Arabic", "Amiri", "Scheherazade", serif;
+  font-feature-settings: "liga" 1, "calt" 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-synthesis: none;
+}
+
+/* تحسينات الخطوط للعربية */
+.arabic-text {
+  font-family: "Cairo", "Noto Sans Arabic", "Tajawal", sans-serif;
+  font-feature-settings: "liga" 1, "calt" 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-synthesis: none;
+}
+
+.quran-text {
+  font-family: "Noto Naskh Arabic", "Amiri", "Scheherazade", serif;
+  font-feature-settings: "liga" 1, "calt" 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-synthesis: none;
+}
+
+/* تحسينات على البطاقات */
+.camp-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* تحسينات على الصور */
+.camp-banner-image {
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* تحسينات على الأزرار */
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.btn-primary::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.btn-primary:hover::before {
+  left: 100%;
+}
+
+/* تحسينات على الـ Loading States */
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* تحسينات على الـ Status Badges */
+.status-badge {
+  position: relative;
+  overflow: hidden;
+}
+
+.status-badge::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  transition: left 0.6s;
+}
+
+.status-badge:hover::before {
+  left: 100%;
+}
+
+/* تحسينات على الـ Progress Bars */
+.progress-bar {
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-bar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+@keyframes shimmer-x {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+  background: linear-gradient(90deg, #f0f0f0 0%, #e0e0e0 50%, #f0f0f0 100%);
+  background-size: 1000px 100%;
+}
+
+.animate-shimmer-x {
+  animation: shimmer-x 1.5s infinite;
+}
+
+/* تحسينات على الـ Icons */
+.icon-hover {
+  transition: all 0.3s ease;
+}
+
+.icon-hover:hover {
+  transform: scale(1.1) rotate(5deg);
+}
+
+/* تحسينات على الـ Cards في List View */
+.list-card {
+  transition: all 0.3s ease;
+}
+
+.list-card:hover {
+  transform: translateX(8px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+/* تحسينات على البحث */
+.search-input {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.search-input:focus {
+  transform: scale(1.01);
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1),
+    0 10px 25px -5px rgba(139, 92, 246, 0.2);
+}
+
+/* تحسينات على mark للـ highlighting */
+mark {
+  background: linear-gradient(120deg, #fef08a 0%, #fde047 100%);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(234, 179, 8, 0.2);
+}
+
+/* تحسينات على الـ Empty State */
+.empty-state {
+  animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* تحسينات على الـ Filter Buttons */
+.filter-btn {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.filter-btn::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s, height 0.3s;
+}
+
+.filter-btn:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+/* تحسينات على الـ Stats Cards */
+.stats-card {
+  transition: all 0.3s ease;
+}
+
+.stats-card:hover {
+  transform: translateY(-4px) scale(1.02);
+}
+
+.stats-card .stats-icon {
+  transition: all 0.3s ease;
+}
+
+.stats-card:hover .stats-icon {
+  transform: scale(1.1) rotate(360deg);
+}
+
+/* تحسينات على الـ Empty State */
+.empty-state {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* تحسينات على الـ Modal */
+.modal-overlay {
+  backdrop-filter: blur(8px);
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-content {
+  animation: slideInUp 0.3s ease-out;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(50px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* تحسينات على Task Cards */
+.task-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.task-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(139, 92, 246, 0.1),
+    transparent
+  );
+  transition: left 0.6s ease;
+}
+
+.task-card:hover::before {
+  left: 100%;
+}
+
+.task-card.completed {
+  position: relative;
+}
+
+.task-card.completed::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(34, 197, 94, 0.05),
+    rgba(16, 185, 129, 0.05)
+  );
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* تحسينات على الـ Leaderboard */
+.leaderboard-item {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.leaderboard-item:hover {
+  transform: translateX(8px) scale(1.02);
+  box-shadow: 0 8px 20px -5px rgba(0, 0, 0, 0.15);
+}
+
+.leaderboard-item.current-user {
+  animation: pulse-glow 2s infinite ease-in-out;
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4),
+      0 4px 12px rgba(139, 92, 246, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(139, 92, 246, 0),
+      0 8px 24px rgba(139, 92, 246, 0.4);
+  }
+}
+
+/* تحسينات على الـ Tabs */
+.tab-button {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.tab-button::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #8b5cf6, #3b82f6);
+  transition: width 0.3s ease;
+}
+
+.tab-button.active::after {
+  width: 100%;
+}
+
+/* تحسينات على الـ Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #8b5cf6, #3b82f6);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #7c3aed, #2563eb);
+  background-clip: padding-box;
+}
+
+/* Scrollbar للـ Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #8b5cf6 rgba(0, 0, 0, 0.05);
+}
+
+/* تحسينات Responsive للشاشات الصغيرة */
+@media (max-width: 640px) {
+  .camp-card {
+    min-height: auto !important;
+  }
+
+  .search-input {
+    font-size: 16px; /* منع zoom في iOS */
+  }
+
+  .stats-card {
+    padding: 1rem;
+  }
+}
+
+/* تحسينات Responsive للشاشات المتوسطة */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .camp-card {
+    min-height: 450px;
+  }
+}
+
+/* تحسينات Responsive للشاشات الكبيرة */
+@media (min-width: 1025px) {
+  .camp-card:hover {
+    transform: translateY(-12px) scale(1.02);
+    box-shadow: 0 25px 50px -12px rgba(139, 92, 246, 0.3);
+  }
+}
+
+/* تحسينات على الـ Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .camp-card {
+    background: rgba(17, 24, 39, 0.9);
+    border-color: rgba(75, 85, 99, 0.3);
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .search-input {
+    background: rgba(31, 41, 55, 0.8);
+    border-color: rgba(75, 85, 99, 0.5);
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .search-input:focus {
+    background: rgba(31, 41, 55, 0.95);
+    border-color: rgba(139, 92, 246, 0.5);
+  }
+
+  mark {
+    background: linear-gradient(120deg, #fbbf24 0%, #f59e0b 100%);
+    color: #1f2937;
+  }
+
+  .empty-state {
+    color: rgba(255, 255, 255, 0.9);
+  }
+}
+
+/* تحسينات على الـ Performance */
+.camp-card,
+.stats-card,
+.task-card,
+.leaderboard-item,
+.search-input {
+  will-change: transform;
+}
+
+/* تحسينات للـ Smooth Scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* تحسينات على الـ Focus States */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #8b5cf6;
+  outline-offset: 2px;
+}
+
+/* تحسينات على الـ Transitions */
+* {
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* تحسينات على الـ Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .camp-card,
+  .stats-card,
+  .task-card,
+  .leaderboard-item,
+  .btn-primary,
+  .filter-btn {
+    transition: none;
+  }
+
+  .camp-card:hover,
+  .stats-card:hover,
+  .task-card:hover,
+  .leaderboard-item:hover {
+    transform: none;
+  }
+
+  .loading-spinner {
+    animation: none;
+  }
+
+  .stats-card:hover .stats-icon {
+    transform: none;
+  }
+}
+
+/* تحسينات على الـ Print */
+@media print {
+  .camp-card,
+  .stats-card,
+  .task-card,
+  .leaderboard-item {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}

@@ -9,16 +9,21 @@ import {
   Heart,
   Shield,
   Star,
+  GraduationCap,
+  Bell,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
+import NotificationCenter from "./NotificationCenter";
+import { useNotificationContext } from "../context/NotificationContext";
 
 const NAV_LINKS_MOBILE = [
   { name: "الرئيسية", to: "/", icon: Sparkles },
   { name: "حديث اليوم", to: "/daily-hadith", icon: BookOpen },
   { name: "الأحاديث", to: "/hadiths", icon: BookOpen },
   { name: "المكتبة الإسلامية", to: "/islamic-library", icon: BookOpen },
-  { name: "التوصيات الذكية", to: "/recommendations", icon: Star },
+  { name: "المخيمات القرآنية", to: "/quran-camps", icon: GraduationCap },
+  { name: "التحقق من الحديث", to: "/hadith-verification", icon: Shield },
   { name: "المحفوظات", to: "/saved", icon: Heart },
   { name: "البطاقات الدعوية", to: "/public-cards", icon: Shield },
   { name: "من نحن", to: "/about", icon: Shield },
@@ -30,10 +35,9 @@ const NAV_LINKS = [
   { name: "حديث اليوم", to: "/daily-hadith" },
   { name: "الأحاديث", to: "/hadiths" },
   { name: "المكتبة الإسلامية", to: "/islamic-library" },
-  { name: "التوصيات الذكية", to: "/recommendations" },
+  { name: "المخيمات القرآنية", to: "/quran-camps" },
+  { name: "التحقق من الحديث", to: "/hadith-verification" },
   { name: "البطاقات الدعوية", to: "/public-cards" },
-  { name: "من نحن", to: "/about" },
-  { name: "تواصل معنا", to: "/contact" },
 ];
 
 const Navbar = () => {
@@ -43,6 +47,13 @@ const Navbar = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [campNotificationsOpen, setCampNotificationsOpen] = useState(false);
+  // أزل كل state & logic المحلي للإشعارات:
+  // const [campUnreadCount, setCampUnreadCount] = useState(0);
+
+  // اجلب العداد من السياق
+  const { unreadCount } = useNotificationContext();
+
   const navigate = useNavigate();
 
   // Prevent background scroll when mobile menu is open
@@ -73,6 +84,7 @@ const Navbar = () => {
     if (!isAuthenticated || !user) return;
     // عند تحميل الصفحة لأول مرة
     fetchNotifications();
+    // fetchCampUnreadCount(); // This function is no longer needed
   }, [isAuthenticated, user]);
 
   // عند فتح قائمة الإشعارات (notifOpen)
@@ -98,6 +110,23 @@ const Navbar = () => {
       // يمكن عرض رسالة خطأ أو تجاهلها
     }
   }
+
+  // const fetchCampUnreadCount = async () => { // This function is no longer needed
+  //   try {
+  //     const response = await fetch(
+  //       `${import.meta.env.VITE_API_URL}/quran-camps/notifications?limit=1`,
+  //       {
+  //         headers: {
+  //           "x-auth-token": localStorage.getItem("token"),
+  //         },
+  //       }
+  //     );
+  //     const data = await response.json();
+  //     setCampUnreadCount(data.data?.unreadCount || 0);
+  //   } catch {
+  //     // يمكن عرض رسالة خطأ أو تجاهلها
+  //   }
+  // };
 
   const handleMobileToggle = () => setMobileOpen((open) => !open);
   const closeMobile = () => setMobileOpen(false);
@@ -130,16 +159,22 @@ const Navbar = () => {
               to="/"
               className="flex font-['MeshkahFont'] items-center gap-2 text-[#7440E9] text-2xl sm:text-3xl font-bold tracking-tight select-none"
             >
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
-                <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              <div className="w-18 h-18 sm:w-20 sm:h-20 flex items-center justify-center">
+                <img
+                  src="/logo.svg"
+                  alt="مشكاة"
+                  className="w-18 h-18 sm:w-20 sm:h-20 object-cover"
+                />
               </div>
               مشكاة
-              <span className="text-sm text-gray-500">AA</span>
+              <span className="text-xs sm:text-sm font-bold text-gray-500">
+                AA
+              </span>
             </Link>
           </motion.div>
 
           {/* Centered Desktop Nav */}
-          <div className="hidden md:flex flex-1 items-center justify-center">
+          <div className="hidden lg:flex flex-1 items-center justify-center">
             <div className="flex items-center gap-1 lg:gap-2">
               {NAV_LINKS.map((link, index) => (
                 <motion.div
@@ -168,7 +203,26 @@ const Navbar = () => {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="md:hidden flex items-center justify-center p-2 rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#7440E9]"
+              className="lg:hidden relative p-2 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onClick={() => setCampNotificationsOpen(true)}
+              title="إشعارات المخيمات"
+            >
+              <Bell className="w-5 h-5 text-blue-600" />
+              {/* مكان ظهور العدّاد */}
+              {unreadCount > 0 && (
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold"
+                >
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </motion.div>
+              )}
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="lg:hidden flex items-center justify-center p-2 rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#7440E9]"
               onClick={handleMobileToggle}
               aria-label="فتح القائمة"
             >
@@ -181,62 +235,87 @@ const Navbar = () => {
           </div>
 
           {/* Desktop User/Profile or CTA Button */}
-          <div className="hidden md:flex items-center">
+          <div className="hidden lg:flex items-center gap-3">
             {isAuthenticated && user ? (
-              <motion.div className="relative" whileHover={{ scale: 1.02 }}>
-                <button
-                  className="flex items-center gap-3 p-2 rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#7440E9]"
-                  onClick={() => setDropdownOpen((v) => !v)}
+              <>
+                {/* Camp Notifications Button */}
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="relative p-2 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onClick={() => setCampNotificationsOpen(true)}
+                  title="إشعارات المخيمات"
                 >
-                  <motion.img
-                    whileHover={{ scale: 1.1 }}
-                    src={avatarUrl || "https://hadith-shareef.com/default.jpg"}
-                    alt={user.username}
-                    className="w-8 h-8 rounded-full border-2 border-[#7440E9] object-cover shadow-md"
-                  />
-                  <span className="font-semibold text-[#7440E9] text-sm">
-                    {user.username}
-                  </span>
-                  <User className="w-4 h-4 text-[#7440E9]" />
-                </button>
-
-                <AnimatePresence>
-                  {dropdownOpen && (
+                  <Bell className="w-5 h-5 text-blue-600" />
+                  {/* مكان ظهور العدّاد */}
+                  {unreadCount > 0 && (
                     <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      transition={{ duration: 0.2 }}
-                      className="absolute left-0 mt-2 w-48 bg-white/95 backdrop-blur-xl border border-purple-200/50 rounded-2xl shadow-2xl py-2 z-50 text-right"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold"
                     >
-                      <Link
-                        to="/profile"
-                        className="block px-4 py-3 text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 hover:text-[#7440E9] transition-all duration-300"
-                        onClick={() => setDropdownOpen(false)}
-                      >
-                        الملف الشخصي
-                      </Link>
-                      <Link
-                        to="/saved"
-                        className="block px-4 py-3 text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 hover:text-[#7440E9] transition-all duration-300"
-                        onClick={() => setDropdownOpen(false)}
-                      >
-                        محفوظاتي
-                      </Link>
-                      <div className="border-t border-purple-100 my-2"></div>
-                      <button
-                        onClick={() => {
-                          logout();
-                          setDropdownOpen(false);
-                        }}
-                        className="w-full text-right px-4 py-3 text-gray-700 hover:bg-red-50 hover:text-red-600 transition-all duration-300"
-                      >
-                        تسجيل الخروج
-                      </button>
+                      {unreadCount > 9 ? "9+" : unreadCount}
                     </motion.div>
                   )}
-                </AnimatePresence>
-              </motion.div>
+                </motion.button>
+
+                <motion.div className="relative" whileHover={{ scale: 1.02 }}>
+                  <button
+                    className="flex items-center gap-3 p-2 rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#7440E9]"
+                    onClick={() => setDropdownOpen((v) => !v)}
+                  >
+                    <motion.img
+                      whileHover={{ scale: 1.1 }}
+                      src={
+                        avatarUrl || "https://hadith-shareef.com/default.jpg"
+                      }
+                      alt={user.username}
+                      className="w-8 h-8 rounded-full border-2 border-[#7440E9] object-cover shadow-md"
+                    />
+                    <span className="font-semibold text-[#7440E9] text-sm">
+                      {user.username}
+                    </span>
+                    <User className="w-4 h-4 text-[#7440E9]" />
+                  </button>
+
+                  <AnimatePresence>
+                    {dropdownOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute left-0 mt-2 w-48 bg-white/95 backdrop-blur-xl border border-purple-200/50 rounded-2xl shadow-2xl py-2 z-50 text-right"
+                      >
+                        <Link
+                          to="/profile"
+                          className="block px-4 py-3 text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 hover:text-[#7440E9] transition-all duration-300"
+                          onClick={() => setDropdownOpen(false)}
+                        >
+                          الملف الشخصي
+                        </Link>
+                        <Link
+                          to="/saved"
+                          className="block px-4 py-3 text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 hover:text-[#7440E9] transition-all duration-300"
+                          onClick={() => setDropdownOpen(false)}
+                        >
+                          محفوظاتي
+                        </Link>
+                        <div className="border-t border-purple-100 my-2"></div>
+                        <button
+                          onClick={() => {
+                            logout();
+                            setDropdownOpen(false);
+                          }}
+                          className="w-full text-right px-4 py-3 text-gray-700 hover:bg-red-50 hover:text-red-600 transition-all duration-300"
+                        >
+                          تسجيل الخروج
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              </>
             ) : (
               <motion.div
                 whileHover={{ scale: 1.05 }}
@@ -262,8 +341,8 @@ const Navbar = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="md:hidden fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm"
+            transition={{ duration: 0.1 }}
+            className="lg:hidden fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm"
             onClick={closeMobile}
           >
             <motion.div
@@ -392,6 +471,12 @@ const Navbar = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Camp Notifications Modal */}
+      <NotificationCenter
+        isOpen={campNotificationsOpen}
+        onClose={() => setCampNotificationsOpen(false)}
+      />
     </>
   );
 };

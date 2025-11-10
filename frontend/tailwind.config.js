@@ -4,6 +4,9 @@ export default {
 
   theme: {
     extend: {
+      screens: {
+        xs: "475px",
+      },
       colors: {
         gray: {
           950: "#030303", // Ultra-dark background
@@ -61,10 +64,9 @@ export default {
         "ai-hover-light": "0 15px 30px -10px rgba(0, 0, 0, 0.15)",
         "ai-hover-dark": "0 15px 30px -10px rgba(255, 255, 255, 0.1)",
       },
-      // Modern typography
+      // Modern typography with global font support
       fontFamily: {
-        naskh: ["Noto Naskh Arabic", "serif"],
-
+        naskh: ["Noto Naskh Arabic", "Amiri", "Scheherazade", "serif"],
         sans: [
           "Inter",
           "system-ui",
@@ -77,7 +79,22 @@ export default {
           "Noto Sans",
           "sans-serif",
         ],
-        cairo: ["Cairo", "sans-serif"],
+        cairo: ["Cairo", "Noto Sans Arabic", "Tajawal", "sans-serif"],
+        // Global font stack for better cross-platform support
+        global: [
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "Segoe UI",
+          "Roboto",
+          "Helvetica Neue",
+          "Arial",
+          "Noto Sans",
+          "Apple Color Emoji",
+          "Segoe UI Emoji",
+          "Segoe UI Symbol",
+          "Noto Color Emoji",
+          "sans-serif",
+        ],
       },
       // Smooth transitions
       transitionProperty: {
@@ -129,6 +146,13 @@ export default {
           "&:hover": {
             transform: "scale(1.02)",
             "box-shadow": "var(--tw-shadow-colored)",
+          },
+        },
+        ".scrollbar-hide": {
+          "-ms-overflow-style": "none",
+          "scrollbar-width": "none",
+          "&::-webkit-scrollbar": {
+            display: "none",
           },
         },
       };
