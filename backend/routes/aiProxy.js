@@ -320,7 +320,7 @@ const rateLimit = async (req, res, next) => {
     const key = req.user ? req.user.id : req.ip;
 
     const windowMs = 24 * 60 * 60 * 1000; // 24 hours
-    const max = 15; // 10 questions per day
+    const max = 10; // 10 questions per day
     if (req.user && req.user.id === 5) {
       await redisClient.incrementWithExpiry(
         `rate-limit:${key}`,
@@ -830,7 +830,7 @@ router.get("/remaining-questions", authMiddleware, async (req, res) => {
       });
     }
 
-    const max = 15; // 15 questions per day
+    const max = 10; // 15 questions per day
 
     // Get the current count and TTL from Redis
     const { value: count, ttl } = await redisClient.getWithTTL(
@@ -893,8 +893,8 @@ ${hadith.reference ? `التخريج: ${hadith.reference}` : ""}
         name: "gemini",
         provider: "google",
         model: "gemini-2.0-flash",
-        baseUrl: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyAKXzUR61h3RZOpq0hR3JRug8y20cTXURE`,
-        dailyLimit: 15,
+        baseUrl: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        dailyLimit: 10,
       },
       messages
     );

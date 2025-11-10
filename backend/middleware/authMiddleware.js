@@ -44,4 +44,38 @@ const restrictTo = (...roles) => {
   };
 };
 
-module.exports = { authMiddleware, restrictTo };
+const adminMiddleware = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ msg: "No user found, authorization denied" });
+  }
+
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ msg: "Access denied. Admin role required." });
+  }
+
+  next();
+};
+
+// Optional auth middleware - sets req.user if token exists, but doesn't require it
+const optionalAuthMiddleware = (req, res, next) => {
+  const token = req.header("x-auth-token");
+  if (!token) {
+    return next(); // Continue without user
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded.user || decoded; // دعم كلا التنسيقين
+    next();
+  } catch (err) {
+    // If token is invalid, continue without user (don't reject the request)
+    next();
+  }
+};
+
+module.exports = {
+  authMiddleware,
+  restrictTo,
+  adminMiddleware,
+  optionalAuthMiddleware,
+};

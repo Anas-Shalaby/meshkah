@@ -80,7 +80,7 @@ router.post("/contact", async (req, res) => {
             <h2 style="color: #4f46e5; margin-bottom: 20px; text-align: center;">تم استلام طلبك بنجاح</h2>
             
             <p style="color: #374151; line-height: 1.6; margin-bottom: 20px;">
-              عزيزي/عزيزتي <strong>${name}</strong>،
+             مرحبا بك يا <strong>${name}</strong>،
             </p>
             
             <p style="color: #374151; line-height: 1.6; margin-bottom: 20px;">

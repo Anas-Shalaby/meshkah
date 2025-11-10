@@ -3,10 +3,28 @@ const router = express.Router();
 const jwt = require("jsonwebtoken");
 const db = require("../config/database");
 
+// Simple error response helper - doesn't break existing code
+const sendError = (res, status, message, messageAr = null) => {
+  const response = {
+    success: false,
+    status: status,
+    message: message,
+  };
+  if (messageAr) {
+    response.messageAr = messageAr;
+  }
+  return res.status(status).json(response);
+};
+
 const authMiddleware = (req, res, next) => {
   const token = req.header("x-auth-token");
   if (!token) {
-    return res.status(401).json({ msg: "No token, authorization denied" });
+    return sendError(
+      res,
+      401,
+      "No token, authorization denied",
+      "لا يوجد رمز، تم رفض التفويض"
+    );
   }
 
   try {
@@ -14,7 +32,7 @@ const authMiddleware = (req, res, next) => {
     req.user = decoded.user;
     next();
   } catch (err) {
-    res.status(401).json({ msg: "Token is not valid" });
+    return sendError(res, 401, "Token is not valid", "الرمز غير صالح");
   }
 };
 
@@ -50,7 +68,12 @@ router.post("/add", authMiddleware, async (req, res) => {
     );
 
     if (existingBookmarks.length > 0) {
-      return res.status(400).json({ message: "Item already bookmarked" });
+      return sendError(
+        res,
+        400,
+        "Item already bookmarked",
+        "العنصر محفوظ بالفعل"
+      );
     }
 
     // Insert new bookmark
@@ -103,10 +126,12 @@ router.post("/add", authMiddleware, async (req, res) => {
     }
   } catch (error) {
     console.error("Islamic bookmark add error:", error);
-    res.status(500).json({
-      message: "Error adding Islamic bookmark",
-      error: error.message,
-    });
+    return sendError(
+      res,
+      500,
+      "Error adding Islamic bookmark",
+      "خطأ في إضافة العلامة المرجعية الإسلامية"
+    );
   }
 });
 
@@ -122,16 +147,23 @@ router.delete("/remove/:bookmarkId", authMiddleware, async (req, res) => {
     );
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Bookmark not found" });
+      return sendError(
+        res,
+        404,
+        "Bookmark not found",
+        "العلامة المرجعية غير موجودة"
+      );
     }
 
     res.json({ message: "Islamic bookmark removed successfully" });
   } catch (error) {
     console.error("Islamic bookmark remove error:", error);
-    res.status(500).json({
-      message: "Error removing Islamic bookmark",
-      error: error.message,
-    });
+    return sendError(
+      res,
+      500,
+      "Error removing Islamic bookmark",
+      "خطأ في حذف العلامة المرجعية الإسلامية"
+    );
   }
 });
 
@@ -187,10 +219,12 @@ router.get("/user", authMiddleware, async (req, res) => {
     });
   } catch (error) {
     console.error("Get Islamic bookmarks error:", error);
-    res.status(500).json({
-      message: "Error fetching Islamic bookmarks",
-      error: error.message,
-    });
+    return sendError(
+      res,
+      500,
+      "Error fetching Islamic bookmarks",
+      "خطأ في جلب العلامات المرجعية الإسلامية"
+    );
   }
 });
 
@@ -207,10 +241,12 @@ router.get("/collections", authMiddleware, async (req, res) => {
     res.json({ collections });
   } catch (error) {
     console.error("Get collections error:", error);
-    res.status(500).json({
-      message: "Error fetching collections",
-      error: error.message,
-    });
+    return sendError(
+      res,
+      500,
+      "Error fetching collections",
+      "خطأ في جلب المجموعات"
+    );
   }
 });
 
@@ -227,16 +263,23 @@ router.put("/update/:bookmarkId", authMiddleware, async (req, res) => {
     );
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Bookmark not found" });
+      return sendError(
+        res,
+        404,
+        "Bookmark not found",
+        "العلامة المرجعية غير موجودة"
+      );
     }
 
     res.json({ message: "Bookmark updated successfully" });
   } catch (error) {
     console.error("Update bookmark error:", error);
-    res.status(500).json({
-      message: "Error updating bookmark",
-      error: error.message,
-    });
+    return sendError(
+      res,
+      500,
+      "Error updating bookmark",
+      "خطأ في تحديث العلامة المرجعية"
+    );
   }
 });
 
@@ -268,10 +311,12 @@ router.get("/check", authMiddleware, async (req, res) => {
     });
   } catch (error) {
     console.error("Check bookmark error:", error);
-    res.status(500).json({
-      message: "Error checking bookmark",
-      error: error.message,
-    });
+    return sendError(
+      res,
+      500,
+      "Error checking bookmark",
+      "خطأ في التحقق من العلامة المرجعية"
+    );
   }
 });
 

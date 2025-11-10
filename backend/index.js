@@ -3,7 +3,8 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const path = require("path");
 const { setupTaskReminders } = require("./config/taskReminderScheduler");
-const recommendationScheduler = require("./config/recommendationScheduler");
+const CampNotificationScheduler = require("./config/campNotificationScheduler");
+const FriendsDigestScheduler = require("./config/friendsDigestScheduler");
 const http = require("http");
 const mailService = require("./services/mailService");
 const notificationRoutes = require("./routes/notification");
@@ -102,13 +103,21 @@ app.use("/api/admin", require("./routes/admin"));
 app.use("/api", require("./routes/card"));
 app.use("/api", require("./routes/hadith"));
 app.use("/api", require("./routes/search"));
+app.use("/api/search-history", require("./routes/searchHistory"));
 app.use("/api", notificationRoutes);
+app.use("/api/notifications", require("./routes/notifications"));
 app.use("/api", require("./routes/hadithProxy"));
 app.use("/api/ai", aiProxyRoutes);
 app.use("/api/sunnah", require("./routes/sunnah"));
 app.use("/api/islamic-library", require("./routes/islamicLibrary")); // إضافة المكتبة الإسلامية
+app.use("/api/auth/profile", require("./routes/profile"));
 app.use("/api/support", require("./routes/support")); // إضافة نظام الدعم
 app.use("/api/recommendations", require("./routes/recommendations")); // إضافة نظام التوصيات الذكية
+app.use("/api/hadith-verification", require("./routes/hadithVerification")); // إضافة نظام التحقق من الحديث
+app.use("/api/quran-camps", require("./routes/quranCamps")); // إضافة نظام المخيمات القرآنية
+app.use("/api/camp-notifications", require("./routes/campNotifications")); // إضافة إشعارات المخيمات
+app.use("/api/notes-export", require("./routes/notesExport")); // إضافة نظام تصدير الملاحظات
+app.use("/api/friends", require("./routes/friends")); // إضافة نظام الصحبة المخصصة (الأصدقاء)
 app.post("/send-welcome-email", async (req, res) => {
   try {
     const { email, username } = req.body;
@@ -130,7 +139,15 @@ app.post("/send-welcome-email", async (req, res) => {
 
 // Initialize schedulers
 setupTaskReminders();
-recommendationScheduler.start();
+// recommendationScheduler.start();
+
+// Initialize camp notification scheduler
+const campNotificationScheduler = new CampNotificationScheduler();
+campNotificationScheduler.start();
+
+// Initialize friends digest scheduler
+const friendsDigestScheduler = new FriendsDigestScheduler();
+friendsDigestScheduler.start();
 
 app.set("io", io);
 

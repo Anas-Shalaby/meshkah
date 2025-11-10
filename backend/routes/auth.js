@@ -11,7 +11,17 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const { google } = require("googleapis");
-
+const sendError = (res, status, message, messageAr = null) => {
+  const response = {
+    success: false,
+    status: status,
+    message: message,
+  };
+  if (messageAr) {
+    response.messageAr = messageAr;
+  }
+  return res.status(status).json(response);
+};
 router.get("/google-status", authMiddleware, async (req, res) => {
   const userId = req.user.id;
 
@@ -46,7 +56,7 @@ router.post(
       ]);
 
       if (users.length === 0) {
-        return res.status(400).json({ msg: "لا يوجد مستخدم بهذا الايميل" });
+        return sendError(res, 400, "User not found", "خطأ في الصلاحيات");
       }
 
       const user = users[0];
@@ -54,7 +64,7 @@ router.post(
       // Compare passwords
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
-        return res.status(400).json({ msg: "خطأ في الصلاحيات" });
+        return sendError(res, 400, "Invalid password", "خطأ في الصلاحيات");
       }
 
       // Create JWT payload
@@ -78,7 +88,12 @@ router.post(
       );
     } catch (err) {
       console.error(err.message);
-      res.status(500).send("Server error");
+      sendError(
+        res,
+        500,
+        "Server error during login",
+        "حدث خطأ أثناء تسجيل الدخول"
+      );
     }
   }
 );
@@ -150,7 +165,12 @@ router.post("/google-login", async (req, res) => {
     });
   } catch (error) {
     console.error("Google login error:", error);
-    res.status(500).json({ msg: "Server error during Google authentication" });
+    sendError(
+      res,
+      500,
+      "Server error during Google authentication",
+      "حدث خطأ أثناء تسجيل الدخول عبر جوجل"
+    );
   }
 });
 // Registration Route
@@ -179,7 +199,12 @@ router.post(
       );
 
       if (existingUsers.length > 0) {
-        return res.status(400).json({ msg: "المستخدم موجود مسبقاً" });
+        return sendError(
+          res,
+          400,
+          "User already exists",
+          "المستخدم موجود مسبقاً"
+        );
       }
 
       // Hash password
@@ -214,7 +239,12 @@ router.post(
       await mailService.sendWelcomeEmail(email, username);
     } catch (err) {
       console.error(err.message);
-      res.status(500).send("Server error");
+      sendError(
+        res,
+        500,
+        "Server error during registration",
+        "حدث خطأ أثناء تسجيل الدخول"
+      );
     }
   }
 );
@@ -227,13 +257,18 @@ router.get("/profile", authMiddleware, async (req, res) => {
     ]);
 
     if (users.length === 0) {
-      return res.status(404).json({ msg: "لا يوجد مستخدم" });
+      return sendError(res, 404, "User not found", "لا يوجد مستخدم");
     }
 
     res.json(users[0]);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send("Server Error");
+    sendError(
+      res,
+      500,
+      "Server error during profile retrieval",
+      "حدث خطأ أثناء جلب بيانات المستخدم"
+    );
   }
 });
 
@@ -262,7 +297,12 @@ router.get("/bookmarked-cards", authMiddleware, async (req, res) => {
     res.json(cards);
   } catch (error) {
     console.error("Error fetching bookmarked cards:", error);
-    res.status(500).json({ message: "حدث خطأ أثناء جلب البطاقات المحفوظة" });
+    sendError(
+      res,
+      500,
+      "Error fetching bookmarked cards",
+      "حدث خطأ أثناء جلب البطاقات المحفوظة"
+    );
   }
 });
 
@@ -303,7 +343,12 @@ router.put(
         updateValues.push(avatarUrl);
       }
       if (updateFields.length === 0) {
-        return res.status(400).json({ msg: "لا يوجد بيانات لتحديثها" });
+        return sendError(
+          res,
+          400,
+          "No data to update",
+          "لا يوجد بيانات لتحديثها"
+        );
       }
       updateValues.push(userId);
       await db.query(
@@ -317,7 +362,12 @@ router.put(
       res.json(users[0]);
     } catch (error) {
       console.error("Error updating profile:", error);
-      res.status(500).json({ msg: "حدث خطأ أثناء تحديث الحساب" });
+      sendError(
+        res,
+        500,
+        "Error updating profile",
+        "حدث خطأ أثناء تحديث الحساب"
+      );
     }
   }
 );

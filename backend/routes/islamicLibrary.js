@@ -4,6 +4,19 @@ const axios = require("axios");
 const fs = require("fs").promises;
 const path = require("path");
 
+// Simple error response helper - doesn't break existing code
+const sendError = (res, status, message, messageAr = null) => {
+  const response = {
+    success: false,
+    status: status,
+    message: message,
+  };
+  if (messageAr) {
+    response.messageAr = messageAr;
+  }
+  return res.status(status).json(response);
+};
+
 // API Configuration for Islamic Library
 const ISLAMIC_LIBRARY_API_BASE = "https://hadithapi.com/api";
 const ISLAMIC_LIBRARY_API_KEY =
@@ -59,7 +72,7 @@ const BOOK_CATEGORIES = {
     description: "مجموعات مختارة من الأحاديث المهمة",
     descriptionEn: "Selected collections of important hadiths",
     descriptionUr: "اہم احادیث کے منتخب مجموعے",
-    books: ["nawawi40", "qudsi40", "shahwaliullah40"],
+    books: ["nawawi40", "qudsi40", "shahwaliullah40", "riyadiah40"],
   },
   adab: {
     id: "adab",
@@ -235,6 +248,22 @@ const LOCAL_BOOKS = {
     category: "arbaain",
     filePath: "shahwaliullah40.json",
   },
+  riyadiah40: {
+    id: 20,
+    bookName: "الأربعون الرياضية",
+    bookNameEn: "The Forty Hadith of Riyad al-Salihin",
+    bookNameUr: "الأربعون الریاضیہ",
+    writerName: "الشيخ محمد خير رمضان يوسف",
+    writerNameEn: "Sheikh Muhammad Khair Ramadan Yusuf",
+    writerNameUr: "الشيخ محمد خير رمضان يوسف",
+    bookSlug: "riyadiah40",
+    hadiths_count: "40",
+    chapters_count: "1",
+    status: "available",
+    isLocal: true,
+    category: "arbaain",
+    filePath: "riyadiah40.json",
+  },
 };
 
 // Load local book data
@@ -292,7 +321,12 @@ router.get("/books", async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching Islamic books:", error);
-    res.status(500).json({ message: "Error fetching Islamic books" });
+    return sendError(
+      res,
+      500,
+      "Error fetching Islamic books",
+      "خطأ في جلب الكتب الإسلامية"
+    );
   }
 });
 
@@ -305,7 +339,12 @@ router.get("/categories", async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching categories:", error);
-    res.status(500).json({ message: "Error fetching categories" });
+    return sendError(
+      res,
+      500,
+      "Error fetching categories",
+      "خطأ في جلب الفئات"
+    );
   }
 });
 
@@ -316,7 +355,7 @@ router.get("/categories/:categoryId/books", async (req, res) => {
     const category = BOOK_CATEGORIES[categoryId];
 
     if (!category) {
-      return res.status(404).json({ message: "Category not found" });
+      return sendError(res, 404, "Category not found", "الفئة غير موجودة");
     }
 
     const response = await axios.get(
@@ -341,7 +380,12 @@ router.get("/categories/:categoryId/books", async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching category books:", error);
-    res.status(500).json({ message: "Error fetching category books" });
+    return sendError(
+      res,
+      500,
+      "Error fetching category books",
+      "خطأ في جلب كتب الفئة"
+    );
   }
 });
 
@@ -352,12 +396,17 @@ router.get("/local-books/:bookSlug", async (req, res) => {
     const bookConfig = LOCAL_BOOKS[bookSlug];
 
     if (!bookConfig) {
-      return res.status(404).json({ message: "Book not found" });
+      return sendError(res, 404, "Book not found", "الكتاب غير موجود");
     }
 
     const bookData = await loadLocalBook(bookSlug);
     if (!bookData) {
-      return res.status(404).json({ message: "Book data not found" });
+      return sendError(
+        res,
+        404,
+        "Book data not found",
+        "بيانات الكتاب غير موجودة"
+      );
     }
 
     res.json({
@@ -370,7 +419,12 @@ router.get("/local-books/:bookSlug", async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching local book:", error);
-    res.status(500).json({ message: "Error fetching local book" });
+    return sendError(
+      res,
+      500,
+      "Error fetching local book",
+      "خطأ في جلب الكتاب المحلي"
+    );
   }
 });
 
@@ -382,7 +436,7 @@ router.get("/local-books/:bookSlug/hadiths", async (req, res) => {
 
     const bookData = await loadLocalBook(bookSlug);
     if (!bookData) {
-      return res.status(404).json({ message: "Book not found" });
+      return sendError(res, 404, "Book not found", "الكتاب غير موجود");
     }
 
     let filteredHadiths = bookData.hadiths;
@@ -424,7 +478,7 @@ router.get("/local-books/:bookSlug/hadiths", async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching local book hadiths:", error);
-    res.status(500).json({ message: "Error fetching hadiths" });
+    return sendError(res, 500, "Error fetching hadiths", "خطأ في جلب الأحاديث");
   }
 });
 
@@ -435,12 +489,12 @@ router.get("/local-books/:bookSlug/hadiths/:hadithId", async (req, res) => {
 
     const bookData = await loadLocalBook(bookSlug);
     if (!bookData) {
-      return res.status(404).json({ message: "Book not found" });
+      return sendError(res, 404, "Book not found", "الكتاب غير موجود");
     }
 
     const hadith = bookData.hadiths.find((h) => h.id.toString() === hadithId);
     if (!hadith) {
-      return res.status(404).json({ message: "Hadith not found" });
+      return sendError(res, 404, "Hadith not found", "الحديث غير موجود");
     }
     const bookChapter = bookData.chapters.find(
       (chapter) => chapter.id === hadith.chapterId
@@ -469,7 +523,7 @@ router.get("/local-books/:bookSlug/hadiths/:hadithId", async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching local book hadith:", error);
-    res.status(500).json({ message: "Error fetching hadith" });
+    return sendError(res, 500, "Error fetching hadith", "خطأ في جلب الحديث");
   }
 });
 
@@ -478,14 +532,14 @@ router.get("/small-books/:bookSlug/hadiths/:hadithId", async (req, res) => {
   try {
     const { bookSlug, hadithId } = req.params;
 
-    const bookData = await loadSmallBook(bookSlug);
+    const bookData = await loadLocalBook(bookSlug);
     if (!bookData) {
-      return res.status(404).json({ message: "Book not found" });
+      return sendError(res, 404, "Book not found", "الكتاب غير موجود");
     }
 
     const hadith = bookData.hadiths.find((h) => h.id.toString() === hadithId);
     if (!hadith) {
-      return res.status(404).json({ message: "Hadith not found" });
+      return sendError(res, 404, "Hadith not found", "الحديث غير موجود");
     }
 
     res.json({
@@ -506,7 +560,7 @@ router.get("/small-books/:bookSlug/hadiths/:hadithId", async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching small book hadith:", error);
-    res.status(500).json({ message: "Error fetching hadith" });
+    return sendError(res, 500, "Error fetching hadith", "خطأ في جلب الحديث");
   }
 });
 
@@ -564,7 +618,7 @@ router.get("/books/:bookSlug/chapters", async (req, res) => {
     // Check if the requested book is in the excluded list
     const excludedBooks = ["Musnad Ahmad", "Al-Silsila Sahiha"];
     if (excludedBooks.includes(bookSlug)) {
-      return res.status(404).json({ message: "Book not found" });
+      return sendError(res, 404, "Book not found", "الكتاب غير موجود");
     }
 
     // Fallback to API for regular books
@@ -574,7 +628,12 @@ router.get("/books/:bookSlug/chapters", async (req, res) => {
     res.json(response.data);
   } catch (error) {
     console.error("Error fetching book chapters:", error);
-    res.status(500).json({ message: "Error fetching book chapters" });
+    return sendError(
+      res,
+      500,
+      "Error fetching book chapters",
+      "خطأ في جلب فصول الكتاب"
+    );
   }
 });
 
@@ -677,11 +736,7 @@ router.get("/hadiths", async (req, res) => {
 
     // Check if the API returned a 404 status
     if (response.data.status === 404) {
-      return res.status(404).json({
-        status: 404,
-        message: "Hadiths not found.",
-        hadiths: { data: [] },
-      });
+      return sendError(res, 404, "Hadiths not found", "الأحاديث غير موجودة");
     }
 
     res.json(response.data);
@@ -693,18 +748,10 @@ router.get("/hadiths", async (req, res) => {
 
     // If it's a 404 error from the external API, return a proper response
     if (error.response?.status === 404) {
-      return res.status(404).json({
-        status: 404,
-        message: "Hadiths not found.",
-        hadiths: { data: [] },
-      });
+      return sendError(res, 404, "Hadiths not found", "الأحاديث غير موجودة");
     }
 
-    res.status(500).json({
-      message: "Error fetching hadiths",
-      error: error.response?.data || error.message,
-      details: error.response?.status,
-    });
+    return sendError(res, 500, "Error fetching hadiths", "خطأ في جلب الأحاديث");
   }
 });
 
@@ -746,7 +793,7 @@ router.get("/books/:bookSlug/chapters/:chapterId/hadiths", async (req, res) => {
     // Check if the requested book is in the excluded list
     const excludedBooks = ["Musnad Ahmad", "Al-Silsila Sahiha"];
     if (excludedBooks.includes(bookSlug)) {
-      return res.status(404).json({ message: "Book not found" });
+      return sendError(res, 404, "Book not found", "الكتاب غير موجود");
     }
 
     // Fallback to API for regular books
@@ -766,7 +813,12 @@ router.get("/books/:bookSlug/chapters/:chapterId/hadiths", async (req, res) => {
     res.json(response.data);
   } catch (error) {
     console.error("Error fetching chapter hadiths:", error);
-    res.status(500).json({ message: "Error fetching chapter hadiths" });
+    return sendError(
+      res,
+      500,
+      "Error fetching chapter hadiths",
+      "خطأ في جلب أحاديث الفصل"
+    );
   }
 });
 
@@ -817,11 +869,16 @@ router.get(
         }
       }
 
-      return res.status(404).json({ message: "Book not found" });
+      return sendError(res, 404, "Book not found", "الكتاب غير موجود");
     } catch (error) {
       console.error("Error fetching local chapter hadiths:", error);
       console.error("Error stack:", error.stack);
-      res.status(500).json({ message: "Error fetching chapter hadiths" });
+      return sendError(
+        res,
+        500,
+        "Error fetching chapter hadiths",
+        "خطأ في جلب أحاديث الفصل"
+      );
     }
   }
 );
@@ -841,7 +898,12 @@ router.get(
         }
       );
       if (!bookData) {
-        return res.status(404).json({ message: "Book data not found" });
+        return sendError(
+          res,
+          404,
+          "Book data not found",
+          "بيانات الكتاب غير موجودة"
+        );
       }
       const hadith = bookData.data.hadiths.data.find(
         (h) => h.hadithNumber.toString() === hadithNumber.toString()
@@ -855,7 +917,7 @@ router.get(
           h.hadithNumber.toString() === (parseInt(hadithNumber) - 1).toString()
       );
       if (!hadith) {
-        return res.status(404).json({ message: "Hadith not found" });
+        return sendError(res, 404, "Hadith not found", "الحديث غير موجود");
       }
       res.json({
         status: 200,
@@ -878,9 +940,12 @@ router.get(
       });
     } catch (error) {
       console.error("Error fetching local book hadith navigation:", error);
-      res
-        .status(500)
-        .json({ message: "Error fetching local book hadith navigation" });
+      return sendError(
+        res,
+        500,
+        "Error fetching local book hadith navigation",
+        "خطأ في جلب تنقل أحاديث الكتاب المحلي"
+      );
     }
   }
 );
@@ -892,7 +957,12 @@ router.get(
       const { bookSlug, hadithNumber } = req.params;
       const bookData = await loadLocalBook(bookSlug);
       if (!bookData) {
-        return res.status(404).json({ message: "Book data not found" });
+        return sendError(
+          res,
+          404,
+          "Book data not found",
+          "بيانات الكتاب غير موجودة"
+        );
       }
       const hadith = bookData.hadiths.find(
         (h) => h.id.toString() === hadithNumber.toString()
@@ -904,7 +974,7 @@ router.get(
         (h) => h.id.toString() === (parseInt(hadithNumber) - 1).toString()
       );
       if (!hadith) {
-        return res.status(404).json({ message: "Hadith not found" });
+        return sendError(res, 404, "Hadith not found", "الحديث غير موجود");
       }
       res.json({
         status: 200,
@@ -931,7 +1001,12 @@ router.get(
       });
     } catch (error) {
       console.error("Error fetching local book hadith:", error);
-      res.status(500).json({ message: "Error fetching local book hadith" });
+      return sendError(
+        res,
+        500,
+        "Error fetching local book hadith",
+        "خطأ في جلب حديث الكتاب المحلي"
+      );
     }
   }
 );
@@ -946,7 +1021,7 @@ router.get(
       // Check if the requested book is in the excluded list
       const excludedBooks = ["Musnad Ahmad", "Al-Silsila Sahiha"];
       if (excludedBooks.includes(bookSlug)) {
-        return res.status(404).json({ message: "Book not found" });
+        return sendError(res, 404, "Book not found", "الكتاب غير موجود");
       }
 
       // Check if it's a local book hadith
@@ -983,7 +1058,7 @@ router.get(
       }
       // Check if the requested book is in the excluded list
       if (EXCLUDED_BOOKS.includes(bookSlug)) {
-        return res.status(404).json({ message: "Book not found" });
+        return sendError(res, 404, "Book not found", "الكتاب غير موجود");
       }
 
       const params = {
@@ -998,7 +1073,7 @@ router.get(
       });
       res.json(response.data);
     } catch (error) {
-      res.status(500).json({ message: "Error fetching hadith" });
+      return sendError(res, 500, "Error fetching hadith", "خطأ في جلب الحديث");
     }
   }
 );
@@ -1076,9 +1151,12 @@ router.get("/statistics", async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching Islamic library statistics:", error);
-    res
-      .status(500)
-      .json({ message: "Error fetching Islamic library statistics" });
+    return sendError(
+      res,
+      500,
+      "Error fetching Islamic library statistics",
+      "خطأ في جلب إحصائيات المكتبة الإسلامية"
+    );
   }
 });
 
@@ -1091,12 +1169,17 @@ router.get(
       const bookConfig = LOCAL_BOOKS[bookSlug];
 
       if (!bookConfig) {
-        return res.status(404).json({ message: "Book not found" });
+        return sendError(res, 404, "Book not found", "الكتاب غير موجود");
       }
 
       const bookData = await loadLocalBook(bookSlug);
       if (!bookData) {
-        return res.status(404).json({ message: "Book data not found" });
+        return sendError(
+          res,
+          404,
+          "Book data not found",
+          "بيانات الكتاب غير موجودة"
+        );
       }
 
       const chapters = bookData.chapters || [];
@@ -1105,7 +1188,7 @@ router.get(
       );
 
       if (currentChapterIndex === -1) {
-        return res.status(404).json({ message: "Chapter not found" });
+        return sendError(res, 404, "Chapter not found", "الفصل غير موجود");
       }
 
       const currentChapter = chapters[currentChapterIndex];
@@ -1151,7 +1234,12 @@ router.get(
       });
     } catch (error) {
       console.error("Error fetching chapter navigation:", error);
-      res.status(500).json({ message: "Error fetching chapter navigation" });
+      return sendError(
+        res,
+        500,
+        "Error fetching chapter navigation",
+        "خطأ في جلب تنقل الفصول"
+      );
     }
   }
 );
@@ -1169,7 +1257,12 @@ router.get(
       const bookData = response.data;
       console.log(bookData);
       if (!bookData) {
-        return res.status(404).json({ message: "Book data not found" });
+        return sendError(
+          res,
+          404,
+          "Book data not found",
+          "بيانات الكتاب غير موجودة"
+        );
       }
 
       const chapters = bookData.chapters || [];
@@ -1185,7 +1278,7 @@ router.get(
           ch.chapterNumber.toString() === (parseInt(chapterId) + 1).toString()
       );
       if (!currentChapter) {
-        return res.status(404).json({ message: "Chapter not found" });
+        return sendError(res, 404, "Chapter not found", "الفصل غير موجود");
       }
 
       const chapterHadiths = await axios.get(
@@ -1221,7 +1314,12 @@ router.get(
       });
     } catch (error) {
       console.error("Error fetching chapter navigation:", error);
-      res.status(500).json({ message: "Error fetching chapter navigation" });
+      return sendError(
+        res,
+        500,
+        "Error fetching chapter navigation",
+        "خطأ في جلب تنقل الفصول"
+      );
     }
   }
 );
@@ -1245,10 +1343,12 @@ router.get("/search", async (req, res) => {
     } = req.query;
 
     if (!q && !book && !category && !narrator) {
-      return res.status(400).json({
-        status: 400,
-        message: "At least one search parameter is required",
-      });
+      return sendError(
+        res,
+        400,
+        "At least one search parameter is required",
+        "مطلوب معامل بحث واحد على الأقل"
+      );
     }
 
     const results = [];
@@ -1693,10 +1793,12 @@ router.get("/search", async (req, res) => {
     } = req.query;
 
     if (!q && !book && !category && !narrator) {
-      return res.status(400).json({
-        status: 400,
-        message: "At least one search parameter is required",
-      });
+      return sendError(
+        res,
+        400,
+        "At least one search parameter is required",
+        "مطلوب معامل بحث واحد على الأقل"
+      );
     }
 
     const results = [];
