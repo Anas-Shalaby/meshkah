@@ -158,10 +158,17 @@ const sendFriendRequest = async (req, res) => {
     const user1Id = Math.min(senderId, receiverId);
     const user2Id = Math.max(senderId, receiverId);
 
-    // التحقق من وجود صداقة موجودة بالفعل في هذا المخيم
+    // Get current cohort number
+    const [camps] = await db.query(
+      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
+      [campId]
+    );
+    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
+
+    // التحقق من وجود صداقة موجودة بالفعل في هذا المخيم والفوج
     const [existingCampFriendship] = await db.query(
-      "SELECT id FROM camp_friendships WHERE camp_id = ? AND user1_id = ? AND user2_id = ?",
-      [campId, user1Id, user2Id]
+      "SELECT id FROM camp_friendships WHERE camp_id = ? AND cohort_number = ? AND user1_id = ? AND user2_id = ?",
+      [campId, currentCohortNumber, user1Id, user2Id]
     );
 
     if (existingCampFriendship.length > 0) {
@@ -342,20 +349,27 @@ const respondToFriendRequest = async (req, res) => {
 
     // إذا تم القبول، إنشاء سجل صداقة جديد في camp_friendships
     if (action === "accept") {
+      // Get current cohort number
+      const [camps] = await db.query(
+        `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
+        [campId]
+      );
+      const currentCohortNumber = camps[0]?.current_cohort_number || 1;
+
       // تحديد الترتيب الصحيح (user1_id < user2_id)
       const user1Id = Math.min(senderId, receiverId);
       const user2Id = Math.max(senderId, receiverId);
 
-      // التحقق من عدم وجود صداقة مسبقًا في هذا المخيم (حماية إضافية)
+      // التحقق من عدم وجود صداقة مسبقًا في هذا المخيم والفوج (حماية إضافية)
       const [existingCampFriendship] = await db.query(
-        "SELECT id FROM camp_friendships WHERE camp_id = ? AND user1_id = ? AND user2_id = ?",
-        [campId, user1Id, user2Id]
+        "SELECT id FROM camp_friendships WHERE camp_id = ? AND cohort_number = ? AND user1_id = ? AND user2_id = ?",
+        [campId, currentCohortNumber, user1Id, user2Id]
       );
 
       if (existingCampFriendship.length === 0) {
         await db.query(
-          "INSERT INTO camp_friendships (camp_id, user1_id, user2_id) VALUES (?, ?, ?)",
-          [campId, user1Id, user2Id]
+          "INSERT INTO camp_friendships (camp_id, cohort_number, user1_id, user2_id) VALUES (?, ?, ?, ?)",
+          [campId, currentCohortNumber, user1Id, user2Id]
         );
       }
     }
@@ -512,7 +526,14 @@ const getFriendsList = async (req, res) => {
       });
     }
 
-    // جلب جميع الصداقات المرتبطة بهذا المخيم فقط
+    // Get current cohort number for this camp
+    const [camps] = await db.query(
+      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
+      [campId]
+    );
+    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
+
+    // جلب جميع الصداقات المرتبطة بهذا المخيم والفوج الحالي فقط
     const [campFriendships] = await db.query(
       `SELECT 
         cf.id,
@@ -540,9 +561,19 @@ const getFriendsList = async (req, res) => {
       LEFT JOIN users u1 ON cf.user1_id = u1.id
       LEFT JOIN users u2 ON cf.user2_id = u2.id
       WHERE cf.camp_id = ?
+        AND cf.cohort_number = ?
         AND (cf.user1_id = ? OR cf.user2_id = ?)
       ORDER BY cf.created_at DESC`,
-      [userId, userId, userId, userId, campId, userId, userId]
+      [
+        userId,
+        userId,
+        userId,
+        userId,
+        campId,
+        currentCohortNumber,
+        userId,
+        userId,
+      ]
     );
 
     // تحويل البيانات إلى قائمة الأصدقاء
@@ -614,14 +645,21 @@ const removeFriend = async (req, res) => {
       });
     }
 
+    // Get current cohort number
+    const [camps] = await db.query(
+      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
+      [campId]
+    );
+    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
+
     // تحديد الترتيب الصحيح للبحث عن الصداقة
     const user1Id = Math.min(userId, friendId);
     const user2Id = Math.max(userId, friendId);
 
-    // البحث عن الصداقة في هذا المخيم
+    // البحث عن الصداقة في هذا المخيم والفوج
     const [campFriendships] = await db.query(
-      "SELECT id FROM camp_friendships WHERE camp_id = ? AND user1_id = ? AND user2_id = ?",
-      [campId, user1Id, user2Id]
+      "SELECT id FROM camp_friendships WHERE camp_id = ? AND cohort_number = ? AND user1_id = ? AND user2_id = ?",
+      [campId, currentCohortNumber, user1Id, user2Id]
     );
 
     if (campFriendships.length === 0) {
@@ -631,10 +669,10 @@ const removeFriend = async (req, res) => {
       });
     }
 
-    // حذف الصداقة من هذا المخيم فقط
+    // حذف الصداقة من هذا المخيم والفوج فقط
     await db.query(
-      "DELETE FROM camp_friendships WHERE camp_id = ? AND user1_id = ? AND user2_id = ?",
-      [campId, user1Id, user2Id]
+      "DELETE FROM camp_friendships WHERE camp_id = ? AND cohort_number = ? AND user1_id = ? AND user2_id = ?",
+      [campId, currentCohortNumber, user1Id, user2Id]
     );
 
     res.json({

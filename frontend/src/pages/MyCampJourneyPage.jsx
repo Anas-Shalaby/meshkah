@@ -341,6 +341,11 @@ const MyCampJourneyPage = () => {
       (1000 * 60 * 60 * 24)
   );
 
+  // Check camp status
+  const campStatus = progress.enrollment.camp_status;
+  const isReadOnly = campStatus === "completed";
+  const isCampNotStarted = campStatus === "early_registration";
+
   // Debug logging
   console.log("Camp start date:", progress.enrollment.camp_start_date);
   console.log("Current date:", new Date().toISOString());

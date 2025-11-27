@@ -495,66 +495,209 @@ const FriendsTab = ({ campId }) => {
               exit={{ opacity: 0, y: -10 }}
               className="space-y-6"
             >
-              {/* قسم كود الصحبة الخاص بي */}
-              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-3 sm:p-4 md:p-5 border border-purple-200">
-                <label className="block text-xs text-gray-600 mb-2">
-                  شارك هذا الكود مع صديقك ليضيفك:
-                </label>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
-                  <strong className="text-purple-700 font-semibold text-sm sm:text-base md:text-lg bg-white px-2 sm:px-3 md:px-4 py-2 rounded-md border border-purple-200 flex-1 text-center font-mono break-all sm:break-normal">
-                    {myFriendCode || "..."}
-                  </strong>
-                  <button
-                    onClick={handleCopyFriendCode}
-                    className="p-2 sm:p-2.5 md:p-3 rounded-lg bg-[#7440E9] text-white hover:bg-[#5a2fc7] transition-colors flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 w-full sm:w-auto"
-                    title="نسخ كود الصحبة"
-                  >
-                    <Clipboard className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span className="text-xs sm:text-sm font-medium">نسخ</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* قسم إضافة صديق بالكود */}
-              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-3 sm:p-4 md:p-6 border border-purple-200">
-                <h3 className="text-base sm:text-lg md:text-xl font-bold text-gray-800 mb-3 sm:mb-4 flex items-center gap-2">
-                  <UserPlus className="w-4 h-4 sm:w-5 sm:h-5 text-[#7440E9]" />
-                  إضافة صديق جديد
-                </h3>
-                <form
-                  onSubmit={handleSendRequestByCode}
-                  className="flex flex-col sm:flex-row gap-2"
+              {/* Empty State - عندما لا يوجد أصدقاء أو طلبات */}
+              {friendsList.length === 0 &&
+              pendingRequests.sent.length === 0 &&
+              pendingRequests.received.length === 0 ? (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-gradient-to-br from-[#F7F6FB] via-[#F3EDFF] to-[#E9E4F5] rounded-2xl p-6 sm:p-8 md:p-12 border-2 border-[#7440E9]/20 shadow-lg"
                 >
-                  <input
-                    type="text"
-                    value={friendCodeInput}
-                    onChange={(e) => setFriendCodeInput(e.target.value)}
-                    placeholder="أدخل كود الصحبة..."
-                    className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7440E9] focus:border-transparent text-sm"
-                  />
-                  <button
-                    type="submit"
-                    disabled={sendingRequest || friendCodeInput.trim() === ""}
-                    className="px-4 sm:px-6 py-2 sm:py-2.5 bg-[#7440E9] text-white rounded-lg hover:bg-[#5a2fc7] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium text-sm sm:text-base"
-                  >
-                    {sendingRequest ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        <span className="hidden sm:inline">
-                          جاري الإرسال...
+                  <div className="text-center space-y-6 sm:space-y-8">
+                    {/* الأيقونة */}
+                    <motion.div
+                      initial={{ scale: 0, rotate: -180 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      transition={{
+                        delay: 0.2,
+                        type: "spring",
+                        stiffness: 200,
+                      }}
+                      className="flex justify-center"
+                    >
+                      <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-gradient-to-br from-[#7440E9] to-[#8b5cf6] rounded-full flex items-center justify-center shadow-xl">
+                        <Users className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 text-white" />
+                      </div>
+                    </motion.div>
+
+                    {/* العنوان */}
+                    <motion.h2
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 }}
+                      className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800"
+                    >
+                      لم تقم بإضافة صُحبة بعد.
+                    </motion.h2>
+
+                    {/* النص التوضيحي */}
+                    <motion.p
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.4 }}
+                      className="text-base sm:text-lg md:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed"
+                    >
+                      رحلة القرآن أجمل مع الصُحبة. ادعُ أصحابك الآن لمشاركة
+                      الإنجازات والتدبرات.
+                    </motion.p>
+
+                    {/* عرض كود الصحبة */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 }}
+                      className="space-y-3 sm:space-y-4"
+                    >
+                      <p className="text-sm sm:text-base text-gray-700 font-medium">
+                        هذا هو كود الصحبة الخاص بك في هذا المخيم:
+                      </p>
+                      <div className="bg-white rounded-xl p-4 sm:p-5 md:p-6 border-2 border-[#7440E9]/30 shadow-md">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+                          <code className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#7440E9] font-mono bg-[#F7F6FB] px-4 py-3 rounded-lg border border-[#7440E9]/20 flex-1 text-center break-all sm:break-normal">
+                            {myFriendCode || "..."}
+                          </code>
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={handleCopyFriendCode}
+                            className="px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-[#7440E9] to-[#8b5cf6] text-white rounded-xl hover:from-[#5a2fc7] hover:to-[#7c3aed] transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 sm:gap-3 font-semibold text-sm sm:text-base md:text-lg"
+                          >
+                            <Clipboard className="w-5 h-5 sm:w-6 sm:h-6" />
+                            <span>نسخ الكود</span>
+                          </motion.button>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    {/* الفاصل */}
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.6 }}
+                      className="flex items-center gap-4 my-4 sm:my-6"
+                    >
+                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-gray-300"></div>
+                      <span className="text-gray-500 font-semibold text-sm sm:text-base">
+                        أو
+                      </span>
+                      <div className="flex-1 h-px bg-gradient-to-l from-transparent via-gray-300 to-gray-300"></div>
+                    </motion.div>
+
+                    {/* إدخال كود صديق */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.7 }}
+                      className="space-y-3 sm:space-y-4"
+                    >
+                      <p className="text-sm sm:text-base text-gray-700 font-medium">
+                        أدخل كود صديقك لإرسال طلب صداقة:
+                      </p>
+                      <form
+                        onSubmit={handleSendRequestByCode}
+                        className="flex flex-col sm:flex-row gap-3 sm:gap-4 max-w-md mx-auto"
+                      >
+                        <input
+                          type="text"
+                          value={friendCodeInput}
+                          onChange={(e) => setFriendCodeInput(e.target.value)}
+                          placeholder="أدخل كود الصحبة..."
+                          className="flex-1 px-4 sm:px-5 py-3 sm:py-4 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#7440E9] focus:border-[#7440E9] transition-all text-base sm:text-lg shadow-sm"
+                        />
+                        <motion.button
+                          type="submit"
+                          disabled={
+                            sendingRequest || friendCodeInput.trim() === ""
+                          }
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          className="px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-[#7440E9] to-[#8b5cf6] text-white rounded-xl hover:from-[#5a2fc7] hover:to-[#7c3aed] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 sm:gap-3 font-semibold text-sm sm:text-base md:text-lg shadow-lg hover:shadow-xl"
+                        >
+                          {sendingRequest ? (
+                            <>
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                              <span>جاري الإرسال...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Send className="w-5 h-5 sm:w-6 sm:h-6" />
+                              <span>إرسال طلب</span>
+                            </>
+                          )}
+                        </motion.button>
+                      </form>
+                    </motion.div>
+                  </div>
+                </motion.div>
+              ) : (
+                <>
+                  {/* قسم كود الصحبة الخاص بي */}
+                  <div className="bg-gradient-to-r from-[#F7F6FB] to-[#F3EDFF] rounded-xl p-3 sm:p-4 md:p-5 border border-[#7440E9]/20">
+                    <label className="block text-xs text-gray-600 mb-2">
+                      شارك هذا الكود مع صديقك ليضيفك:
+                    </label>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+                      <strong className="text-[#7440E9] font-semibold text-sm sm:text-base md:text-lg bg-white px-2 sm:px-3 md:px-4 py-2 rounded-md border border-[#7440E9]/20 flex-1 text-center font-mono break-all sm:break-normal">
+                        {myFriendCode || "..."}
+                      </strong>
+                      <button
+                        onClick={handleCopyFriendCode}
+                        className="p-2 sm:p-2.5 md:p-3 rounded-lg bg-[#7440E9] text-white hover:bg-[#5a2fc7] transition-colors flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 w-full sm:w-auto"
+                        title="نسخ كود الصحبة"
+                      >
+                        <Clipboard className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <span className="text-xs sm:text-sm font-medium">
+                          نسخ
                         </span>
-                        <span className="sm:hidden">جاري الإرسال</span>
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus className="w-4 h-4" />
-                        <span className="hidden sm:inline">إرسال طلب</span>
-                        <span className="sm:hidden">إرسال</span>
-                      </>
-                    )}
-                  </button>
-                </form>
-              </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* قسم إضافة صديق بالكود */}
+                  <div className="bg-gradient-to-r from-[#F7F6FB] to-[#F3EDFF] rounded-xl p-3 sm:p-4 md:p-6 border border-[#7440E9]/20">
+                    <h3 className="text-base sm:text-lg md:text-xl font-bold text-gray-800 mb-3 sm:mb-4 flex items-center gap-2">
+                      <UserPlus className="w-4 h-4 sm:w-5 sm:h-5 text-[#7440E9]" />
+                      إضافة صديق جديد
+                    </h3>
+                    <form
+                      onSubmit={handleSendRequestByCode}
+                      className="flex flex-col sm:flex-row gap-2"
+                    >
+                      <input
+                        type="text"
+                        value={friendCodeInput}
+                        onChange={(e) => setFriendCodeInput(e.target.value)}
+                        placeholder="أدخل كود الصحبة..."
+                        className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7440E9] focus:border-transparent text-sm"
+                      />
+                      <button
+                        type="submit"
+                        disabled={
+                          sendingRequest || friendCodeInput.trim() === ""
+                        }
+                        className="px-4 sm:px-6 py-2 sm:py-2.5 bg-[#7440E9] text-white rounded-lg hover:bg-[#5a2fc7] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium text-sm sm:text-base"
+                      >
+                        {sendingRequest ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span className="hidden sm:inline">
+                              جاري الإرسال...
+                            </span>
+                            <span className="sm:hidden">جاري الإرسال</span>
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="w-4 h-4" />
+                            <span className="hidden sm:inline">إرسال طلب</span>
+                            <span className="sm:hidden">إرسال</span>
+                          </>
+                        )}
+                      </button>
+                    </form>
+                  </div>
+                </>
+              )}
 
               {/* قسم طلبات معلقة */}
               {(pendingRequests.received.length > 0 ||

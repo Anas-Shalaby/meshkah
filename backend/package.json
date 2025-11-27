@@ -56,7 +56,8 @@
     "pdfkit": "^0.15.0",
     "pdfkit-table": "^0.1.99",
     "pm2": "^6.0.13",
-    "puppeteer-core": "^24.26.1",
+    "puppeteer": "^24.31.0",
+    "puppeteer-core": "^24.31.0",
     "shortid": "^2.2.16",
     "socket.io": "^4.8.1"
   },

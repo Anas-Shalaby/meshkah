@@ -33,6 +33,18 @@ const CampQandA = ({ campId, qanda, isLoading, onQuestionAsked }) => {
     }
   };
 
+  const getAvatarUrl = (user) => {
+    if (!user) return "/default-avatar.png";
+    if (user.avatar_url) {
+      if (user.avatar_url.startsWith("http")) {
+        return user.avatar_url;
+      } else if (user.avatar_url.startsWith("/uploads/avatars")) {
+        return `${import.meta.env.VITE_IMAGE_API}/api${user.avatar_url}`;
+      }
+    }
+    return "/default-avatar.png";
+  };
+
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 shadow-lg border border-gray-100 dark:border-gray-700">
@@ -109,7 +121,7 @@ const CampQandA = ({ campId, qanda, isLoading, onQuestionAsked }) => {
                 <div className="flex-shrink-0">
                   {item.avatar_url ? (
                     <img
-                      src={item.avatar_url || "/default-avatar.png"}
+                      src={getAvatarUrl(item)}
                       alt={item.author}
                       className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-full object-cover border-2 border-[#7440E9]/30 shadow-sm"
                       onError={(e) => {
@@ -170,15 +182,21 @@ const CampQandA = ({ campId, qanda, isLoading, onQuestionAsked }) => {
           ))
         ) : (
           <div className="text-center py-8 sm:py-12 lg:py-16 px-4">
-            <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 rounded-xl sm:rounded-2xl mb-4 sm:mb-6">
-              <MessageSquare className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 text-gray-400 dark:text-gray-500" />
+            <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-br from-[#7440E9]/10 to-[#8b5cf6]/10 rounded-full mb-4 sm:mb-6">
+              <MessageSquare className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 text-[#7440E9]" />
             </div>
-            <h4 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">
+            <h4 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2 sm:mb-3">
               لا توجد أسئلة حتى الآن
             </h4>
-            <p className="text-xs sm:text-sm lg:text-base text-gray-500 dark:text-gray-400 max-w-md mx-auto">
-              كن أول من يسأل! اطرح سؤالك وستحصل على إجابة من المشرفين.
+            <p className="text-xs sm:text-sm lg:text-base text-gray-600 dark:text-gray-400 mb-4 max-w-md mx-auto">
+              كن أول من يطرح سؤالاً! استخدم النموذج أعلاه لطرح سؤالك وسيقوم
+              المشرفون بالرد عليه.
             </p>
+            <div className="flex flex-wrap gap-2 justify-center text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+              <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full">
+                💡 نصيحة: اطرح أسئلة واضحة ومحددة
+              </span>
+            </div>
           </div>
         )}
       </div>

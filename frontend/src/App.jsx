@@ -68,6 +68,7 @@ const CampContentPage = lazy(() => import("./pages/CampContentPage"));
 const MyCampJourneyPage = lazy(() => import("./pages/MyCampJourneyPage"));
 const MyCampJournalPage = lazy(() => import("./pages/MyCampJournalPage"));
 const CampSummaryPage = lazy(() => import("./pages/CampSummaryPage"));
+const SharedReflectionPage = lazy(() => import("./pages/SharedReflectionPage"));
 
 const websiteMetadata = {
   title: "مشكاة الأحاديث - موسوعة الحديث الشريف",
@@ -298,6 +299,13 @@ function App() {
                       path="/quran-camps/:id"
                       element={<QuranCampDetailsPage />}
                     />
+
+                    {/* Shared Reflection - Public Route */}
+                    <Route
+                      path="/shared-reflection/:shareLink"
+                      element={<SharedReflectionPage />}
+                    />
+
                     <Route
                       path="/camp-summary/:id"
                       element={

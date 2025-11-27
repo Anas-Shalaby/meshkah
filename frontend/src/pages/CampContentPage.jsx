@@ -18,6 +18,7 @@ const CampContentPage = () => {
   const [camp, setCamp] = useState(null);
   const [dailyTasks, setDailyTasks] = useState([]);
   const [tasksByDay, setTasksByDay] = useState({});
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -46,14 +47,9 @@ const CampContentPage = () => {
 
       const campData = await campResponse.json();
       const tasksData = await tasksResponse.json();
+      setDailyTasks(tasksData.data || []);
       // Group tasks by day
-      const grouped = {};
-      (tasksData.data || []).forEach((task) => {
-        if (!grouped[task.day_number]) {
-          grouped[task.day_number] = [];
-        }
-        grouped[task.day_number].push(task);
-      });
+      const grouped = groupTasksByDay(tasksData.data || []);
       setTasksByDay(grouped);
       setCamp(campData.data);
     } catch (err) {
@@ -62,6 +58,17 @@ const CampContentPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const groupTasksByDay = (tasks) => {
+    return tasks.reduce((groups, task) => {
+      const day = task.day_number;
+      if (!groups[day]) {
+        groups[day] = [];
+      }
+      groups[day].push(task);
+      return groups;
+    }, {});
   };
 
   const getTaskTypeIcon = (type) => {
@@ -116,6 +123,7 @@ const CampContentPage = () => {
       </div>
     );
   }
+  console.log(camp);
 
   if (error) {
     return (
@@ -134,7 +142,6 @@ const CampContentPage = () => {
       </div>
     );
   }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#F7F6FB] via-[#F3EDFF] to-[#E9E4F5]">
       {/* Header */}

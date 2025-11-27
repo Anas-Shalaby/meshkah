@@ -113,7 +113,7 @@ export const ConfirmationDialog = ({
               {title}
             </h3>
             <p className="text-gray-600 mb-6 text-base sm:text-lg">{message}</p>
-            <div className="flex gap-3 sm:gap-4 justify-end">
+            <div className="flex gap-3 sm:gap-4 justify-start">
               <button
                 onClick={onClose}
                 className="px-4 sm:px-6 py-2 sm:py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-semibold text-sm sm:text-base"

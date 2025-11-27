@@ -31,6 +31,7 @@ class CampNotificationService {
         case "general":
           return userSettings.notifications_enabled;
         case "daily_reminder":
+        case "daily_message":
           return (
             userSettings.notifications_enabled && userSettings.daily_reminders
           );
@@ -71,8 +72,8 @@ class CampNotificationService {
         [
           userId,
           campId,
-          `مرحباً بك في مخيم ${campName}! 🎉`,
-          `أهلاً وسهلاً بك في مخيم ${campName}! نحن سعداء لانضمامك إلينا في هذه الرحلة القرآنية المباركة. استعد لرحلة مليئة بالبركة والفوائد.`,
+          `مرحباً بك في = ${campName}! 🎉`,
+          `أهلاً وسهلاً بك في  ${campName}! نحن سعداء لانضمامك إلينا في هذه الرحلة القرآنية المباركة. استعد لرحلة مليئة بالبركة والفوائد.`,
         ]
       );
     } catch (error) {
@@ -393,7 +394,7 @@ class CampNotificationService {
 
       await db.query(
         `INSERT INTO camp_notifications (user_id, camp_id, type, title, message) 
-         VALUES (?, ?, 'general', ?, ?)`,
+         VALUES (?, ?, 'admin_message', ?, ?)`,
         [userId, campId, title, message]
       );
     } catch (error) {
@@ -774,6 +775,219 @@ class CampNotificationService {
     } catch (error) {
       console.error("Error sending joint step notification:", error);
       throw error;
+    }
+  }
+
+  // إرسال Daily Messages المجدولة للمستخدمين
+  static async sendScheduledDailyMessages() {
+    try {
+      console.log("[Daily Messages] Starting scheduled daily messages job...");
+
+      // حساب اليوم الحالي من عمر المخيم (بتوقيت الرياض)
+      const now = new Date();
+      const riyadhDate = new Date(
+        now.toLocaleString("en-US", { timeZone: "Asia/Riyadh" })
+      );
+      const todayStr = riyadhDate.toISOString().split("T")[0];
+
+      // جلب جميع الرسائل النشطة التي يجب إرسالها اليوم
+      // نحتاج للتحقق من اليوم الحالي لكل مخيم
+      const [activeCamps] = await db.query(
+        `
+        SELECT DISTINCT
+          qc.id as camp_id,
+          qc.name as camp_name,
+          qc.start_date,
+          qc.reopened_date,
+          qc.duration_days,
+          CASE 
+            WHEN qc.reopened_date IS NOT NULL THEN 
+              (DATEDIFF(?, DATE(qc.reopened_date)) + 1)
+            ELSE 
+              (DATEDIFF(?, DATE(CONVERT_TZ(qc.start_date, '+00:00', '+03:00'))) + 1)
+          END as current_day
+        FROM quran_camps qc
+        WHERE qc.status IN ('active', 'reopened')
+          AND (
+            CASE 
+              WHEN qc.reopened_date IS NOT NULL THEN 
+                DATE(qc.reopened_date)
+              ELSE 
+                DATE(CONVERT_TZ(qc.start_date, '+00:00', '+03:00'))
+            END
+          ) <= ?
+          AND ? < DATE_ADD(
+            CASE 
+              WHEN qc.reopened_date IS NOT NULL THEN 
+                DATE(qc.reopened_date)
+              ELSE 
+                DATE(CONVERT_TZ(qc.start_date, '+00:00', '+03:00'))
+            END, 
+            INTERVAL qc.duration_days DAY
+          )
+      `,
+        [todayStr, todayStr, todayStr, todayStr]
+      );
+
+      if (activeCamps.length === 0) {
+        console.log("[Daily Messages] No active camps found");
+        return;
+      }
+
+      console.log(
+        `[Daily Messages] Found ${activeCamps.length} active camps to process`
+      );
+
+      let totalSent = 0;
+      let totalSkipped = 0;
+      let totalErrors = 0;
+
+      for (const camp of activeCamps) {
+        try {
+          // جلب الرسائل النشطة لهذا اليوم في هذا المخيم
+          let messages = [];
+          try {
+            const [campMessages] = await db.query(
+              `
+              SELECT id, day_number, title, message
+              FROM camp_daily_messages
+              WHERE camp_id = ? 
+                AND day_number = ?
+                AND is_active = 1
+            `,
+              [camp.camp_id, camp.current_day]
+            );
+            messages = campMessages || [];
+          } catch (tableError) {
+            // Table doesn't exist yet, skip this camp
+            console.log(
+              `[Daily Messages] camp_daily_messages table not found, skipping camp ${camp.camp_id}`
+            );
+            continue;
+          }
+
+          if (messages.length === 0) {
+            console.log(
+              `[Daily Messages] No messages scheduled for camp ${camp.camp_id}, day ${camp.current_day}`
+            );
+            continue;
+          }
+
+          // جلب جميع المشتركين في هذا المخيم
+          const [participants] = await db.query(
+            `
+            SELECT DISTINCT
+              ce.user_id,
+              u.username,
+              u.email
+            FROM camp_enrollments ce
+            JOIN users u ON ce.user_id = u.id
+            WHERE ce.camp_id = ?
+              AND (ce.status IS NULL OR ce.status = 'enrolled' OR ce.status = 'active')
+          `,
+            [camp.camp_id]
+          );
+
+          if (participants.length === 0) {
+            console.log(
+              `[Daily Messages] No participants found for camp ${camp.camp_id}`
+            );
+            continue;
+          }
+
+          // إرسال كل رسالة لكل مشترك
+          for (const message of messages) {
+            // استبدال المتغيرات في الرسالة
+            const processedTitle = message.title
+              .replace(/{day}/g, camp.current_day.toString())
+              .replace(/{camp_name}/g, camp.camp_name);
+
+            const processedMessage = message.message
+              .replace(/{day}/g, camp.current_day.toString())
+              .replace(/{camp_name}/g, camp.camp_name);
+
+            for (const participant of participants) {
+              try {
+                // التحقق من إعدادات الإشعارات
+                const shouldSend = await this.checkNotificationSettings(
+                  participant.user_id,
+                  camp.camp_id,
+                  "daily_reminder"
+                );
+
+                if (!shouldSend) {
+                  totalSkipped++;
+                  continue;
+                }
+
+                // إدراج الإشعار في قاعدة البيانات
+                // ملاحظة: قد نحتاج إلى إضافة 'daily_message' إلى enum إذا لم يكن موجوداً
+                try {
+                  await db.query(
+                    `INSERT INTO camp_notifications (user_id, camp_id, type, title, message) 
+                     VALUES (?, ?, 'daily_message', ?, ?)`,
+                    [
+                      participant.user_id,
+                      camp.camp_id,
+                      processedTitle,
+                      processedMessage,
+                    ]
+                  );
+                } catch (insertError) {
+                  // إذا فشل بسبب enum، استخدم 'admin_message' كبديل
+                  if (insertError.code === "ER_WARN_INVALID_STRING") {
+                    console.log(
+                      `[Daily Messages] Using 'admin_message' as fallback for camp ${camp.camp_id}`
+                    );
+                    await db.query(
+                      `INSERT INTO camp_notifications (user_id, camp_id, type, title, message) 
+                       VALUES (?, ?, 'admin_message', ?, ?)`,
+                      [
+                        participant.user_id,
+                        camp.camp_id,
+                        processedTitle,
+                        processedMessage,
+                      ]
+                    );
+                  } else {
+                    throw insertError;
+                  }
+                }
+
+                // إرسال إيميل إذا كان متوفراً (اختياري - يمكن إضافته لاحقاً)
+                // حالياً فقط نرسل الإشعار في قاعدة البيانات
+
+                totalSent++;
+              } catch (participantError) {
+                console.error(
+                  `[Daily Messages] Error sending message to user ${participant.user_id}:`,
+                  participantError.message
+                );
+                totalErrors++;
+              }
+            }
+          }
+
+          console.log(
+            `[Daily Messages] Camp ${camp.camp_id} (${camp.camp_name}): Sent ${totalSent} messages, day ${camp.current_day}`
+          );
+        } catch (campError) {
+          console.error(
+            `[Daily Messages] Error processing camp ${camp.camp_id}:`,
+            campError.message
+          );
+          totalErrors++;
+        }
+      }
+
+      console.log(
+        `[Daily Messages] Job completed: ${totalSent} sent, ${totalSkipped} skipped, ${totalErrors} errors`
+      );
+    } catch (error) {
+      console.error(
+        "[Daily Messages] Error in sendScheduledDailyMessages:",
+        error
+      );
     }
   }
 }

@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
 import {
   Calendar,
   Users,
@@ -12,6 +13,7 @@ import {
   UserCheck,
   Sparkles,
   Shield,
+  Eye,
 } from "lucide-react";
 
 const formatDate = (dateString) => {
@@ -88,6 +90,30 @@ const getStatusIcon = (status) => {
   }
 };
 const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [isInView, setIsInView] = useState(false);
+  const cardRef = useRef(null);
+
+  // Intersection Observer for lazy loading
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsInView(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (cardRef.current) {
+      observer.observe(cardRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
   // Highlight search query in text
   const highlightText = (text, query) => {
     if (!query || !text) return text;
@@ -107,6 +133,7 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
   };
   return (
     <motion.div
+      ref={cardRef}
       key={camp.id}
       initial={{ opacity: 0, y: 40, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -159,13 +186,27 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
           borderBottom: "1px solid #e3d8fa",
         }}
       >
-        {camp.banner_image ? (
-          <div
-            className="absolute inset-0 bg-cover bg-center transition-transform duration-500 ease-out group-hover:scale-110"
-            style={{
-              backgroundImage: `url(${camp.banner_image})`,
-            }}
-          />
+        {camp.banner_image && isInView ? (
+          <>
+            {!imageLoaded && (
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-100 to-indigo-100 animate-pulse" />
+            )}
+            <img
+              src={camp.banner_image}
+              alt={camp.name}
+              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-110 ${
+                imageLoaded ? "opacity-100" : "opacity-0"
+              }`}
+              onLoad={() => setImageLoaded(true)}
+              onError={() => {
+                setImageError(true);
+                setImageLoaded(true);
+              }}
+              loading="lazy"
+            />
+          </>
+        ) : camp.banner_image && !isInView ? (
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-100 to-indigo-100 animate-pulse" />
         ) : (
           <div
             className="absolute inset-0"
@@ -261,6 +302,30 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
           >
             {highlightText(camp.description, searchQuery)}
           </p>
+        </motion.div>
+      )}
+
+      {/* العلامات التوضيحية */}
+      {camp.tags && camp.tags.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.18 }}
+          className="flex flex-wrap gap-2.5 mt-4 mb-5 px-4 justify-center"
+        >
+          {camp.tags.map((tag, index) => (
+            <motion.span
+              key={index}
+              whileHover={{ scale: 1.05, y: -2 }}
+              className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-800 rounded-full text-sm font-bold shadow-sm border border-purple-200/50 hover:shadow-md hover:border-purple-300 transition-all duration-200"
+              style={{
+                fontFamily: "Cairo, sans-serif",
+              }}
+            >
+              <span className="w-1.5 h-1.5 bg-purple-500 rounded-full ml-1.5"></span>
+              {tag}
+            </motion.span>
+          ))}
         </motion.div>
       )}
 

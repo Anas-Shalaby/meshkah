@@ -26,13 +26,14 @@ import {
   Crown,
   CheckCircle,
   AlertCircle,
+  Medal,
+  Repeat,
 } from "lucide-react";
 import {
   LineChart,
   Line,
   BarChart,
   Bar,
-  PieChart as RechartsPieChart,
   Pie,
   Cell,
   XAxis,
@@ -47,11 +48,27 @@ import {
 } from "recharts";
 import SEO from "../components/SEO";
 import { toPng } from "html-to-image";
+import { useCounterAnimation } from "../hooks/useCounterAnimation";
+import CampAchievements from "../components/quran-camps/achievements/CampAchievements";
+import AchievementTimeline from "../components/quran-camps/achievements/AchievementTimeline";
+import InviteFriendsCard from "../components/quran-camps/InviteFriendsCard";
+import ShareableSummaryCard from "../components/quran-camps/ShareableSummaryCard";
 
 const CampSummaryPage = () => {
   const { id: campId } = useParams();
   const navigate = useNavigate();
   const [summaryData, setSummaryData] = useState(null);
+  const [camp, setCamp] = useState(null);
+  useEffect(() => {
+    const fetchCamp = async () => {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/quran-camps/${campId}`
+      );
+      const data = await response.json();
+      setCamp(data.data);
+    };
+    fetchCamp();
+  }, [campId]);
   const [userProgress, setUserProgress] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -61,6 +78,41 @@ const CampSummaryPage = () => {
     height: window.innerHeight,
   });
   const summaryCardRef = useRef(null);
+  const [confettiKey, setConfettiKey] = useState(0);
+
+  // --- Counter Animations (must always run to keep hooks order stable) ---
+  const countersReady = !!summaryData && !loading && !error;
+  const pointsTarget = summaryData?.totalPoints ?? 0;
+  const daysTarget = summaryData?.daysCompleted ?? 0;
+  const tasksTarget = summaryData?.totalTasks ?? 0;
+  const streakTarget = summaryData?.longestStreak ?? 0;
+  const reflectionsTarget = summaryData?.reflectionsWritten ?? 0;
+
+  const { count: pointsCount } = useCounterAnimation(
+    pointsTarget,
+    2000,
+    countersReady
+  );
+  const { count: daysCount } = useCounterAnimation(
+    daysTarget,
+    2000,
+    countersReady
+  );
+  const { count: tasksCount } = useCounterAnimation(
+    tasksTarget,
+    2000,
+    countersReady
+  );
+  const { count: streakCount } = useCounterAnimation(
+    streakTarget,
+    2000,
+    countersReady
+  );
+  const { count: reflectionsCount } = useCounterAnimation(
+    reflectionsTarget,
+    2000,
+    countersReady
+  );
 
   const fetchSummary = async () => {
     try {
@@ -134,7 +186,6 @@ const CampSummaryPage = () => {
   useEffect(() => {
     if (summaryData && !loading && !error) {
       setShowConfetti(true);
-      // إيقاف confetti بعد 5 ثوان
       const timer = setTimeout(() => {
         setShowConfetti(false);
       }, 5000);
@@ -157,30 +208,11 @@ const CampSummaryPage = () => {
 
   // دالة لإعادة تشغيل confetti
   const triggerConfetti = () => {
+    setConfettiKey((prev) => prev + 1);
     setShowConfetti(true);
     setTimeout(() => {
       setShowConfetti(false);
     }, 3000);
-  };
-
-  const handleDownloadImage = () => {
-    if (summaryCardRef.current === null) {
-      return;
-    }
-    toPng(summaryCardRef.current, {
-      cacheBust: true,
-      backgroundColor: "#ffffff",
-      pixelRatio: 2,
-    })
-      .then((dataUrl) => {
-        const link = document.createElement("a");
-        link.download = `ملخص-مخيم-${campId}.png`;
-        link.href = dataUrl;
-        link.click();
-      })
-      .catch((err) => {
-        console.log(err);
-      });
   };
 
   if (loading) {
@@ -392,6 +424,7 @@ const CampSummaryPage = () => {
       {/* Confetti Effect */}
       {showConfetti && (
         <div
+          key={`confetti-${confettiKey}`}
           className="fixed inset-0 pointer-events-none"
           style={{ zIndex: 9999 }}
         >
@@ -399,7 +432,7 @@ const CampSummaryPage = () => {
             width={windowDimensions.width}
             height={windowDimensions.height}
             recycle={false}
-            numberOfPieces={200}
+            numberOfPieces={220}
             colors={[
               "#7440E9",
               "#F7F6FB",
@@ -410,42 +443,40 @@ const CampSummaryPage = () => {
               "#4ECDC4",
               "#45B7D1",
             ]}
-            gravity={0.3}
-            initialVelocityY={20}
-            initialVelocityX={5}
+            gravity={0.28}
+            initialVelocityY={18}
+            initialVelocityX={4}
           />
         </div>
       )}
       <div className="min-h-screen bg-gradient-to-br from-[#F7F6FB] via-[#F3EDFF] to-[#E9E4F5] relative overflow-hidden">
-        {/* Decorative Background Elements (الهوية البصرية) */}
+        {/* Decorative Background Elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {/* Large Purple Dots */}
           <motion.div
             animate={{
-              scale: [1, 1.1, 1],
-              opacity: [0.3, 0.6, 0.3],
+              scale: [1, 1.08, 1],
+              opacity: [0.25, 0.45, 0.25],
             }}
             transition={{
-              duration: 8,
+              duration: 9,
               repeat: Infinity,
               ease: "easeInOut",
             }}
-            className="absolute top-20 right-20 w-64 h-64 bg-[#7440E9]/20 rounded-full blur-xl"
+            className="absolute top-20 right-16 w-64 h-64 bg-[#7440E9]/20 rounded-full blur-2xl"
           />
           <motion.div
             animate={{
-              scale: [1, 1.2, 1],
-              opacity: [0.2, 0.5, 0.2],
+              scale: [1, 1.15, 1],
+              opacity: [0.15, 0.35, 0.15],
             }}
             transition={{
-              duration: 6,
+              duration: 7,
               repeat: Infinity,
               ease: "easeInOut",
-              delay: 2,
+              delay: 1.5,
             }}
-            className="absolute bottom-20 left-20 w-80 h-80 bg-[#7440E9]/15 rounded-full blur-2xl"
+            className="absolute bottom-16 left-16 w-80 h-80 bg-[#7440E9]/15 rounded-full blur-3xl"
           />
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-300/5 rounded-full blur-3xl"></div>
         </div>
 
         <motion.div
@@ -508,7 +539,7 @@ const CampSummaryPage = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-4xl font-bold text-[#7440E9]">
-                    {summaryData.totalPoints}
+                    {pointsCount}
                   </p>
                   <p className="text-sm text-gray-600">نقطة مكتسبة</p>
                 </div>
@@ -528,7 +559,7 @@ const CampSummaryPage = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-4xl font-bold text-blue-600">
-                    {summaryData.daysCompleted}/{summaryData.totalCampDays || 0}
+                    {daysCount}/{summaryData.totalCampDays || 0}
                   </p>
                   <p className="text-sm text-gray-600">يوم مكتمل</p>
                 </div>
@@ -556,7 +587,7 @@ const CampSummaryPage = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-4xl font-bold text-green-600">
-                    {summaryData.totalTasks}
+                    {tasksCount}
                   </p>
                   <p className="text-sm text-gray-600">مهمة مكتملة</p>
                 </div>
@@ -577,7 +608,7 @@ const CampSummaryPage = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-4xl font-bold text-orange-600">
-                      {summaryData.longestStreak}
+                      {streakCount}
                     </p>
                     <p className="text-sm text-gray-600">أيام متتالية</p>
                   </div>
@@ -596,7 +627,7 @@ const CampSummaryPage = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-4xl font-bold text-purple-600">
-                      {summaryData.reflectionsWritten}
+                      {reflectionsCount}
                     </p>
                     <p className="text-sm text-gray-600">فائدة كتبتها</p>
                   </div>
@@ -605,303 +636,113 @@ const CampSummaryPage = () => {
             )}
           </div>
 
-          {/* --- 3. الرسوم البيانية الرئيسية --- */}
-          {chartData.length > 0 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              {/* رسم بياني للمهام اليومية (محسّن) */}
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5 }}
-                className="bg-white/90 backdrop-blur-xl rounded-2xl border-2 border-purple-200/50 shadow-xl p-6"
-              >
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-[#7440E9]" />
-                    <h3 className="text-xl font-bold text-gray-800">
-                      تقدم المهام اليومية
-                    </h3>
-                  </div>
-                  <div className="flex items-center gap-6 text-sm">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-[#7440E9] to-[#9F7AEA] text-white rounded-full shadow-md">
-                      <div className="w-2.5 h-2.5 rounded-full bg-white"></div>
-                      <span className="font-medium">✅ مكتملة</span>
-                    </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-gray-200 to-gray-300 text-gray-700 rounded-full shadow-md">
-                      <div className="w-2.5 h-2.5 rounded-full bg-gray-500"></div>
-                      <span className="font-medium">📋 إجمالي</span>
-                    </div>
-                  </div>
-                </div>
-                <ResponsiveContainer width="100%" height={320}>
-                  <BarChart
-                    data={chartData}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                    barCategoryGap="20%"
-                  >
-                    <defs>
-                      <linearGradient
-                        id="completedGradient"
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop offset="0%" stopColor="#7440E9" />
-                        <stop offset="100%" stopColor="#9F7AEA" />
-                      </linearGradient>
-                      <linearGradient
-                        id="totalGradient"
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop offset="0%" stopColor="#E5E7EB" />
-                        <stop offset="100%" stopColor="#D1D5DB" />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="#F3F4F6"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="day"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{
-                        fill: "#6B7280",
-                        fontSize: 12,
-                        fontWeight: 500,
-                      }}
-                      tickFormatter={(value) => `اليوم ${value}`}
-                    />
-                    <YAxis
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{
-                        fill: "#6B7280",
-                        fontSize: 12,
-                      }}
-                      allowDecimals={false}
-                      label={{
-                        value: "عدد المهام",
-                        angle: -90,
-                        position: "insideLeft",
-                        style: {
-                          textAnchor: "middle",
-                          fill: "#6B7280",
-                          fontSize: 12,
-                          fontWeight: 500,
-                        },
-                      }}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#FFFFFF",
-                        border: "none",
-                        borderRadius: "16px",
-                        boxShadow: "0 10px 25px rgba(0, 0, 0, 0.1)",
-                        padding: "16px",
-                        direction: "rtl",
-                        fontSize: "14px",
-                      }}
-                      labelStyle={{
-                        color: "#374151",
-                        fontWeight: "600",
-                        marginBottom: "8px",
-                        fontSize: "14px",
-                      }}
-                      formatter={(value, name) => {
-                        const icon = name === "مهام مكتملة" ? "✅" : "📋";
-                        return [`${icon} ${value} مهمة`, name];
-                      }}
-                      labelFormatter={(label) => `📅 ${label}`}
-                    />
-                    <Bar
-                      dataKey="total"
-                      name="إجمالي المهام"
-                      fill="url(#totalGradient)"
-                      radius={[4, 4, 0, 0]}
-                      maxBarSize={40}
-                    />
-                    <Bar
-                      dataKey="completed"
-                      name="مهام مكتملة"
-                      fill="url(#completedGradient)"
-                      radius={[4, 4, 0, 0]}
-                      maxBarSize={40}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-
-                {/* إحصائيات سريعة تحت الشارت */}
-                <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center p-4 bg-gradient-to-br from-[#7440E9]/10 to-[#9F7AEA]/10 rounded-xl border border-[#7440E9]/20">
-                    <div className="text-2xl font-bold text-[#7440E9]">
-                      {chartData.reduce((sum, day) => sum + day.completed, 0)}
-                    </div>
-                    <div className="text-sm text-gray-600 font-medium">
-                      مهام مكتملة
-                    </div>
-                  </div>
-                  <div className="text-center p-4 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl border border-gray-300">
-                    <div className="text-2xl font-bold text-gray-700">
-                      {chartData.reduce((sum, day) => sum + day.total, 0)}
-                    </div>
-                    <div className="text-sm text-gray-600 font-medium">
-                      إجمالي المهام
-                    </div>
-                  </div>
-                  <div className="text-center p-4 bg-gradient-to-br from-green-100 to-green-200 rounded-xl border border-green-300">
-                    <div className="text-2xl font-bold text-green-600">
-                      {chartData.length > 0
-                        ? Math.round(
-                            (chartData.reduce(
-                              (sum, day) => sum + day.completed,
-                              0
-                            ) /
-                              chartData.reduce(
-                                (sum, day) => sum + day.total,
-                                0
-                              )) *
-                              100
-                          )
-                        : 0}
-                      %
-                    </div>
-                    <div className="text-sm text-gray-600 font-medium">
-                      نسبة الإنجاز
-                    </div>
-                  </div>
-                  <div className="text-center p-4 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl border border-blue-300">
-                    <div className="text-2xl font-bold text-blue-600">
-                      {chartData.length}
-                    </div>
-                    <div className="text-sm text-gray-600 font-medium">
-                      أيام المخيم
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-
-              {/* Pie Chart للمهام */}
-              {tasksPieData.length > 0 && (
+          {/* --- 2.5. بطاقات الإحصائيات الإضافية الجديدة --- */}
+          {(summaryData?.bestDay ||
+            summaryData?.productivityRate ||
+            summaryData?.attendanceRate ||
+            summaryData?.userRank) && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
+            >
+              {/* أفضل يوم أداء */}
+              {summaryData?.bestDay && (
                 <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.6 }}
-                  className="bg-white/90 backdrop-blur-xl rounded-2xl border-2 border-blue-200/50 shadow-xl p-6"
+                  whileHover={{ scale: 1.05, y: -5 }}
+                  className="bg-white/90 backdrop-blur-xl rounded-2xl border-2 border-indigo-200/50 shadow-xl p-6 hover:shadow-2xl transition-all duration-300"
                 >
-                  <div className="flex items-center gap-2 mb-4">
-                    <PieChart className="w-5 h-5 text-blue-600" />
-                    <h3 className="text-xl font-bold text-gray-800">
-                      توزيع المهام
-                    </h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-xl">
+                      <Trophy className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="text-right">
+                      <p className="text-4xl font-bold text-indigo-600">
+                        اليوم {summaryData.bestDay.day}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {summaryData.bestDay.tasksCompleted} مهمة
+                      </p>
+                    </div>
                   </div>
-                  <ResponsiveContainer width="100%" height={250}>
-                    <RechartsPieChart>
-                      <Pie
-                        data={tasksPieData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) =>
-                          `${name}: ${(percent * 100).toFixed(0)}%`
-                        }
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {tasksPieData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
                 </motion.div>
               )}
 
-              {/* Bar Chart للمساهمات */}
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.7 }}
-                className="bg-white/90 backdrop-blur-xl rounded-2xl border-2 border-green-200/50 shadow-xl p-6"
-              >
-                <div className="flex items-center gap-2 mb-4">
-                  <BarChart3 className="w-5 h-5 text-green-600" />
-                  <h3 className="text-xl font-bold text-gray-800">مساهماتك</h3>
-                </div>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart
-                    data={[
-                      {
-                        name: "فوائد كتبتها",
-                        value: summaryData.reflectionsWritten || 0,
-                      },
-                      {
-                        name: "فوائد حفظتها",
-                        value: summaryData.reflectionsSaved || 0,
-                      },
-                    ]}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
-                    <YAxis stroke="#6b7280" fontSize={12} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#fff",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: "8px",
-                      }}
-                    />
-                    <Bar
-                      dataKey="value"
-                      fill={CHART_COLORS.secondary}
-                      radius={[8, 8, 0, 0]}
-                      name="العدد"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </motion.div>
-
-              {/* Pie Chart للتأثير */}
-              {impactPieData.length > 0 && (
+              {/* معدل الإنتاجية */}
+              {summaryData?.productivityRate !== undefined && (
                 <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.8 }}
-                  className="bg-white/90 backdrop-blur-xl rounded-2xl border-2 border-pink-200/50 shadow-xl p-6"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.7 }}
+                  whileHover={{ scale: 1.05, y: -5 }}
+                  className="bg-white/90 backdrop-blur-xl rounded-2xl border-2 border-amber-200/50 shadow-xl p-6 hover:shadow-2xl transition-all duration-300"
                 >
-                  <div className="flex items-center gap-2 mb-4">
-                    <ThumbsUp className="w-5 h-5 text-pink-600" />
-                    <h3 className="text-xl font-bold text-gray-800">تأثيرك</h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-xl">
+                      <TrendingUp className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="text-right">
+                      <p className="text-4xl font-bold text-amber-600">
+                        {summaryData.productivityRate.toFixed(1)}
+                      </p>
+                      <p className="text-sm text-gray-600">نقطة/يوم</p>
+                    </div>
                   </div>
-                  <ResponsiveContainer width="100%" height={250}>
-                    <RechartsPieChart>
-                      <Pie
-                        data={impactPieData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, value }) => `${name}: ${value}`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {impactPieData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
                 </motion.div>
               )}
-            </div>
+
+              {/* نسبة الحضور */}
+              {summaryData?.attendanceRate !== undefined && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.8 }}
+                  whileHover={{ scale: 1.05, y: -5 }}
+                  className="bg-white/90 backdrop-blur-xl rounded-2xl border-2 border-teal-200/50 shadow-xl p-6 hover:shadow-2xl transition-all duration-300"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 bg-gradient-to-br from-teal-400 to-cyan-500 rounded-xl">
+                      <Calendar className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="text-right">
+                      <p className="text-4xl font-bold text-teal-600">
+                        {summaryData.attendanceRate}%
+                      </p>
+                      <p className="text-sm text-gray-600">نسبة الحضور</p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* الترتيب (بدون إظهار هويات الآخرين) */}
+              {summaryData?.userRank && summaryData?.totalParticipants && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.9 }}
+                  whileHover={{ scale: 1.05, y: -5 }}
+                  className="bg-white/90 backdrop-blur-xl rounded-2xl border-2 border-pink-200/50 shadow-xl p-6 hover:shadow-2xl transition-all duration-300"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 bg-gradient-to-br from-pink-400 to-rose-500 rounded-xl">
+                      <Medal className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="text-right">
+                      <p className="text-4xl font-bold text-pink-600">
+                        #{summaryData.userRank}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        من {summaryData.totalParticipants} مشارك
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </motion.div>
           )}
 
           {/* --- 4. مخطط تقدم المهام خلال الأيام (Grouped Bar Chart) --- */}
@@ -1181,9 +1022,12 @@ const CampSummaryPage = () => {
                 </h3>
               </div>
               <div className="bg-gradient-to-br from-[#F7F6FB] via-[#F3EDFF] to-[#E9E4F5] rounded-xl p-6 border-1 border-[#7440E9]">
-                <p className="text-gray-700 text-lg leading-relaxed  mb-4 text-right">
-                  "{summaryData.topReflection.text}"
-                </p>
+                <p
+                  dangerouslySetInnerHTML={{
+                    __html: summaryData.topReflection.text,
+                  }}
+                  className="text-gray-700 text-lg leading-relaxed  mb-4 text-right"
+                ></p>
                 <div className="flex items-center gap-2 justify-end">
                   <div className="p-1.5 bg-[#7440E9]/10 rounded-full">
                     <ThumbsUp className="w-4 h-4 text-[#7440E9]" />
@@ -1195,6 +1039,17 @@ const CampSummaryPage = () => {
               </div>
             </motion.div>
           )}
+
+          {/* --- نظام الإنجازات --- */}
+          <CampAchievements summaryData={summaryData} />
+
+          {/* --- بطاقة المشاركة --- */}
+          <InviteFriendsCard
+            campId={campId}
+            campShareLink={camp.share_link}
+            campName={summaryData?.campName}
+            summaryData={summaryData}
+          />
 
           {/* --- قسم "الخطوات التالية" --- */}
           <motion.div
@@ -1232,22 +1087,22 @@ const CampSummaryPage = () => {
                 </div>
               </motion.button>
 
-              {/* زر حفظ الملخص */}
+              {/* زر إعادة تشغيل Confetti */}
               <motion.button
                 whileHover={{ scale: 1.05, y: -5 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={handleDownloadImage}
-                className="group relative overflow-hidden bg-white border-2 border-[#7440E9] p-6 rounded-3xl shadow-2xl hover:shadow-[#7440E9]/25 transition-all duration-300"
+                onClick={triggerConfetti}
+                className="group relative overflow-hidden bg-gradient-to-br from-yellow-400 to-amber-600 p-6 rounded-3xl shadow-2xl hover:shadow-yellow-400/25 transition-all duration-300"
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-[#7440E9]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 <div className="relative z-10 text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-[#7440E9]/10 rounded-2xl flex items-center justify-center group-hover:bg-[#7440E9]/20 transition-colors duration-300">
-                    <Download className="w-8 h-8 text-[#7440E9]" />
+                  <div className="w-16 h-16 mx-auto mb-4 bg-white/20 rounded-2xl flex items-center justify-center group-hover:bg-white/30 transition-colors duration-300">
+                    <Sparkles className="w-8 h-8 text-white" />
                   </div>
-                  <h4 className="text-xl font-bold text-[#7440E9] mb-2">
-                    حفظ الملخص
+                  <h4 className="text-xl font-bold text-white mb-2">
+                    احتفل مرة أخرى! 🎊
                   </h4>
-                  <p className="text-gray-600 text-sm">تحميل صورة الإنجاز</p>
+                  <p className="text-white/80 text-sm">إعادة تشغيل التأثيرات</p>
                 </div>
               </motion.button>
 

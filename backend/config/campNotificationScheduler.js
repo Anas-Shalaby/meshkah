@@ -115,6 +115,7 @@ class CampNotificationScheduler {
       }
 
       // جلب جميع المخيمات التي انتهت اليوم أو في الماضي ولم يتم إرسال إشعاراتها
+      // نستخدم NOT EXISTS بدلاً من LEFT JOIN لضمان عدم إرسال إشعارات مكررة
       const [finishedCamps] = await db.query(
         `SELECT DISTINCT
           qc.id as camp_id,
@@ -126,15 +127,15 @@ class CampNotificationScheduler {
         FROM quran_camps qc
         JOIN camp_enrollments ce ON qc.id = ce.camp_id
         JOIN users u ON ce.user_id = u.id
-        LEFT JOIN camp_notifications cn ON (
-          cn.camp_id = qc.id 
+        WHERE DATE_ADD(qc.start_date, INTERVAL qc.duration_days DAY) <= ?
+        AND (qc.status = 'active' OR qc.status = 'completed')
+        AND NOT EXISTS (
+          SELECT 1 FROM camp_notifications cn
+          WHERE cn.camp_id = qc.id 
           AND cn.user_id = ce.user_id 
           AND cn.type = 'achievement'
-          AND cn.title LIKE '%انتهى مخيم%'
+          AND (cn.title LIKE '%انتهى مخيم%' OR cn.title LIKE '%مبارك! انتهى مخيم%')
         )
-        WHERE DATE_ADD(qc.start_date, INTERVAL qc.duration_days DAY) <= ?
-        AND cn.id IS NULL
-        AND (qc.status = 'active' OR qc.status = 'completed')
         ORDER BY end_date DESC, ce.user_id`,
         [today]
       );
@@ -250,6 +251,24 @@ class CampNotificationScheduler {
       }
     );
 
+    // إرسال Daily Messages المجدولة كل يوم في الساعة 6:00 صباحاً
+    cron.schedule(
+      "0 7 * * *",
+      async () => {
+        console.log("Running scheduled daily messages...");
+        try {
+          await CampNotificationService.sendScheduledDailyMessages();
+          console.log("Scheduled daily messages completed successfully");
+        } catch (error) {
+          console.error("Error in scheduled daily messages:", error);
+        }
+      },
+      {
+        scheduled: true,
+        timezone: "Asia/Riyadh",
+      }
+    );
+
     // تفعيل المخيمات المفعّل لها البدء التلقائي عند منتصف الليل (بتوقيت السعودية)
     cron.schedule(
       "5 0 * * *",
@@ -275,6 +294,7 @@ class CampNotificationScheduler {
     );
     console.log("Finished camps check will run at 7:00 AM daily (Saudi time)");
     console.log("Auto-start check will run at 12:05 AM daily (Saudi time)");
+    console.log("Daily Messages will be sent at 7:00 AM daily (Saudi time)");
   }
 
   // إيقاف الـ scheduler

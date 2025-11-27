@@ -4,6 +4,10 @@ const mailService = require("../services/mailService");
 const axios = require("axios");
 const { JSDOM } = require("jsdom");
 const shortid = require("shortid");
+require("dotenv").config();
+// Use puppeteer (with bundled Chromium) - this comes with Chromium built-in
+// If puppeteer is not available, fallback to puppeteer-core
+
 // ==================== USER APIs ====================
 
 // Get all Quran camps
@@ -15,6 +19,7 @@ const getAllCamps = async (req, res) => {
     let query = `
       SELECT 
         qc.*,
+        qc.tags,
         DATE_FORMAT(qc.start_date, '%Y-%m-%d') as start_date_fmt,
         DATE_FORMAT(DATE_ADD(qc.start_date, INTERVAL qc.duration_days DAY), '%Y-%m-%d') as end_date_fmt,
         COUNT(DISTINCT ce.id) as enrolled_count,
@@ -36,8 +41,19 @@ const getAllCamps = async (req, res) => {
     `;
 
     const params = [userId, userId];
+    const isAdmin = req.user?.role === "admin";
+
     // Hide templates from public listing
     query += ` WHERE qc.is_template = 0`;
+
+    // Hide hidden camps (private/unlisted) from public listing completely
+    // Only show public camps (visibility_mode = 'public' or NULL)
+    // Hidden camps (private/unlisted) are completely excluded from the API response
+    // BUT: Admins can see all camps regardless of visibility_mode
+    if (!isAdmin) {
+      query += ` AND (qc.visibility_mode = 'public' OR qc.visibility_mode IS NULL)`;
+    }
+
     if (status) {
       query += ` AND qc.status = ?`;
       params.push(status);
@@ -52,6 +68,7 @@ const getAllCamps = async (req, res) => {
     const normalized = camps.map((c) => ({
       ...c,
       start_date: c.start_date_fmt || c.start_date,
+      tags: c.tags ? c.tags.split(",").map((tag) => tag.trim()) : [],
       end_date: c.end_date_fmt || c.end_date,
       is_enrolled: Boolean(c.is_enrolled),
       max_participants: c.max_participants ? Number(c.max_participants) : null,
@@ -159,10 +176,13 @@ const getCampDetailsForAdmin = async (req, res) => {
       end_date: campRows[0].end_date_fmt || campRows[0].end_date,
     };
 
-    // 2. جلب إحصائيات المخيم
+    // Get current cohort number
+    const currentCohortNumber = camp.current_cohort_number || 1;
+
+    // 2. جلب إحصائيات المخيم (للفوج الحالي فقط)
     const [enrollmentsCount] = await db.query(
-      "SELECT COUNT(*) as count FROM camp_enrollments WHERE camp_id = ?",
-      [id]
+      "SELECT COUNT(*) as count FROM camp_enrollments WHERE camp_id = ? AND cohort_number = ?",
+      [id, currentCohortNumber]
     );
 
     const [tasksCount] = await db.query(
@@ -171,13 +191,13 @@ const getCampDetailsForAdmin = async (req, res) => {
     );
 
     const [completedTasksCount] = await db.query(
-      "SELECT COUNT(*) as count FROM camp_task_progress ctp JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id WHERE ce.camp_id = ? AND ctp.completed = 1",
-      [id]
+      "SELECT COUNT(*) as count FROM camp_task_progress ctp JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id WHERE ce.camp_id = ? AND ce.cohort_number = ? AND ctp.completed = 1",
+      [id, currentCohortNumber]
     );
 
     const [totalPoints] = await db.query(
-      "SELECT SUM(points) as total FROM camp_enrollments WHERE camp_id = ?",
-      [id]
+      "SELECT SUM(points) as total FROM camp_enrollments WHERE camp_id = ? AND cohort_number = ?",
+      [id, currentCohortNumber]
     );
 
     // 3. جلب قائمة المهام اليومية
@@ -186,7 +206,17 @@ const getCampDetailsForAdmin = async (req, res) => {
       [id]
     );
 
-    // 4. جلب قائمة المشتركين
+    const [dayChallenges] = await db.query(
+      `
+        SELECT day_number, title, description
+        FROM camp_day_challenges
+        WHERE camp_id = ?
+        ORDER BY day_number
+      `,
+      [id]
+    );
+
+    // 4. جلب قائمة المشتركين (للفوج الحالي فقط)
     const [participants] = await db.query(
       `
       SELECT 
@@ -197,10 +227,10 @@ const getCampDetailsForAdmin = async (req, res) => {
         u.hide_identity
       FROM camp_enrollments ce
       LEFT JOIN users u ON ce.user_id = u.id
-      WHERE ce.camp_id = ?
+      WHERE ce.camp_id = ? AND ce.cohort_number = ?
       ORDER BY ce.enrollment_date DESC
     `,
-      [id]
+      [id, currentCohortNumber]
     );
 
     res.status(200).json({
@@ -214,6 +244,7 @@ const getCampDetailsForAdmin = async (req, res) => {
           totalPoints: totalPoints[0].total || 0,
         },
         dailyTasks,
+        dayChallenges,
         participants,
       },
     });
@@ -241,9 +272,11 @@ const getCampDetails = async (req, res) => {
       `
   SELECT 
     qc.*,
+    COALESCE(qc.current_cohort_number, 1) as current_cohort_number,
     DATE_FORMAT(qc.start_date, '%Y-%m-%d') as start_date_fmt,
+    qc.tags,
     DATE_FORMAT(DATE_ADD(qc.start_date, INTERVAL qc.duration_days DAY), '%Y-%m-%d') as end_date_fmt,
-    COUNT(ce.id) as enrolled_count,
+    COUNT(CASE WHEN ce.cohort_number = COALESCE(qc.current_cohort_number, 1) THEN ce.id END) as enrolled_count,
     CASE 
       WHEN qc.status = 'early_registration' THEN 'قريباً'
       WHEN qc.status = 'active' THEN 'نشط'
@@ -251,7 +284,7 @@ const getCampDetails = async (req, res) => {
       WHEN qc.status = 'reopened' THEN 'مفتوح للاشتراك'
     END as status_ar,
     CASE 
-      WHEN ? IS NOT NULL AND EXISTS(SELECT 1 FROM camp_enrollments ce2 WHERE ce2.camp_id = qc.id AND ce2.user_id = ?) THEN 1
+      WHEN ? IS NOT NULL AND EXISTS(SELECT 1 FROM camp_enrollments ce2 WHERE ce2.camp_id = qc.id AND ce2.user_id = ? AND ce2.cohort_number = COALESCE(qc.current_cohort_number, 1)) THEN 1
       ELSE 0
     END as is_enrolled,
     CASE 
@@ -259,7 +292,7 @@ const getCampDetails = async (req, res) => {
       ELSE 0
     END as is_read_only
   FROM quran_camps qc
-  LEFT JOIN camp_enrollments ce ON qc.id = ce.camp_id
+  LEFT JOIN camp_enrollments ce ON qc.id = ce.camp_id AND ce.cohort_number = COALESCE(qc.current_cohort_number, 1)
   WHERE ${whereClause}
   GROUP BY qc.id
   `,
@@ -276,6 +309,9 @@ const getCampDetails = async (req, res) => {
     const camp = {
       ...camps[0],
       start_date: camps[0].start_date_fmt || camps[0].start_date,
+      tags: camps[0].tags
+        ? camps[0].tags.split(",").map((tag) => tag.trim())
+        : [],
       end_date: camps[0].end_date_fmt || camps[0].end_date,
     };
     let joinedLate = false;
@@ -300,14 +336,15 @@ const getCampDetails = async (req, res) => {
     }
 
     // إذا كان المستخدم مسجل، احسب إذا انضم متأخراً وعدد الأيام الفائتة
+    const currentCohortNumber = camp.current_cohort_number || 1;
     if (userId && camp.is_enrolled && camp.status === "active") {
       const [enrollment] = await db.query(
         `
         SELECT created_at, enrollment_date
         FROM camp_enrollments 
-        WHERE user_id = ? AND camp_id = ?
+        WHERE user_id = ? AND camp_id = ? AND cohort_number = ?
       `,
-        [userId, id]
+        [userId, id, currentCohortNumber]
       );
 
       if (enrollment.length > 0) {
@@ -356,6 +393,13 @@ const getCampDailyTasks = async (req, res) => {
     const { axisId } = req.query; // دعم التصفية حسب ID المحور
     const userId = req.user?.id || null; // قد يكون null إذا لم يكن المستخدم مسجل الدخول
 
+    // Get current cohort number
+    const [camps] = await db.query(
+      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
+      [id]
+    );
+    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
+
     // بناء استعلام SQL مع إمكانية التصفية حسب المحور
     let whereClause = "WHERE cdt.camp_id = ?";
     const queryParams = [id];
@@ -384,7 +428,7 @@ const getCampDailyTasks = async (req, res) => {
         ctg.description as group_description,
         ctg.parent_group_id,
         ctg.order_in_camp as group_order,
-        ctg.unlock_date as group_unlock_date,
+       
         COALESCE(completion_counts.completed_by_count, 0) as completed_by_count
       FROM camp_daily_tasks cdt
       LEFT JOIN camp_task_groups ctg ON cdt.group_id = ctg.id
@@ -392,8 +436,9 @@ const getCampDailyTasks = async (req, res) => {
         SELECT 
           task_id,
           COUNT(*) as completed_by_count
-        FROM camp_task_progress
-        WHERE completed = true
+        FROM camp_task_progress ctp2
+        JOIN camp_enrollments ce2 ON ctp2.enrollment_id = ce2.id
+        WHERE ctp2.completed = true AND ce2.camp_id = ? AND ce2.cohort_number = ?
         GROUP BY task_id
       ) completion_counts ON cdt.id = completion_counts.task_id
       ${whereClause}
@@ -402,12 +447,74 @@ const getCampDailyTasks = async (req, res) => {
         cdt.day_number, 
         COALESCE(cdt.order_in_group, cdt.order_in_day)
     `,
-      queryParams
+      [id, currentCohortNumber, ...queryParams]
     );
+
+    // جلب تحديات الأيام للمخيم
+    const [challengeRows] = await db.query(
+      `
+        SELECT day_number, title, description
+        FROM camp_day_challenges
+        WHERE camp_id = ?
+      `,
+      [id]
+    );
+
+    const challengesByDay = challengeRows.reduce((acc, row) => {
+      acc[row.day_number] = {
+        title: row.title,
+        description: row.description,
+      };
+      return acc;
+    }, {});
+
+    // Parse JSON fields (additional_links and attachments) for each task
+    tasks.forEach((task) => {
+      task.day_challenge = challengesByDay[task.day_number] || null;
+      if (task.additional_links) {
+        try {
+          task.additional_links =
+            typeof task.additional_links === "string"
+              ? JSON.parse(task.additional_links)
+              : task.additional_links;
+          // Ensure it's an array
+          if (!Array.isArray(task.additional_links)) {
+            console.log(
+              `Task ${task.id} - additional_links is not an array, converting to []`
+            );
+            task.additional_links = [];
+          } else {
+          }
+        } catch (e) {
+          console.error(`Task ${task.id} - Error parsing additional_links:`, e);
+          task.additional_links = [];
+        }
+      } else {
+        task.additional_links = [];
+      }
+      if (task.attachments) {
+        try {
+          task.attachments =
+            typeof task.attachments === "string"
+              ? JSON.parse(task.attachments)
+              : task.attachments;
+          // Ensure it's an array
+          if (!Array.isArray(task.attachments)) {
+            task.attachments = [];
+          } else {
+          }
+        } catch (e) {
+          console.error(`Task ${task.id} - Error parsing attachments:`, e);
+          task.attachments = [];
+        }
+      } else {
+        task.attachments = [];
+      }
+    });
 
     // إذا كان المستخدم مسجل الدخول، أضف معلومات الأصدقاء
     if (userId) {
-      // 1. جلب قائمة IDs الأصدقاء من camp_friendships (في هذا المخيم فقط)
+      // 1. جلب قائمة IDs الأصدقاء من camp_friendships (في هذا المخيم والفوج الحالي فقط)
       const [campFriendships] = await db.query(
         `SELECT
           CASE
@@ -415,20 +522,20 @@ const getCampDailyTasks = async (req, res) => {
             ELSE user1_id
           END as friend_id
         FROM camp_friendships
-        WHERE camp_id = ? AND (user1_id = ? OR user2_id = ?)`,
-        [userId, id, userId, userId]
+        WHERE camp_id = ? AND cohort_number = ? AND (user1_id = ? OR user2_id = ?)`,
+        [userId, id, currentCohortNumber, userId, userId]
       );
 
       const friendIds = campFriendships.map((f) => f.friend_id);
 
       if (friendIds.length > 0) {
-        // 2. جلب enrollment_ids للأصدقاء في هذا المخيم
+        // 2. جلب enrollment_ids للأصدقاء في هذا المخيم والفوج الحالي فقط
         const placeholders = friendIds.map(() => "?").join(",");
         const [friendEnrollments] = await db.query(
           `SELECT id, user_id
            FROM camp_enrollments
-           WHERE user_id IN (${placeholders}) AND camp_id = ?`,
-          [...friendIds, id]
+           WHERE user_id IN (${placeholders}) AND camp_id = ? AND cohort_number = ?`,
+          [...friendIds, id, currentCohortNumber]
         );
 
         const friendEnrollmentIds = friendEnrollments.map((e) => e.id);
@@ -520,9 +627,10 @@ const getCampDailyTasks = async (req, res) => {
     res.json({
       success: true,
       data: tasks,
+      dayChallenges: challengesByDay,
     });
   } catch (error) {
-    console.error("Error fetching daily tasks:", error);
+    console.error("Error fetching camp daily tasks:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ في جلب المهام اليومية",
@@ -541,7 +649,8 @@ const enrollInCamp = async (req, res) => {
     // السماح بالتسجيل في early_registration, active, reopened, و completed
     const [camps] = await db.query(
       `
-      SELECT * FROM quran_camps 
+      SELECT *, COALESCE(current_cohort_number, 1) as current_cohort_number
+      FROM quran_camps 
       WHERE id = ?
     `,
       [id]
@@ -555,15 +664,32 @@ const enrollInCamp = async (req, res) => {
     }
 
     const camp = camps[0];
+    const currentCohortNumber = camp.current_cohort_number || 1;
     const isReadOnly = camp.status === "completed";
 
-    // Check if user is already enrolled
+    // Capacity check (if max_participants is set) - check only for current cohort
+    if (camp.max_participants && Number(camp.max_participants) > 0) {
+      const [countRows] = await db.query(
+        "SELECT COUNT(*) AS count FROM camp_enrollments WHERE camp_id = ? AND cohort_number = ?",
+        [id, currentCohortNumber]
+      );
+      const currentEnrollments = Number(countRows?.[0]?.count || 0);
+      if (currentEnrollments >= Number(camp.max_participants)) {
+        return res.status(400).json({
+          success: false,
+          message: "عذراً، اكتمل العدد في هذا المخيم",
+          code: "CAMP_CAPACITY_REACHED",
+        });
+      }
+    }
+
+    // Check if user is already enrolled in current cohort
     const [existingEnrollment] = await db.query(
       `
       SELECT * FROM camp_enrollments 
-      WHERE user_id = ? AND camp_id = ?
+      WHERE user_id = ? AND camp_id = ? AND cohort_number = ?
     `,
-      [userId, id]
+      [userId, id, currentCohortNumber]
     );
 
     if (existingEnrollment.length > 0) {
@@ -607,13 +733,13 @@ const enrollInCamp = async (req, res) => {
       friendCode = `FC-${id}-${userId}-${Date.now()}`;
     }
 
-    // Create enrollment with friend code
+    // Create enrollment with friend code and cohort number
     const [enrollmentResult] = await db.query(
       `
-      INSERT INTO camp_enrollments (user_id, camp_id, status, friend_code)
-      VALUES (?, ?, 'enrolled', ?)
+      INSERT INTO camp_enrollments (user_id, camp_id, status, friend_code, cohort_number)
+      VALUES (?, ?, 'enrolled', ?, ?)
     `,
-      [userId, id, friendCode]
+      [userId, id, friendCode, currentCohortNumber]
     );
 
     const enrollmentId = enrollmentResult.insertId;
@@ -670,9 +796,52 @@ const enrollInCamp = async (req, res) => {
     });
   } catch (error) {
     console.error("Error enrolling in camp:", error);
+
+    // Handle duplicate entry error
+    if (error.code === "ER_DUP_ENTRY") {
+      const { id } = req.params;
+      const userId = req.user?.id;
+
+      if (userId) {
+        // Get current cohort number
+        try {
+          const [camps] = await db.query(
+            `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
+            [id]
+          );
+          const currentCohortNumber = camps[0]?.current_cohort_number || 1;
+
+          // Check if user is enrolled in current cohort
+          const [existingEnrollment] = await db.query(
+            `SELECT * FROM camp_enrollments 
+             WHERE user_id = ? AND camp_id = ? AND cohort_number = ?`,
+            [userId, id, currentCohortNumber]
+          );
+
+          if (existingEnrollment.length > 0) {
+            return res.status(400).json({
+              success: false,
+              message: "أنت مسجل بالفعل في هذا الفوج من المخيم",
+            });
+          }
+        } catch (checkError) {
+          console.error("Error checking existing enrollment:", checkError);
+        }
+      }
+
+      // Old constraint issue - user enrolled in different cohort
+      return res.status(400).json({
+        success: false,
+        message:
+          "يبدو أن هناك مشكلة في قاعدة البيانات. يرجى تشغيل migration script لإصلاح unique constraint.",
+        code: "CONSTRAINT_ISSUE",
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: "حدث خطأ في التسجيل",
+      error: error.message,
     });
   }
 };
@@ -683,7 +852,13 @@ const getMyProgress = async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
 
-    // Get enrollment info
+    // Get enrollment info for current cohort
+    const [camps] = await db.query(
+      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
+      [id]
+    );
+    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
+
     const [enrollments] = await db.query(
       `
       SELECT 
@@ -694,9 +869,9 @@ const getMyProgress = async (req, res) => {
         qc.duration_days
       FROM camp_enrollments ce
       JOIN quran_camps qc ON ce.camp_id = qc.id
-      WHERE ce.user_id = ? AND ce.camp_id = ?
+      WHERE ce.user_id = ? AND ce.camp_id = ? AND ce.cohort_number = ?
     `,
-      [userId, id]
+      [userId, id, currentCohortNumber]
     );
 
     if (enrollments.length === 0) {
@@ -719,21 +894,22 @@ const getMyProgress = async (req, res) => {
       FROM camp_daily_tasks cdt
       LEFT JOIN camp_task_progress ctp ON cdt.id = ctp.task_id AND ctp.enrollment_id = ?
       LEFT JOIN (
-        SELECT 
-          task_id,
-          COUNT(*) as completed_by_count
-        FROM camp_task_progress
-        WHERE completed = true
+      SELECT 
+        task_id,
+        COUNT(*) as completed_by_count
+        FROM camp_task_progress ctp2
+        JOIN camp_enrollments ce2 ON ctp2.enrollment_id = ce2.id
+        WHERE ctp2.completed = true AND ce2.camp_id = ? AND ce2.cohort_number = ?
         GROUP BY task_id
       ) completion_counts ON cdt.id = completion_counts.task_id
       WHERE cdt.camp_id = ?
       ORDER BY cdt.day_number, cdt.order_in_day
     `,
-      [enrollments[0].id, id]
+      [enrollments[0].id, id, currentCohortNumber, id]
     );
 
     // إضافة بيانات الأصدقاء (نفس المنطق من getCampDailyTasks)
-    // 1. جلب قائمة IDs الأصدقاء من camp_friendships (في هذا المخيم فقط)
+    // 1. جلب قائمة IDs الأصدقاء من camp_friendships (في هذا المخيم والفوج الحالي فقط)
     const [campFriendships] = await db.query(
       `SELECT
         CASE
@@ -741,20 +917,20 @@ const getMyProgress = async (req, res) => {
           ELSE user1_id
         END as friend_id
       FROM camp_friendships
-      WHERE camp_id = ? AND (user1_id = ? OR user2_id = ?)`,
-      [userId, id, userId, userId]
+      WHERE camp_id = ? AND cohort_number = ? AND (user1_id = ? OR user2_id = ?)`,
+      [userId, id, currentCohortNumber, userId, userId]
     );
 
     const friendIds = campFriendships.map((f) => f.friend_id);
 
     if (friendIds.length > 0) {
-      // 2. جلب enrollment_ids للأصدقاء في هذا المخيم
+      // 2. جلب enrollment_ids للأصدقاء في هذا المخيم والفوج الحالي فقط
       const placeholders = friendIds.map(() => "?").join(",");
       const [friendEnrollments] = await db.query(
         `SELECT id, user_id
          FROM camp_enrollments
-         WHERE user_id IN (${placeholders}) AND camp_id = ?`,
-        [...friendIds, id]
+         WHERE user_id IN (${placeholders}) AND camp_id = ? AND cohort_number = ?`,
+        [...friendIds, id, currentCohortNumber]
       );
 
       const friendEnrollmentIds = friendEnrollments.map((e) => e.id);
@@ -834,6 +1010,44 @@ const getMyProgress = async (req, res) => {
         });
       }
     }
+
+    // Parse JSON fields (additional_links and attachments) for each task
+    tasks.forEach((task) => {
+      if (task.additional_links) {
+        try {
+          task.additional_links =
+            typeof task.additional_links === "string"
+              ? JSON.parse(task.additional_links)
+              : task.additional_links;
+          // Ensure it's an array
+          if (!Array.isArray(task.additional_links)) {
+            task.additional_links = [];
+          }
+        } catch (e) {
+          console.error(`Task ${task.id} - Error parsing additional_links:`, e);
+          task.additional_links = [];
+        }
+      } else {
+        task.additional_links = [];
+      }
+      if (task.attachments) {
+        try {
+          task.attachments =
+            typeof task.attachments === "string"
+              ? JSON.parse(task.attachments)
+              : task.attachments;
+          // Ensure it's an array
+          if (!Array.isArray(task.attachments)) {
+            task.attachments = [];
+          }
+        } catch (e) {
+          console.error(`Task ${task.id} - Error parsing attachments:`, e);
+          task.attachments = [];
+        }
+      } else {
+        task.attachments = [];
+      }
+    });
 
     // Calculate progress
     const totalTasks = tasks.length;
@@ -1168,6 +1382,104 @@ const completeTask = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "حدث خطأ في إكمال المهمة",
+    });
+  }
+};
+
+// Track reading time for a task
+const trackReadingTime = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { readingTimeSeconds } = req.body; // Time in seconds
+    const userId = req.user.id;
+
+    if (!readingTimeSeconds || readingTimeSeconds < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "وقت القراءة غير صحيح",
+      });
+    }
+
+    // Get task details
+    const [tasks] = await db.query(
+      `
+      SELECT cdt.*, qc.id as camp_id
+      FROM camp_daily_tasks cdt
+      JOIN quran_camps qc ON cdt.camp_id = qc.id
+      WHERE cdt.id = ?
+    `,
+      [taskId]
+    );
+
+    if (tasks.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المهمة غير موجودة",
+      });
+    }
+
+    // Get user's enrollment
+    const [enrollments] = await db.query(
+      `
+      SELECT * FROM camp_enrollments 
+      WHERE user_id = ? AND camp_id = ?
+    `,
+      [userId, tasks[0].camp_id]
+    );
+
+    if (enrollments.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "لست مسجلاً في هذا المخيم",
+      });
+    }
+
+    // Update or create progress with reading time
+    const [existingProgress] = await db.query(
+      `
+      SELECT * FROM camp_task_progress 
+      WHERE enrollment_id = ? AND task_id = ?
+    `,
+      [enrollments[0].id, taskId]
+    );
+
+    if (existingProgress.length > 0) {
+      // Update existing progress - add to existing time
+      const currentTime = existingProgress[0].actual_reading_time || 0;
+      const newTime = currentTime + readingTimeSeconds;
+
+      await db.query(
+        `
+        UPDATE camp_task_progress 
+        SET actual_reading_time = ?
+        WHERE enrollment_id = ? AND task_id = ?
+      `,
+        [newTime, enrollments[0].id, taskId]
+      );
+    } else {
+      // Create new progress record with reading time
+      await db.query(
+        `
+        INSERT INTO camp_task_progress (enrollment_id, task_id, actual_reading_time)
+        VALUES (?, ?, ?)
+        ON DUPLICATE KEY UPDATE actual_reading_time = actual_reading_time + ?
+      `,
+        [enrollments[0].id, taskId, readingTimeSeconds, readingTimeSeconds]
+      );
+    }
+
+    res.json({
+      success: true,
+      message: "تم حفظ وقت القراءة",
+      data: {
+        readingTimeSeconds: readingTimeSeconds,
+      },
+    });
+  } catch (error) {
+    console.error("Error tracking reading time:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في حفظ وقت القراءة",
     });
   }
 };
@@ -1685,6 +1997,13 @@ const getCampParticipants = async (req, res) => {
     const { id } = req.params;
     const { page = 1, limit = 50, status, search } = req.query;
 
+    // Get current cohort number
+    const [camps] = await db.query(
+      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
+      [id]
+    );
+    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
+
     // Get total tasks count once for performance
     const [totalTasksResult] = await db.query(
       "SELECT COUNT(*) as total FROM camp_daily_tasks WHERE camp_id = ?",
@@ -1703,10 +2022,10 @@ const getCampParticipants = async (req, res) => {
       FROM camp_enrollments ce
       JOIN users u ON ce.user_id = u.id
       LEFT JOIN camp_task_progress ctp ON ce.id = ctp.enrollment_id AND ctp.completed = true
-      WHERE ce.camp_id = ?
+      WHERE ce.camp_id = ? AND ce.cohort_number = ?
     `;
 
-    const params = [totalTasks, totalTasks, id];
+    const params = [totalTasks, totalTasks, id, currentCohortNumber];
 
     // Add status filter
     if (status && status !== "all") {
@@ -1733,9 +2052,9 @@ const getCampParticipants = async (req, res) => {
       SELECT COUNT(*) as total
       FROM camp_enrollments ce
       JOIN users u ON ce.user_id = u.id
-      WHERE ce.camp_id = ?
+      WHERE ce.camp_id = ? AND ce.cohort_number = ?
     `;
-    const countParams = [id];
+    const countParams = [id, currentCohortNumber];
 
     // Add status filter
     if (status && status !== "all") {
@@ -1776,20 +2095,22 @@ const getCampLeaderboard = async (req, res) => {
     const { id } = req.params;
     const { limit = 10 } = req.query;
 
-    // Check if camp is completed - return empty leaderboard
-    const [campStatus] = await db.query(
-      `SELECT status FROM quran_camps WHERE id = ?`,
+    // Get current cohort number
+    const [campInfo] = await db.query(
+      `SELECT status, COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
       [id]
     );
 
-    if (campStatus.length === 0) {
+    if (campInfo.length === 0) {
       return res.status(404).json({
         success: false,
         message: "المخيم غير موجود",
       });
     }
 
-    if (campStatus[0].status === "completed") {
+    const currentCohortNumber = campInfo[0].current_cohort_number || 1;
+
+    if (campInfo[0].status === "completed") {
       return res.json({
         success: true,
         data: [],
@@ -1797,7 +2118,7 @@ const getCampLeaderboard = async (req, res) => {
       });
     }
 
-    const cacheKey = `leaderboard_${id}_${limit}`;
+    const cacheKey = `leaderboard_${id}_${currentCohortNumber}_${limit}`;
 
     // Try to get from cache first
     let leaderboard = null;
@@ -1835,11 +2156,12 @@ const getCampLeaderboard = async (req, res) => {
         JOIN users u ON ce.user_id = u.id
         LEFT JOIN camp_settings cs ON ce.id = cs.enrollment_id
         WHERE ce.camp_id = ? 
+          AND ce.cohort_number = ?
           AND COALESCE(cs.leaderboard_visibility, true) = true
         ORDER BY ce.total_points DESC
         LIMIT ?
       `,
-        [id, parseInt(limit)]
+        [id, currentCohortNumber, parseInt(limit)]
       );
 
       // Convert integer values to boolean for consistency and remove sensitive data
@@ -1897,14 +2219,15 @@ const createCamp = async (req, res) => {
       opening_surah_number,
       opening_surah_name,
       opening_youtube_url,
+      tags,
     } = req.body;
 
     const share_link = shortid.generate();
 
     const [result] = await db.query(
       `
-      INSERT INTO quran_camps (name, description, surah_number, surah_name, start_date, duration_days, banner_image, opening_surah_number, opening_surah_name, opening_youtube_url , share_link)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO quran_camps (name, description, surah_number, surah_name, start_date, duration_days, banner_image, opening_surah_number, opening_surah_name, opening_youtube_url , share_link , tags)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ,?)
     `,
       [
         name,
@@ -1918,6 +2241,7 @@ const createCamp = async (req, res) => {
         opening_surah_name || null,
         opening_youtube_url || null,
         share_link,
+        tags || null,
       ]
     );
 
@@ -1951,6 +2275,7 @@ const updateCamp = async (req, res) => {
       opening_surah_number,
       opening_surah_name,
       opening_youtube_url,
+      tags,
     } = req.body;
 
     // إذا تم تحديث الحالة، نحتاج الحصول على الحالة القديمة أولاً
@@ -2049,6 +2374,10 @@ const updateCamp = async (req, res) => {
           `[UPDATE CAMP] Camp ${id} (${campName}): Changing status from '${oldStatus}' to 'active'. Updating start_date to: ${todayStr}`
         );
       }
+    }
+    if (tags !== undefined) {
+      updateFields.push("tags = ?");
+      values.push(tags);
     }
 
     if (updateFields.length === 0) {
@@ -2256,13 +2585,26 @@ const addDailyTasks = async (req, res) => {
 
     // Insert all tasks
     for (const task of tasks) {
+      // Convert additional_links and attachments to JSON strings if they are arrays/objects
+      const additionalLinksJson = task.additional_links
+        ? typeof task.additional_links === "string"
+          ? task.additional_links
+          : JSON.stringify(task.additional_links)
+        : null;
+      const attachmentsJson = task.attachments
+        ? typeof task.attachments === "string"
+          ? task.attachments
+          : JSON.stringify(task.attachments)
+        : null;
+
       await db.query(
         `
         INSERT INTO camp_daily_tasks (
           camp_id, day_number, task_type, title, description,
           verses_from, verses_to, tafseer_link, youtube_link,
+          additional_links, attachments,
           order_in_day, is_optional, points, estimated_time, group_id, order_in_group
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
         [
           id,
@@ -2274,6 +2616,8 @@ const addDailyTasks = async (req, res) => {
           task.verses_to,
           task.tafseer_link,
           task.youtube_link,
+          additionalLinksJson,
+          attachmentsJson,
           task.order_in_day,
           task.is_optional || false,
           task.points || 3,
@@ -2310,6 +2654,8 @@ const updateDailyTask = async (req, res) => {
       verses_to,
       tafseer_link,
       youtube_link,
+      additional_links,
+      attachments,
       order_in_day,
       is_optional,
       points,
@@ -2317,6 +2663,20 @@ const updateDailyTask = async (req, res) => {
       group_id,
       order_in_group,
     } = req.body;
+
+    // Convert additional_links and attachments to JSON strings if they are arrays/objects
+    const additionalLinksJson =
+      additional_links !== undefined
+        ? typeof additional_links === "string"
+          ? additional_links
+          : JSON.stringify(additional_links)
+        : null;
+    const attachmentsJson =
+      attachments !== undefined
+        ? typeof attachments === "string"
+          ? attachments
+          : JSON.stringify(attachments)
+        : null;
 
     await db.query(
       `
@@ -2329,6 +2689,8 @@ const updateDailyTask = async (req, res) => {
         verses_to = COALESCE(?, verses_to),
         tafseer_link = COALESCE(?, tafseer_link),
         youtube_link = COALESCE(?, youtube_link),
+        additional_links = ?,
+        attachments = ?,
         order_in_day = COALESCE(?, order_in_day),
         is_optional = COALESCE(?, is_optional),
         points = COALESCE(?, points),
@@ -2346,6 +2708,8 @@ const updateDailyTask = async (req, res) => {
         verses_to,
         tafseer_link,
         youtube_link,
+        additionalLinksJson,
+        attachmentsJson,
         order_in_day,
         is_optional,
         points,
@@ -2365,6 +2729,155 @@ const updateDailyTask = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "حدث خطأ في تحديث المهمة",
+    });
+  }
+};
+
+// Get day challenges for a camp (admin)
+const getCampDayChallenges = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [rows] = await db.query(
+      `
+        SELECT day_number, title, description
+        FROM camp_day_challenges
+        WHERE camp_id = ?
+        ORDER BY day_number
+      `,
+      [id]
+    );
+
+    res.json({
+      success: true,
+      data: rows,
+    });
+  } catch (error) {
+    console.error("Error fetching day challenges:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في جلب تحديات الأيام",
+    });
+  }
+};
+
+// Create or update a day challenge
+const upsertCampDayChallenge = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { day_number, title, description } = req.body;
+
+    const dayNumber = Number(day_number);
+    const trimmedTitle = typeof title === "string" ? title.trim() : "";
+    const trimmedDescription =
+      typeof description === "string" ? description.trim() : "";
+
+    if (!Number.isInteger(dayNumber) || dayNumber <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "رقم اليوم غير صحيح",
+      });
+    }
+
+    if (!trimmedTitle || !trimmedDescription) {
+      return res.status(400).json({
+        success: false,
+        message: "عنوان التحدي ووصفه مطلوبان",
+      });
+    }
+
+    const [camps] = await db.query(
+      "SELECT duration_days FROM quran_camps WHERE id = ?",
+      [id]
+    );
+
+    if (camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    const durationDays = Number(camps[0].duration_days) || 0;
+    if (durationDays > 0 && dayNumber > durationDays) {
+      return res.status(400).json({
+        success: false,
+        message: `رقم اليوم يجب أن يكون بين 1 و ${durationDays}`,
+      });
+    }
+
+    await db.query(
+      `
+        INSERT INTO camp_day_challenges (camp_id, day_number, title, description)
+        VALUES (?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          title = VALUES(title),
+          description = VALUES(description),
+          updated_at = CURRENT_TIMESTAMP
+      `,
+      [id, dayNumber, trimmedTitle, trimmedDescription]
+    );
+
+    const [[challenge]] = await db.query(
+      `
+        SELECT day_number, title, description
+        FROM camp_day_challenges
+        WHERE camp_id = ? AND day_number = ?
+      `,
+      [id, dayNumber]
+    );
+
+    res.json({
+      success: true,
+      message: "تم حفظ التحدي اليومي بنجاح",
+      data: challenge,
+    });
+  } catch (error) {
+    console.error("Error saving day challenge:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في حفظ التحدي اليومي",
+    });
+  }
+};
+
+// Delete a day challenge
+const deleteCampDayChallenge = async (req, res) => {
+  try {
+    const { id, dayNumber } = req.params;
+    const dayNum = Number(dayNumber);
+
+    if (!Number.isInteger(dayNum) || dayNum <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "رقم اليوم غير صحيح",
+      });
+    }
+
+    const [result] = await db.query(
+      `
+        DELETE FROM camp_day_challenges
+        WHERE camp_id = ? AND day_number = ?
+      `,
+      [id, dayNum]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "لا يوجد تحدي لهذا اليوم",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "تم حذف التحدي اليومي بنجاح",
+    });
+  } catch (error) {
+    console.error("Error deleting day challenge:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في حذف التحدي اليومي",
     });
   }
 };
@@ -2414,7 +2927,45 @@ const getCampAnalytics = async (req, res) => {
       JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
       WHERE ce.camp_id = ? AND ctp.completed = true AND ctp.completed_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
       GROUP BY DATE(ctp.completed_at)
-      ORDER BY DATE(ctp.completed_at) DESC
+      ORDER BY DATE(ctp.completed_at) ASC
+    `,
+      [id]
+    );
+
+    // Get enrollment growth over time
+    const [enrollmentGrowth] = await db.query(
+      `
+      SELECT 
+        DATE(ce.enrollment_date) as date,
+        COUNT(*) as new_enrollments
+      FROM camp_enrollments ce
+      WHERE ce.camp_id = ? 
+      GROUP BY DATE(ce.enrollment_date)
+      ORDER BY DATE(ce.enrollment_date) ASC
+    `,
+      [id]
+    );
+
+    // Merge daily progress with enrollment growth
+    const dailyProgressWithEnrollments = dailyProgress.map((day) => {
+      const enrollmentDay = enrollmentGrowth.find((e) => e.date === day.date);
+      return {
+        ...day,
+        new_enrollments: enrollmentDay?.new_enrollments || 0,
+      };
+    });
+
+    // Get retention data (daily active users)
+    const [retentionData] = await db.query(
+      `
+      SELECT 
+        DATE(ctp.completed_at) as date,
+        COUNT(DISTINCT ctp.enrollment_id) as active_users
+      FROM camp_task_progress ctp
+      JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
+      WHERE ce.camp_id = ? AND ctp.completed = true
+      GROUP BY DATE(ctp.completed_at)
+      ORDER BY DATE(ctp.completed_at) ASC
     `,
       [id]
     );
@@ -2462,9 +3013,11 @@ const getCampAnalytics = async (req, res) => {
       completedEnrollments: enrollments[0]?.completed_enrollments || 0,
       averageProgress: progressStats[0]?.average_progress || 0,
       averagePoints: enrollments[0]?.average_points || 0,
-      dailyProgress: dailyProgress || [],
+      dailyProgress: dailyProgressWithEnrollments || [],
       taskCompletion: taskCompletion || [],
       topPerformers: topPerformers || [],
+      enrollmentGrowth: enrollmentGrowth || [],
+      retentionData: retentionData || [],
     };
 
     res.json({
@@ -2853,12 +3406,19 @@ const getMyStreak = async (req, res) => {
 
     const connection = await db.getConnection();
 
-    // جلب enrollment
+    // Get current cohort number
+    const [camps] = await connection.execute(
+      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
+      [campId]
+    );
+    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
+
+    // جلب enrollment for current cohort
     const [enrollments] = await connection.execute(
       `SELECT id, current_streak, longest_streak, last_activity_date
        FROM camp_enrollments 
-       WHERE user_id = ? AND camp_id = ?`,
-      [userId, campId]
+       WHERE user_id = ? AND camp_id = ? AND cohort_number = ?`,
+      [userId, campId, currentCohortNumber]
     );
 
     if (!enrollments.length) {
@@ -2990,12 +3550,19 @@ const getMyStats = async (req, res) => {
 
     const connection = await db.getConnection();
 
-    // جلب معلومات الـ enrollment
+    // Get current cohort number
+    const [camps] = await connection.execute(
+      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
+      [campId]
+    );
+    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
+
+    // جلب معلومات الـ enrollment for current cohort
     const [enrollments] = await connection.execute(
       `SELECT id, total_points, current_streak, longest_streak, last_activity_date
        FROM camp_enrollments 
-       WHERE user_id = ? AND camp_id = ?`,
-      [userId, campId]
+       WHERE user_id = ? AND camp_id = ? AND cohort_number = ?`,
+      [userId, campId, currentCohortNumber]
     );
 
     if (!enrollments.length) {
@@ -3080,7 +3647,16 @@ const getMyStats = async (req, res) => {
 const getStudyHallContent = async (req, res) => {
   try {
     const { id } = req.params;
-    const { day, page = 1, limit = 20, sort = "newest" } = req.query;
+    const {
+      day,
+      page = 1,
+      limit = 20,
+      sort = "newest",
+      author_filter,
+      date_from,
+      date_to,
+      search,
+    } = req.query;
     const userId = req.user.id;
 
     // Validate pagination parameters
@@ -3088,10 +3664,11 @@ const getStudyHallContent = async (req, res) => {
     const limitNum = Math.min(100, Math.max(1, parseInt(limit))) || 20; // Max 100 items per page
     const offset = (pageNum - 1) * limitNum;
 
-    // Get camp details
-    const [camps] = await db.query(`SELECT * FROM quran_camps WHERE id = ?`, [
-      id,
-    ]);
+    // Get camp details with current cohort
+    const [camps] = await db.query(
+      `SELECT *, COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
+      [id]
+    );
 
     if (camps.length === 0) {
       return res.status(404).json({
@@ -3101,11 +3678,12 @@ const getStudyHallContent = async (req, res) => {
     }
 
     const camp = camps[0];
+    const currentCohortNumber = camp.current_cohort_number || 1;
 
-    // Get user's enrollment
+    // Get user's enrollment for current cohort
     const [enrollments] = await db.query(
-      `SELECT * FROM camp_enrollments WHERE user_id = ? AND camp_id = ?`,
-      [userId, id]
+      `SELECT * FROM camp_enrollments WHERE user_id = ? AND camp_id = ? AND cohort_number = ?`,
+      [userId, id, currentCohortNumber]
     );
 
     if (enrollments.length === 0) {
@@ -3218,6 +3796,7 @@ const getStudyHallContent = async (req, res) => {
         GROUP BY progress_id
       ) pledge_counts ON ctp.id = pledge_counts.progress_id
       WHERE cdt.camp_id = ? 
+        AND ce.cohort_number = ?
         AND ctp.completed = 1
         AND ctp.journal_entry IS NOT NULL 
         AND ctp.journal_entry != ''
@@ -3225,11 +3804,46 @@ const getStudyHallContent = async (req, res) => {
         AND (ctp.is_private IS NULL OR ctp.is_private = false)
     `;
 
-    const sharedParams = [userId, userId, userId, id, userId];
+    const sharedParams = [
+      userId,
+      userId,
+      userId,
+      id,
+      currentCohortNumber,
+      userId,
+    ];
 
     if (day) {
       sharedQuery += ` AND cdt.day_number = ?`;
       sharedParams.push(day);
+    }
+
+    // Filter by author (username search)
+    if (author_filter && author_filter.trim() !== "") {
+      sharedQuery += ` AND (u.username LIKE ? OR u.username = ?)`;
+      const authorPattern = `%${author_filter.trim()}%`;
+      sharedParams.push(authorPattern, author_filter.trim());
+    }
+
+    // Filter by date range
+    if (date_from) {
+      sharedQuery += ` AND DATE(ctp.completed_at) >= ?`;
+      sharedParams.push(date_from);
+    }
+    if (date_to) {
+      sharedQuery += ` AND DATE(ctp.completed_at) <= ?`;
+      sharedParams.push(date_to);
+    }
+
+    // Search in content
+    if (search && search.trim() !== "") {
+      sharedQuery += ` AND (
+        ctp.journal_entry LIKE ? OR 
+        ctp.notes LIKE ? OR 
+        cdt.title LIKE ?
+      )`;
+      const searchPattern = `%${search.trim()}%`;
+      sharedParams.push(searchPattern, searchPattern, searchPattern);
     }
 
     // Apply sorting
@@ -3986,6 +4600,100 @@ const getUserDetails = async (req, res) => {
   }
 };
 
+// Get user's camp progress with tasks and benefits (Admin only)
+const getUserCampProgress = async (req, res) => {
+  try {
+    const { campId, userId } = req.params;
+
+    // Verify user is enrolled in the camp
+    const [enrollments] = await db.query(
+      `
+      SELECT 
+        ce.*,
+        qc.name as camp_name,
+        u.username,
+        u.email
+      FROM camp_enrollments ce
+      JOIN quran_camps qc ON ce.camp_id = qc.id
+      JOIN users u ON ce.user_id = u.id
+      WHERE ce.user_id = ? AND ce.camp_id = ?
+      `,
+      [userId, campId]
+    );
+
+    if (enrollments.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المستخدم غير مسجل في هذا المخيم",
+      });
+    }
+
+    const enrollment = enrollments[0];
+
+    // Get all tasks for the camp with user's progress
+    const [tasks] = await db.query(
+      `
+      SELECT 
+        cdt.*,
+        ctp.completed,
+        ctp.completed_at,
+        ctp.journal_entry,
+        ctp.notes,
+        cdt.points
+      FROM camp_daily_tasks cdt
+      LEFT JOIN camp_task_progress ctp ON cdt.id = ctp.task_id AND ctp.enrollment_id = ?
+      WHERE cdt.camp_id = ?
+      ORDER BY cdt.day_number, cdt.order_in_day
+    `,
+      [enrollment.id, campId]
+    );
+
+    // Get tasks with benefits (journal_entry or notes)
+    const tasksWithBenefits = tasks.filter(
+      (task) => task.journal_entry || task.notes
+    );
+
+    // Calculate statistics
+    const completedTasks = tasks.filter((task) => task.completed).length;
+    const totalTasks = tasks.length;
+    const benefitsCount = tasksWithBenefits.length;
+
+    res.json({
+      success: true,
+      data: {
+        user: {
+          id: enrollment.user_id,
+          username: enrollment.username,
+          email: enrollment.email,
+        },
+        enrollment: {
+          id: enrollment.id,
+          total_points: enrollment.total_points,
+          enrolled_at: enrollment.enrolled_at,
+        },
+        tasks,
+        tasksWithBenefits,
+        stats: {
+          totalTasks,
+          completedTasks,
+          benefitsCount,
+          progressPercentage:
+            totalTasks > 0
+              ? Math.round((completedTasks / totalTasks) * 100)
+              : 0,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching user camp progress:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء جلب تفاصيل المستخدم",
+      error: error.message,
+    });
+  }
+};
+
 // Get user notifications
 const getUserNotifications = async (req, res) => {
   try {
@@ -4380,7 +5088,14 @@ const getMySummary = async (req, res) => {
     const { id } = req.params; // camp_id
     const userId = req.user.id;
 
-    // Verify user is enrolled in the camp
+    // Get current cohort number from camp
+    const [camps] = await db.query(
+      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
+      [id]
+    );
+    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
+
+    // Verify user is enrolled in the camp (current cohort)
     const [enrollments] = await db.query(
       `
       SELECT 
@@ -4390,9 +5105,9 @@ const getMySummary = async (req, res) => {
       FROM camp_enrollments ce
       JOIN quran_camps qc ON ce.camp_id = qc.id
       JOIN users u ON ce.user_id = u.id
-      WHERE ce.user_id = ? AND ce.camp_id = ?
+      WHERE ce.user_id = ? AND ce.camp_id = ? AND ce.cohort_number = ?
       `,
-      [userId, id]
+      [userId, id, currentCohortNumber]
     );
 
     if (enrollments.length === 0) {
@@ -4449,6 +5164,7 @@ const getMySummary = async (req, res) => {
       [enrollment.id]
     );
     const reflectionsWritten = reflectionsWrittenResult[0]?.count || 0;
+    const userCohortNumber = enrollment.cohort_number || currentCohortNumber;
 
     // Get reflections saved (count of reflections the user saved from others)
     const [reflectionsSavedResult] = await db.query(
@@ -4457,9 +5173,9 @@ const getMySummary = async (req, res) => {
       FROM user_saved_reflections usr
       JOIN camp_task_progress ctp ON usr.progress_id = ctp.id
       JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
-      WHERE usr.user_id = ? AND ce.camp_id = ?
+      WHERE usr.user_id = ? AND ce.camp_id = ? AND ce.cohort_number = ?
       `,
-      [userId, id]
+      [userId, id, userCohortNumber]
     );
     const reflectionsSaved = reflectionsSavedResult[0]?.count || 0;
 
@@ -4514,6 +5230,9 @@ const getMySummary = async (req, res) => {
     // Get longest streak from enrollment
     const longestStreak = enrollment.longest_streak || 0;
 
+    // Get user's cohort number and total points for percentile calculation
+    const userTotalPoints = enrollment.total_points || enrollment.points || 0;
+
     // Get upvotes given by user (count of upvotes the user gave to others in this camp)
     const [upvotesGivenResult] = await db.query(
       `
@@ -4521,32 +5240,45 @@ const getMySummary = async (req, res) => {
       FROM reflection_upvotes ru
       JOIN camp_task_progress ctp ON ru.progress_id = ctp.id
       JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
-      WHERE ru.user_id = ? AND ce.camp_id = ?
+      WHERE ru.user_id = ? AND ce.camp_id = ? AND ce.cohort_number = ?
       `,
-      [userId, id]
+      [userId, id, userCohortNumber]
     );
     const upvotesGiven = upvotesGivenResult[0]?.count || 0;
 
     // Get user's rank and percentile
     // Percentile: percentage of users the current user outperformed or tied with
+    // Use cohort_number to filter enrollments to the same cohort
+
     const [percentileResult] = await db.query(
       `
       SELECT 
-        (SELECT COUNT(*) FROM camp_enrollments WHERE camp_id = ?) as total_participants,
+        (SELECT COUNT(*) FROM camp_enrollments WHERE camp_id = ? AND cohort_number = ?) as total_participants,
         (
           SELECT COUNT(*) 
           FROM camp_enrollments ce2
           WHERE ce2.camp_id = ? 
-          AND ce2.total_points < COALESCE((SELECT total_points FROM camp_enrollments WHERE user_id = ? AND camp_id = ?), 0)
+          AND ce2.cohort_number = ?
+          AND ce2.total_points < ?
         ) as users_below,
         (
           SELECT COUNT(*) 
           FROM camp_enrollments ce3
           WHERE ce3.camp_id = ? 
-          AND ce3.total_points = COALESCE((SELECT total_points FROM camp_enrollments WHERE user_id = ? AND camp_id = ?), 0)
+          AND ce3.cohort_number = ?
+          AND ce3.total_points = ?
         ) as users_tied
       `,
-      [id, id, userId, id, id, userId, id]
+      [
+        id,
+        userCohortNumber, // total_participants
+        id,
+        userCohortNumber,
+        userTotalPoints, // users_below
+        id,
+        userCohortNumber,
+        userTotalPoints, // users_tied
+      ]
     );
 
     const usersBelow = percentileResult[0]?.users_below || 0;
@@ -4602,6 +5334,62 @@ const getMySummary = async (req, res) => {
           }
         : null;
 
+    // Get best performance day (day with most completed tasks)
+    const [bestDayResult] = await db.query(
+      `
+      SELECT 
+        cdt.day_number,
+        COUNT(*) as tasks_completed
+      FROM camp_task_progress ctp
+      JOIN camp_daily_tasks cdt ON ctp.task_id = cdt.id
+      WHERE ctp.enrollment_id = ? AND ctp.completed = true
+      GROUP BY cdt.day_number
+      ORDER BY tasks_completed DESC
+      LIMIT 1
+      `,
+      [enrollment.id]
+    );
+    const bestDay =
+      bestDayResult.length > 0
+        ? {
+            day: bestDayResult[0].day_number,
+            tasksCompleted: bestDayResult[0].tasks_completed,
+          }
+        : null;
+
+    // Calculate productivity rate (points per day)
+    const productivityRate =
+      daysCompleted > 0
+        ? Math.round((totalPoints / daysCompleted) * 100) / 100
+        : 0;
+
+    // Calculate attendance rate (percentage of days with activity)
+    const attendanceRate =
+      totalCampDays > 0 ? Math.round((daysCompleted / totalCampDays) * 100) : 0;
+
+    // Get total participants count (for display only - no identities) - current cohort only
+    const [totalParticipantsResult] = await db.query(
+      `SELECT COUNT(*) as count FROM camp_enrollments WHERE camp_id = ? AND cohort_number = ?`,
+      [id, userCohortNumber]
+    );
+    const totalParticipantsCount = totalParticipantsResult[0]?.count || 0;
+
+    // Calculate user's rank (position only, no other user info)
+    // Get count of users with more points (users above) - current cohort only
+    const [rankResult] = await db.query(
+      `
+      SELECT COUNT(*) as users_above
+      FROM camp_enrollments ce2
+      WHERE ce2.camp_id = ?
+      AND ce2.cohort_number = ?
+      AND ce2.total_points > ?
+      `,
+      [id, userCohortNumber, userTotalPoints]
+    );
+    const usersAbove = rankResult[0]?.users_above || 0;
+    // User's rank = users above + 1
+    const userRank = usersAbove + 1;
+
     res.json({
       success: true,
       data: {
@@ -4621,6 +5409,12 @@ const getMySummary = async (req, res) => {
         longestStreak: longestStreak,
         percentile: percentile,
         topReflection: topReflection,
+        // New statistics
+        bestDay: bestDay,
+        productivityRate: productivityRate,
+        attendanceRate: attendanceRate,
+        totalParticipants: totalParticipantsCount,
+        userRank: userRank, // Position only, respects privacy
       },
     });
   } catch (error) {
@@ -4837,10 +5631,17 @@ const getSavedReflections = async (req, res) => {
 
     const offset = (page - 1) * limit;
 
-    // Check if user is enrolled in the camp
+    // Get current cohort number from camp
+    const [camps] = await db.query(
+      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
+      [campId]
+    );
+    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
+
+    // Check if user is enrolled in the camp (current cohort)
     const [enrollment] = await db.query(
-      "SELECT * FROM camp_enrollments WHERE user_id = ? AND camp_id = ?",
-      [userId, campId]
+      "SELECT * FROM camp_enrollments WHERE user_id = ? AND camp_id = ? AND cohort_number = ?",
+      [userId, campId, currentCohortNumber]
     );
 
     if (enrollment.length === 0) {
@@ -4903,12 +5704,21 @@ const getSavedReflections = async (req, res) => {
         FROM joint_step_pledges
         GROUP BY progress_id
       ) pledge_counts ON ctp.id = pledge_counts.progress_id
-      WHERE usr.user_id = ? AND ce.camp_id = ?
+      WHERE usr.user_id = ? AND ce.camp_id = ? AND ce.cohort_number = ?
         AND (ctp.journal_entry IS NOT NULL OR ctp.notes IS NOT NULL)
       ORDER BY ${orderBy}
       LIMIT ? OFFSET ?
       `,
-      [userId, userId, userId, userId, campId, parseInt(limit), offset]
+      [
+        userId,
+        userId,
+        userId,
+        userId,
+        campId,
+        currentCohortNumber,
+        parseInt(limit),
+        offset,
+      ]
     );
 
     // Get total count
@@ -4918,10 +5728,10 @@ const getSavedReflections = async (req, res) => {
       FROM user_saved_reflections usr
       JOIN camp_task_progress ctp ON usr.progress_id = ctp.id
       JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
-      WHERE usr.user_id = ? AND ce.camp_id = ?
+      WHERE usr.user_id = ? AND ce.camp_id = ? AND ce.cohort_number = ?
         AND (ctp.journal_entry IS NOT NULL OR ctp.notes IS NOT NULL)
       `,
-      [userId, campId]
+      [userId, campId, currentCohortNumber]
     );
 
     // Get user's own reflections (myReflections)
@@ -4953,12 +5763,12 @@ const getSavedReflections = async (req, res) => {
       FROM camp_task_progress ctp
       JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
       JOIN camp_daily_tasks cdt ON ctp.task_id = cdt.id
-      WHERE ce.user_id = ? AND ce.camp_id = ?
+      WHERE ce.user_id = ? AND ce.camp_id = ? AND ce.cohort_number = ?
         AND ctp.completed = 1
         AND (ctp.journal_entry IS NOT NULL OR ctp.notes IS NOT NULL)
       ORDER BY ctp.completed_at DESC
       `,
-      [userId, userId, userId, campId]
+      [userId, userId, userId, campId, currentCohortNumber]
     );
 
     // Get user's action plan for this camp
@@ -5182,6 +5992,124 @@ const notifyCampFinished = async (req, res) => {
 };
 
 // Delete a daily task (admin only)
+// Upload attachment to task (admin only)
+const uploadTaskAttachment = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+
+    if (!taskId) {
+      return res.status(400).json({
+        success: false,
+        message: "معرف المهمة مفقود",
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "لم يتم رفع أي ملف",
+      });
+    }
+
+    // Check if task exists
+    const [tasks] = await db.query(
+      "SELECT id, attachments FROM camp_daily_tasks WHERE id = ?",
+      [taskId]
+    );
+
+    if (tasks.length === 0) {
+      // Delete uploaded file if task doesn't exist
+      const fs = require("fs");
+      const path = require("path");
+      const filePath = path.join(
+        __dirname,
+        "../public/api/uploads/camp-tasks",
+        req.file.filename
+      );
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      return res.status(404).json({
+        success: false,
+        message: "المهمة غير موجودة",
+      });
+    }
+
+    const task = tasks[0];
+
+    // Parse existing attachments or create new array
+    let attachments = [];
+    if (task.attachments) {
+      try {
+        attachments =
+          typeof task.attachments === "string"
+            ? JSON.parse(task.attachments)
+            : task.attachments;
+        if (!Array.isArray(attachments)) {
+          attachments = [];
+        }
+      } catch (e) {
+        attachments = [];
+      }
+    }
+
+    // Determine file type
+    const fileExt = req.file.originalname.split(".").pop().toLowerCase();
+    let fileType = "file";
+    if (["pdf"].includes(fileExt)) fileType = "pdf";
+    else if (["jpg", "jpeg", "png", "gif", "webp"].includes(fileExt))
+      fileType = "image";
+    else if (["doc", "docx"].includes(fileExt)) fileType = "document";
+    else if (["txt"].includes(fileExt)) fileType = "text";
+
+    // Add new attachment
+    const attachmentUrl = `/api/uploads/camp-tasks/${req.file.filename}`;
+    attachments.push({
+      filename: req.file.originalname,
+      url: attachmentUrl,
+      type: fileType,
+      size: req.file.size,
+      uploadedAt: new Date().toISOString(),
+    });
+
+    // Update task with new attachments
+    await db.query("UPDATE camp_daily_tasks SET attachments = ? WHERE id = ?", [
+      JSON.stringify(attachments),
+      taskId,
+    ]);
+
+    res.json({
+      success: true,
+      message: "تم رفع المرفق بنجاح",
+      data: {
+        attachment: attachments[attachments.length - 1],
+        allAttachments: attachments,
+      },
+    });
+  } catch (error) {
+    console.error("Error uploading task attachment:", error);
+
+    // Delete uploaded file on error
+    if (req.file) {
+      const fs = require("fs");
+      const path = require("path");
+      const filePath = path.join(
+        __dirname,
+        "../public/api/uploads/camp-tasks",
+        req.file.filename
+      );
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء رفع المرفق",
+    });
+  }
+};
+
 const deleteDailyTask = async (req, res) => {
   try {
     const { taskId } = req.params;
@@ -5319,7 +6247,7 @@ const sendCampNotification = async (req, res) => {
             const emailSubject = `📢 إشعار من مخيم ${camp.name}: ${title}`;
             const emailHtml = `
               <div dir="rtl" style="font-family: 'Arabic Typography', Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
-                <div style="background-color: #7440EA; padding: 30px; text-align: center;">
+                <div style="background-color: #4E27B9; padding: 30px; text-align: center;">
                   <img src="https://hadith-shareef.com/assets/icons/180×180.png" alt="Meshkah Logo" style="width: 100px; margin-bottom: 15px;">
                   <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: bold;">${title}</h1>
                 </div>
@@ -5327,13 +6255,13 @@ const sendCampNotification = async (req, res) => {
                   <p style="color: #2c3e50; font-size: 18px; line-height: 1.8; margin-bottom: 20px;">
                     مرحباً ${participant.username}،
                   </p>
-                  <div style="background-color: #F9F7FD; border-radius: 8px; padding: 20px; margin: 20px 0; border-right: 4px solid #7440EA;">
+                  <div style="background-color: #F9F7FD; border-radius: 8px; padding: 20px; margin: 20px 0; border-right: 4px solid #4E27B9;">
                     <p style="color: #555555; line-height: 1.8; font-size: 16px; margin: 0;">
                       ${message.replace(/\n/g, "<br>")}
                     </p>
                   </div>
                   <div style="text-align: center; margin: 30px 0;">
-                    <a href="https://hadith-shareef.com/quran-camps/${id}" style="display: inline-block; background-color: #7440EA; color: white; padding: 14px 35px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 17px;">
+                    <a href="https://hadith-shareef.com/quran-camps/${id}" style="display: inline-block; background-color: #4E27B9; color: white; padding: 14px 35px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 17px;">
                       الذهاب إلى المخيم
                     </a>
                   </div>
@@ -5465,6 +6393,751 @@ const getCampResources = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء جلب الموارد",
+    });
+  }
+};
+
+// ==================== CAMP HELP SYSTEM ====================
+
+// Get help guide for a camp
+const getCampHelpGuide = async (req, res) => {
+  try {
+    const { id: campId } = req.params;
+
+    // Check if camp exists
+    const [camps] = await db.query(
+      `SELECT id, name FROM quran_camps WHERE id = ?`,
+      [campId]
+    );
+
+    if (camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    // Fetch articles from database grouped by section
+    const [articles] = await db.query(
+      `SELECT 
+        id,
+        title,
+        content,
+        section_id,
+        display_order,
+        created_at,
+        updated_at
+      FROM camp_help_articles
+      WHERE camp_id = ?
+      ORDER BY section_id, display_order ASC, created_at ASC`,
+      [campId]
+    );
+
+    // Group articles by section
+    const sectionsMap = new Map();
+    articles.forEach((article) => {
+      const sectionId = article.section_id || "general";
+      if (!sectionsMap.has(sectionId)) {
+        sectionsMap.set(sectionId, {
+          id: sectionId,
+          title: getSectionTitle(sectionId),
+          articles: [],
+        });
+      }
+      sectionsMap.get(sectionId).articles.push({
+        id: article.id,
+        title: article.title,
+        content: article.content,
+        display_order: article.display_order,
+        created_at: article.created_at,
+        updated_at: article.updated_at,
+      });
+    });
+
+    // Convert map to array
+    const sections = Array.from(sectionsMap.values());
+
+    // If no articles found, return default sections structure (for backward compatibility)
+    if (sections.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          sections: [],
+        },
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        sections: sections,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching help guide:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء جلب دليل المساعدة",
+      error: error.message,
+    });
+  }
+};
+
+// Helper function to get section title
+const getSectionTitle = (sectionId) => {
+  const sectionTitles = {
+    "getting-started": "البدء في المخيم",
+    "journey-map": "خريطة الرحلة",
+    resources: "الموارد التعليمية",
+    journal: "السجل الشخصي",
+    friends: "نظام الصحبة",
+    "study-hall": "قاعة التدارس",
+    general: "عام",
+  };
+  return sectionTitles[sectionId] || sectionId;
+};
+
+// Get FAQ for a camp
+const getCampHelpFAQ = async (req, res) => {
+  try {
+    const { id: campId } = req.params;
+    const { category } = req.query; // Optional category filter
+
+    // Check if camp exists
+    const [camps] = await db.query(
+      `SELECT id, name FROM quran_camps WHERE id = ?`,
+      [campId]
+    );
+
+    if (camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    // Build query with optional category filter
+    let query = `
+      SELECT 
+        id,
+        question,
+        answer,
+        category,
+        display_order,
+        created_at,
+        updated_at
+      FROM camp_help_faq
+      WHERE camp_id = ?
+    `;
+    const params = [campId];
+
+    if (category) {
+      query += ` AND category = ?`;
+      params.push(category);
+    }
+
+    query += ` ORDER BY display_order ASC, created_at ASC`;
+
+    const [faqItems] = await db.query(query, params);
+
+    // Format response
+    const faqContent = faqItems.map((item) => ({
+      id: item.id,
+      question: item.question,
+      answer: item.answer,
+      category: item.category || null,
+      display_order: item.display_order,
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+    }));
+
+    res.json({
+      success: true,
+      data: faqContent,
+    });
+  } catch (error) {
+    console.error("Error fetching FAQ:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء جلب الأسئلة الشائعة",
+      error: error.message,
+    });
+  }
+};
+
+// Submit help feedback
+const submitHelpFeedback = async (req, res) => {
+  try {
+    const { id: campId } = req.params;
+    const userId = req.user?.id;
+    const { feedback, rating, category } = req.body;
+
+    if (!feedback || feedback.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "يرجى إدخال الملاحظات",
+      });
+    }
+
+    // Validate rating if provided (should be 1-5)
+    if (rating !== undefined && (rating < 1 || rating > 5)) {
+      return res.status(400).json({
+        success: false,
+        message: "التقييم يجب أن يكون بين 1 و 5",
+      });
+    }
+
+    // Check if camp exists
+    const [camps] = await db.query(`SELECT id FROM quran_camps WHERE id = ?`, [
+      campId,
+    ]);
+
+    if (camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    // Save feedback to database
+    const [result] = await db.query(
+      `INSERT INTO camp_help_feedback 
+       (camp_id, user_id, feedback, rating, category, status) 
+       VALUES (?, ?, ?, ?, ?, 'pending')`,
+      [
+        campId,
+        userId || null,
+        feedback.trim(),
+        rating || null,
+        category || null,
+      ]
+    );
+
+    res.json({
+      success: true,
+      message: "شكراً لك على ملاحظاتك!",
+      data: {
+        feedback_id: result.insertId,
+      },
+    });
+  } catch (error) {
+    console.error("Error submitting feedback:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء إرسال الملاحظات",
+      error: error.message,
+    });
+  }
+};
+
+// ==================== ADMIN HELP SYSTEM APIs ====================
+
+// Get all help articles for a camp (admin)
+const getCampHelpArticles = async (req, res) => {
+  try {
+    const { id: campId } = req.params;
+    const { section_id } = req.query; // Optional section filter
+
+    // Check if camp exists
+    const [camps] = await db.query(
+      `SELECT id, name FROM quran_camps WHERE id = ?`,
+      [campId]
+    );
+
+    if (camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    // Build query
+    let query = `
+      SELECT 
+        id,
+        camp_id,
+        title,
+        content,
+        section_id,
+        display_order,
+        created_at,
+        updated_at
+      FROM camp_help_articles
+      WHERE camp_id = ?
+    `;
+    const params = [campId];
+
+    if (section_id) {
+      query += ` AND section_id = ?`;
+      params.push(section_id);
+    }
+
+    query += ` ORDER BY section_id, display_order ASC, created_at ASC`;
+
+    const [articles] = await db.query(query, params);
+
+    res.json({
+      success: true,
+      data: articles,
+    });
+  } catch (error) {
+    console.error("Error fetching help articles:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء جلب مقالات المساعدة",
+      error: error.message,
+    });
+  }
+};
+
+// Create a new help article (admin)
+const createCampHelpArticle = async (req, res) => {
+  try {
+    const { id: campId } = req.params;
+    const { title, content, section_id, display_order } = req.body;
+
+    // Validation
+    if (!title || title.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "عنوان المقال مطلوب",
+      });
+    }
+
+    if (!content || content.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "محتوى المقال مطلوب",
+      });
+    }
+
+    // Check if camp exists
+    const [camps] = await db.query(`SELECT id FROM quran_camps WHERE id = ?`, [
+      campId,
+    ]);
+
+    if (camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    // Insert article
+    const [result] = await db.query(
+      `INSERT INTO camp_help_articles 
+       (camp_id, title, content, section_id, display_order) 
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        campId,
+        title.trim(),
+        content.trim(),
+        section_id || null,
+        display_order || 0,
+      ]
+    );
+
+    // Fetch created article
+    const [newArticle] = await db.query(
+      `SELECT * FROM camp_help_articles WHERE id = ?`,
+      [result.insertId]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "تم إنشاء المقال بنجاح",
+      data: newArticle[0],
+    });
+  } catch (error) {
+    console.error("Error creating help article:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء إنشاء المقال",
+      error: error.message,
+    });
+  }
+};
+
+// Update a help article (admin)
+const updateCampHelpArticle = async (req, res) => {
+  try {
+    const { id: campId, articleId } = req.params;
+    const { title, content, section_id, display_order } = req.body;
+
+    // Check if article exists and belongs to this camp
+    const [articles] = await db.query(
+      `SELECT id FROM camp_help_articles WHERE id = ? AND camp_id = ?`,
+      [articleId, campId]
+    );
+
+    if (articles.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المقال غير موجود",
+      });
+    }
+
+    // Build update query dynamically
+    const updates = [];
+    const params = [];
+
+    if (title !== undefined) {
+      if (title.trim().length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "عنوان المقال لا يمكن أن يكون فارغاً",
+        });
+      }
+      updates.push("title = ?");
+      params.push(title.trim());
+    }
+
+    if (content !== undefined) {
+      if (content.trim().length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "محتوى المقال لا يمكن أن يكون فارغاً",
+        });
+      }
+      updates.push("content = ?");
+      params.push(content.trim());
+    }
+
+    if (section_id !== undefined) {
+      updates.push("section_id = ?");
+      params.push(section_id || null);
+    }
+
+    if (display_order !== undefined) {
+      updates.push("display_order = ?");
+      params.push(display_order || 0);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "لا توجد بيانات للتحديث",
+      });
+    }
+
+    params.push(articleId, campId);
+
+    await db.query(
+      `UPDATE camp_help_articles 
+       SET ${updates.join(", ")} 
+       WHERE id = ? AND camp_id = ?`,
+      params
+    );
+
+    // Fetch updated article
+    const [updatedArticle] = await db.query(
+      `SELECT * FROM camp_help_articles WHERE id = ?`,
+      [articleId]
+    );
+
+    res.json({
+      success: true,
+      message: "تم تحديث المقال بنجاح",
+      data: updatedArticle[0],
+    });
+  } catch (error) {
+    console.error("Error updating help article:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء تحديث المقال",
+      error: error.message,
+    });
+  }
+};
+
+// Delete a help article (admin)
+const deleteCampHelpArticle = async (req, res) => {
+  try {
+    const { id: campId, articleId } = req.params;
+
+    // Check if article exists and belongs to this camp
+    const [articles] = await db.query(
+      `SELECT id FROM camp_help_articles WHERE id = ? AND camp_id = ?`,
+      [articleId, campId]
+    );
+
+    if (articles.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المقال غير موجود",
+      });
+    }
+
+    await db.query(
+      `DELETE FROM camp_help_articles WHERE id = ? AND camp_id = ?`,
+      [articleId, campId]
+    );
+
+    res.json({
+      success: true,
+      message: "تم حذف المقال بنجاح",
+    });
+  } catch (error) {
+    console.error("Error deleting help article:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء حذف المقال",
+      error: error.message,
+    });
+  }
+};
+
+// Get all FAQ items for a camp (admin)
+const getCampHelpFAQAdmin = async (req, res) => {
+  try {
+    const { id: campId } = req.params;
+    const { category } = req.query; // Optional category filter
+
+    // Check if camp exists
+    const [camps] = await db.query(
+      `SELECT id, name FROM quran_camps WHERE id = ?`,
+      [campId]
+    );
+
+    if (camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    // Build query
+    let query = `
+      SELECT 
+        id,
+        camp_id,
+        question,
+        answer,
+        category,
+        display_order,
+        created_at,
+        updated_at
+      FROM camp_help_faq
+      WHERE camp_id = ?
+    `;
+    const params = [campId];
+
+    if (category) {
+      query += ` AND category = ?`;
+      params.push(category);
+    }
+
+    query += ` ORDER BY category, display_order ASC, created_at ASC`;
+
+    const [faqItems] = await db.query(query, params);
+
+    res.json({
+      success: true,
+      data: faqItems,
+    });
+  } catch (error) {
+    console.error("Error fetching FAQ:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء جلب الأسئلة الشائعة",
+      error: error.message,
+    });
+  }
+};
+
+// Create a new FAQ item (admin)
+const createCampHelpFAQ = async (req, res) => {
+  try {
+    const { id: campId } = req.params;
+    const { question, answer, category, display_order } = req.body;
+
+    // Validation
+    if (!question || question.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "السؤال مطلوب",
+      });
+    }
+
+    if (!answer || answer.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "الإجابة مطلوبة",
+      });
+    }
+
+    // Check if camp exists
+    const [camps] = await db.query(`SELECT id FROM quran_camps WHERE id = ?`, [
+      campId,
+    ]);
+
+    if (camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    // Insert FAQ
+    const [result] = await db.query(
+      `INSERT INTO camp_help_faq 
+       (camp_id, question, answer, category, display_order) 
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        campId,
+        question.trim(),
+        answer.trim(),
+        category || null,
+        display_order || 0,
+      ]
+    );
+
+    // Fetch created FAQ
+    const [newFAQ] = await db.query(
+      `SELECT * FROM camp_help_faq WHERE id = ?`,
+      [result.insertId]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "تم إنشاء السؤال الشائع بنجاح",
+      data: newFAQ[0],
+    });
+  } catch (error) {
+    console.error("Error creating FAQ:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء إنشاء السؤال الشائع",
+      error: error.message,
+    });
+  }
+};
+
+// Update a FAQ item (admin)
+const updateCampHelpFAQ = async (req, res) => {
+  try {
+    const { id: campId, faqId } = req.params;
+    const { question, answer, category, display_order } = req.body;
+
+    // Check if FAQ exists and belongs to this camp
+    const [faqs] = await db.query(
+      `SELECT id FROM camp_help_faq WHERE id = ? AND camp_id = ?`,
+      [faqId, campId]
+    );
+
+    if (faqs.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "السؤال الشائع غير موجود",
+      });
+    }
+
+    // Build update query dynamically
+    const updates = [];
+    const params = [];
+
+    if (question !== undefined) {
+      if (question.trim().length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "السؤال لا يمكن أن يكون فارغاً",
+        });
+      }
+      updates.push("question = ?");
+      params.push(question.trim());
+    }
+
+    if (answer !== undefined) {
+      if (answer.trim().length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "الإجابة لا يمكن أن تكون فارغة",
+        });
+      }
+      updates.push("answer = ?");
+      params.push(answer.trim());
+    }
+
+    if (category !== undefined) {
+      updates.push("category = ?");
+      params.push(category || null);
+    }
+
+    if (display_order !== undefined) {
+      updates.push("display_order = ?");
+      params.push(display_order || 0);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "لا توجد بيانات للتحديث",
+      });
+    }
+
+    params.push(faqId, campId);
+
+    await db.query(
+      `UPDATE camp_help_faq 
+       SET ${updates.join(", ")} 
+       WHERE id = ? AND camp_id = ?`,
+      params
+    );
+
+    // Fetch updated FAQ
+    const [updatedFAQ] = await db.query(
+      `SELECT * FROM camp_help_faq WHERE id = ?`,
+      [faqId]
+    );
+
+    res.json({
+      success: true,
+      message: "تم تحديث السؤال الشائع بنجاح",
+      data: updatedFAQ[0],
+    });
+  } catch (error) {
+    console.error("Error updating FAQ:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء تحديث السؤال الشائع",
+      error: error.message,
+    });
+  }
+};
+
+// Delete a FAQ item (admin)
+const deleteCampHelpFAQ = async (req, res) => {
+  try {
+    const { id: campId, faqId } = req.params;
+
+    // Check if FAQ exists and belongs to this camp
+    const [faqs] = await db.query(
+      `SELECT id FROM camp_help_faq WHERE id = ? AND camp_id = ?`,
+      [faqId, campId]
+    );
+
+    if (faqs.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "السؤال الشائع غير موجود",
+      });
+    }
+
+    await db.query(`DELETE FROM camp_help_faq WHERE id = ? AND camp_id = ?`, [
+      faqId,
+      campId,
+    ]);
+
+    res.json({
+      success: true,
+      message: "تم حذف السؤال الشائع بنجاح",
+    });
+  } catch (error) {
+    console.error("Error deleting FAQ:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء حذف السؤال الشائع",
+      error: error.message,
     });
   }
 };
@@ -5909,6 +7582,14 @@ const updateResourceOrder = async (req, res) => {
 const getCampQuestions = async (req, res) => {
   try {
     const { id: campId } = req.params;
+
+    // Get current cohort number
+    const [camps] = await db.query(
+      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
+      [campId]
+    );
+    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
+
     const [qanda] = await db.query(
       `
       SELECT 
@@ -5924,12 +7605,12 @@ const getCampQuestions = async (req, res) => {
         COALESCE(cs.hide_identity, false) as hide_identity
       FROM camp_qanda q
       JOIN users u ON q.user_id = u.id
-      LEFT JOIN camp_enrollments ce ON ce.user_id = u.id AND ce.camp_id = q.camp_id
+      LEFT JOIN camp_enrollments ce ON ce.user_id = u.id AND ce.camp_id = q.camp_id AND ce.cohort_number = q.cohort_number
       LEFT JOIN camp_settings cs ON cs.enrollment_id = ce.id
-      WHERE q.camp_id = ?
+      WHERE q.camp_id = ? AND q.cohort_number = ?
       ORDER BY q.created_at DESC
       `,
-      [campId]
+      [campId, currentCohortNumber]
     );
     res.json({ success: true, data: qanda });
   } catch (error) {
@@ -5947,9 +7628,16 @@ const askCampQuestion = async (req, res) => {
     const userId = req.user.id;
     const { question } = req.body;
 
+    // Get current cohort number
+    const [camps] = await db.query(
+      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
+      [campId]
+    );
+    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
+
     const [result] = await db.query(
-      `INSERT INTO camp_qanda (camp_id, user_id, question) VALUES (?, ?, ?)`,
-      [campId, userId, question]
+      `INSERT INTO camp_qanda (camp_id, user_id, question, cohort_number) VALUES (?, ?, ?, ?)`,
+      [campId, userId, question, currentCohortNumber]
     );
 
     res.status(201).json({
@@ -6095,7 +7783,7 @@ const answerCampQuestion = async (req, res) => {
             const emailSubject = `💬 تم الرد على سؤالك في مخيم ${camp_name}`;
             const emailHtml = `
               <div dir="rtl" style="font-family: 'Arabic Typography', Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
-                <div style="background-color: #7440EA; padding: 30px; text-align: center;">
+                <div style="background-color: #4E27B9; padding: 30px; text-align: center;">
                   <img src="https://hadith-shareef.com/assets/icons/180×180.png" alt="Meshkah Logo" style="width: 100px; margin-bottom: 15px;">
                   <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: bold;">تم الرد على سؤالك</h1>
                 </div>
@@ -6103,13 +7791,13 @@ const answerCampQuestion = async (req, res) => {
                   <p style="color: #2c3e50; font-size: 18px; line-height: 1.8; margin-bottom: 20px;">
                     مرحباً ${username}،
                   </p>
-                  <div style="background-color: #F9F7FD; border-radius: 8px; padding: 20px; margin: 20px 0; border-right: 4px solid #7440EA;">
+                  <div style="background-color: #F9F7FD; border-radius: 8px; padding: 20px; margin: 20px 0; border-right: 4px solid #4E27B9;">
                     <p style="color: #555555; line-height: 1.8; font-size: 16px; margin: 0;">
                       تم الرد على سؤالك في مخيم "${camp_name}". يمكنك الاطلاع على الإجابة الآن.
                     </p>
                   </div>
                   <div style="text-align: center; margin: 30px 0;">
-                    <a href="https://hadith-shareef.com/quran-camps/${camp_id}" style="display: inline-block; background-color: #7440EA; color: white; padding: 14px 35px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 17px;">
+                    <a href="https://hadith-shareef.com/quran-camps/${camp_id}" style="display: inline-block; background-color: #4E27B9; color: white; padding: 14px 35px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 17px;">
                       عرض الإجابة
                     </a>
                   </div>
@@ -6218,8 +7906,7 @@ const deleteCampQuestion = async (req, res) => {
 const createTaskGroup = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, parent_group_id, order_in_camp, unlock_date } =
-      req.body;
+    const { title, description, parent_group_id } = req.body;
 
     // Verify camp exists
     const [camp] = await db.query("SELECT id FROM quran_camps WHERE id = ?", [
@@ -6248,31 +7935,12 @@ const createTaskGroup = async (req, res) => {
       }
     }
 
-    // Validate unlock_date format if provided
-    let unlockDateValue = null;
-    if (unlock_date) {
-      unlockDateValue = new Date(unlock_date);
-      if (isNaN(unlockDateValue.getTime())) {
-        return res.status(400).json({
-          success: false,
-          message: "تنسيق تاريخ الفتح غير صحيح",
-        });
-      }
-    }
-
     const [result] = await db.query(
       `
-      INSERT INTO camp_task_groups (camp_id, title, description, parent_group_id, order_in_camp, unlock_date)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO camp_task_groups (camp_id, title, description, parent_group_id)
+      VALUES (?, ?, ?, ?)
     `,
-      [
-        id,
-        title,
-        description || null,
-        parent_group_id || null,
-        order_in_camp || 0,
-        unlockDateValue,
-      ]
+      [id, title, description || null, parent_group_id || null]
     );
 
     res.json({
@@ -6293,8 +7961,7 @@ const createTaskGroup = async (req, res) => {
 const updateTaskGroup = async (req, res) => {
   try {
     const { groupId } = req.params;
-    const { title, description, parent_group_id, order_in_camp, unlock_date } =
-      req.body;
+    const { title, description, parent_group_id } = req.body;
 
     // Get current group to verify it exists and get camp_id
     const [currentGroup] = await db.query(
@@ -6352,21 +8019,6 @@ const updateTaskGroup = async (req, res) => {
     if (order_in_camp !== undefined) {
       updateFields.push("order_in_camp = ?");
       values.push(order_in_camp);
-    }
-    if (unlock_date !== undefined) {
-      // Validate unlock_date format if provided
-      let unlockDateValue = null;
-      if (unlock_date !== null && unlock_date !== "") {
-        unlockDateValue = new Date(unlock_date);
-        if (isNaN(unlockDateValue.getTime())) {
-          return res.status(400).json({
-            success: false,
-            message: "تنسيق تاريخ الفتح غير صحيح",
-          });
-        }
-      }
-      updateFields.push("unlock_date = ?");
-      values.push(unlockDateValue);
     }
 
     if (updateFields.length === 0) {
@@ -6647,7 +8299,7 @@ const saveCampAsTemplate = async (req, res) => {
 
       // Clone task groups from original
       const [groups] = await db.query(
-        `SELECT * FROM camp_task_groups WHERE camp_id = ? ORDER BY COALESCE(parent_group_id, 0), order_in_camp, id`,
+        `SELECT * FROM camp_task_groups WHERE camp_id = ? ORDER BY COALESCE(parent_group_id, 0), id`,
         [id]
       );
       const oldToNewGroupId = new Map();
@@ -6656,16 +8308,9 @@ const saveCampAsTemplate = async (req, res) => {
       for (const grp of groups) {
         if (grp.parent_group_id != null) continue;
         const [resGrp] = await db.query(
-          `INSERT INTO camp_task_groups (camp_id, title, description, parent_group_id, order_in_camp, unlock_date)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [
-            templateCampId,
-            grp.title,
-            grp.description || null,
-            null,
-            grp.order_in_camp || 0,
-            grp.unlock_date || null,
-          ]
+          `INSERT INTO camp_task_groups (camp_id, title, description, parent_group_id)
+           VALUES (?, ?, ?, ?)`,
+          [templateCampId, grp.title, grp.description || null, null]
         );
         oldToNewGroupId.set(grp.id, resGrp.insertId);
       }
@@ -6682,16 +8327,9 @@ const saveCampAsTemplate = async (req, res) => {
             continue;
           }
           const [resGrp] = await db.query(
-            `INSERT INTO camp_task_groups (camp_id, title, description, parent_group_id, order_in_camp, unlock_date)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [
-              templateCampId,
-              grp.title,
-              grp.description || null,
-              newParentId,
-              grp.order_in_camp || 0,
-              grp.unlock_date || null,
-            ]
+            `INSERT INTO camp_task_groups (camp_id, title, description, parent_group_id)
+             VALUES (?, ?, ?, ?)`,
+            [templateCampId, grp.title, grp.description || null, newParentId]
           );
           oldToNewGroupId.set(grp.id, resGrp.insertId);
         }
@@ -6809,16 +8447,9 @@ const createCampFromTemplate = async (req, res) => {
       for (const grp of groups) {
         if (grp.parent_group_id != null) continue;
         const [resGrp] = await db.query(
-          `INSERT INTO camp_task_groups (camp_id, title, description, parent_group_id, order_in_camp, unlock_date)
+          `INSERT INTO camp_task_groups (camp_id, title, description, parent_group_id)
            VALUES (?, ?, ?, ?, ?, ?)`,
-          [
-            newCampId,
-            grp.title,
-            grp.description || null,
-            null,
-            grp.order_in_camp || 0,
-            grp.unlock_date || null,
-          ]
+          [newCampId, grp.title, grp.description || null, null]
         );
         oldToNewGroupId.set(grp.id, resGrp.insertId);
       }
@@ -6835,16 +8466,9 @@ const createCampFromTemplate = async (req, res) => {
             continue;
           }
           const [resGrp] = await db.query(
-            `INSERT INTO camp_task_groups (camp_id, title, description, parent_group_id, order_in_camp, unlock_date)
+            `INSERT INTO camp_task_groups (camp_id, title, description, parent_group_id)
              VALUES (?, ?, ?, ?, ?, ?)`,
-            [
-              newCampId,
-              grp.title,
-              grp.description || null,
-              newParentId,
-              grp.order_in_camp || 0,
-              grp.unlock_date || null,
-            ]
+            [newCampId, grp.title, grp.description || null, newParentId]
           );
           oldToNewGroupId.set(grp.id, resGrp.insertId);
         }
@@ -7046,7 +8670,7 @@ const getCurriculumMap = async (req, res) => {
         ctg.title,
         ctg.description,
         ctg.order_in_camp as sort_order,
-        ctg.unlock_date,
+
         COUNT(cdt.id) as tasks_count
       FROM camp_task_groups ctg
       LEFT JOIN camp_daily_tasks cdt ON ctg.id = cdt.group_id
@@ -7080,58 +8704,11 @@ const getCurriculumMap = async (req, res) => {
 
     // Calculate status for each group
     const axes = groups.map((group) => {
-      // Calculate unlock date (use unlock_date if exists, otherwise calculate from camp start_date)
-      let unlockDate = null;
-      if (group.unlock_date) {
-        unlockDate = new Date(group.unlock_date);
-      } else if (enrollment.camp_start_date) {
-        // Fallback: calculate based on sort_order (assuming 1 axis per day)
-        const startDate = new Date(enrollment.camp_start_date);
-        startDate.setDate(startDate.getDate() + (group.sort_order - 1));
-        unlockDate = startDate;
-      }
-
       // Determine status
       let status = "locked";
-      if (unlockDate) {
-        unlockDate.setHours(0, 0, 0, 0);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        if (today >= unlockDate) {
-          // Check if all tasks are completed
-          const groupTasks = userProgress.filter(
-            (p) => p.group_id === group.id
-          );
-          const completedTasks = groupTasks.filter((t) => t.completed === 1);
-          if (
-            groupTasks.length > 0 &&
-            completedTasks.length === groupTasks.length
-          ) {
-            status = "completed";
-          } else {
-            status = "active";
-          }
-        }
-      } else {
-        // If no unlock_date, consider it active for now (backward compatibility)
-        status = "active";
-      }
-
-      return {
-        id: group.id,
-        title: group.title,
-        description: group.description,
-        unlock_date: unlockDate ? unlockDate.toISOString() : null,
-        tasks_count: group.tasks_count || 0,
-        status: status,
-      };
     });
 
-    res.json({
-      success: true,
-      data: axes,
-    });
+    res.json({ success: true, data: axes });
   } catch (error) {
     console.error("Error fetching curriculum map:", error);
     res.status(500).json({
@@ -7197,26 +8774,6 @@ const getAxisContent = async (req, res) => {
     // Check if axis is unlocked
     const now = new Date();
     now.setHours(0, 0, 0, 0);
-
-    let unlockDate = null;
-    if (axis.unlock_date) {
-      unlockDate = new Date(axis.unlock_date);
-    } else if (axis.camp_start_date) {
-      const startDate = new Date(axis.camp_start_date);
-      startDate.setDate(startDate.getDate() + (axis.order_in_camp - 1));
-      unlockDate = startDate;
-    }
-
-    if (unlockDate) {
-      unlockDate.setHours(0, 0, 0, 0);
-      if (now < unlockDate) {
-        return res.status(403).json({
-          success: false,
-          message: "هذا المحور غير متاح حالياً",
-          unlock_date: unlockDate.toISOString(),
-        });
-      }
-    }
 
     // Get all councils (sub-groups) for this axis
     const [councils] = await db.query(
@@ -7409,13 +8966,6 @@ const getTasksForAxis = async (req, res) => {
     now.setHours(0, 0, 0, 0);
 
     let unlockDate = null;
-    if (group.unlock_date) {
-      unlockDate = new Date(group.unlock_date);
-    } else if (group.camp_start_date) {
-      const startDate = new Date(group.camp_start_date);
-      startDate.setDate(startDate.getDate() + (group.order_in_camp - 1));
-      unlockDate = startDate;
-    }
 
     if (unlockDate) {
       unlockDate.setHours(0, 0, 0, 0);
@@ -7423,7 +8973,6 @@ const getTasksForAxis = async (req, res) => {
         return res.status(403).json({
           success: false,
           message: "هذا المحور غير متاح حالياً",
-          unlock_date: unlockDate.toISOString(),
         });
       }
     }
@@ -7629,6 +9178,3081 @@ const pledgeToJointStep = async (req, res) => {
   }
 };
 
+// Get all study hall content for admin (Admin only)
+const getAdminStudyHallContent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { day, page = 1, limit = 50, sort = "newest" } = req.query;
+
+    // Validate pagination parameters
+    const pageNum = Math.max(1, parseInt(page)) || 1;
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit))) || 50;
+    const offset = (pageNum - 1) * limitNum;
+
+    // Get camp details
+    const [camps] = await db.query(`SELECT * FROM quran_camps WHERE id = ?`, [
+      id,
+    ]);
+
+    if (camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    const camp = camps[0];
+
+    // Get all study hall content (both reflections and benefits)
+    let query = `
+      SELECT 
+        ctp.id as progress_id,
+        cdt.id as task_id,
+        cdt.title,
+        cdt.day_number,
+        ctp.journal_entry,
+        ctp.notes,
+        ctp.completed_at,
+        ctp.created_at,
+        ctp.is_private,
+        u.id as user_id,
+        u.username,
+        u.email,
+        ce.id as enrollment_id
+      FROM camp_task_progress ctp
+      JOIN camp_daily_tasks cdt ON ctp.task_id = cdt.id
+      JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
+      JOIN users u ON ce.user_id = u.id
+      WHERE cdt.camp_id = ?
+        AND ctp.completed = 1
+        AND (ctp.journal_entry IS NOT NULL AND ctp.journal_entry != '' 
+             OR ctp.notes IS NOT NULL AND ctp.notes != '')
+        AND (ctp.is_private IS NULL OR ctp.is_private = false)
+    `;
+
+    const params = [id];
+
+    // Filter by day if specified
+    if (day) {
+      query += ` AND cdt.day_number = ?`;
+      params.push(day);
+    }
+
+    // Apply sorting
+    if (sort === "newest") {
+      query += ` ORDER BY ctp.completed_at DESC`;
+    } else if (sort === "oldest") {
+      query += ` ORDER BY ctp.completed_at ASC`;
+    } else if (sort === "day") {
+      query += ` ORDER BY cdt.day_number DESC, ctp.completed_at DESC`;
+    }
+
+    // Get total count
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM camp_task_progress ctp
+      JOIN camp_daily_tasks cdt ON ctp.task_id = cdt.id
+      JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
+      JOIN users u ON ce.user_id = u.id
+      WHERE cdt.camp_id = ?
+        AND ctp.completed = 1
+        AND (ctp.journal_entry IS NOT NULL AND ctp.journal_entry != '' 
+             OR ctp.notes IS NOT NULL AND ctp.notes != '')
+        AND (ctp.is_private IS NULL OR ctp.is_private = false)
+    `;
+    const countParams = [id];
+    if (day) {
+      countParams.push(day);
+    }
+    const [countResult] = await db.query(countQuery, countParams);
+    const totalItems = countResult[0].total;
+
+    // Apply pagination
+    query += ` LIMIT ? OFFSET ?`;
+    params.push(limitNum, offset);
+
+    const [content] = await db.query(query, params);
+
+    // Format the content
+    const formattedContent = content
+      .map((item) => {
+        const items = [];
+        if (item.journal_entry) {
+          items.push({
+            id: `reflection-${item.progress_id}`,
+            progress_id: item.progress_id,
+            type: "reflection",
+            title: `تدبر: ${item.title}`,
+            content: item.journal_entry,
+            day: item.day_number,
+            completed_at: item.completed_at,
+            user_id: item.user_id,
+            username: item.username,
+            email: item.email,
+          });
+        }
+        if (item.notes) {
+          items.push({
+            id: `benefits-${item.progress_id}`,
+            progress_id: item.progress_id,
+            type: "benefits",
+            title: `فوائد: ${item.title}`,
+            content: item.notes,
+            day: item.day_number,
+            completed_at: item.completed_at,
+            user_id: item.user_id,
+            username: item.username,
+            email: item.email,
+          });
+        }
+        return items;
+      })
+      .flat();
+
+    res.json({
+      success: true,
+      data: {
+        camp_id: camp.id,
+        camp_name: camp.name,
+        content: formattedContent,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total_items: totalItems,
+          total_pages: Math.ceil(totalItems / limitNum),
+          has_next: offset + limitNum < totalItems,
+          has_prev: pageNum > 1,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error getting admin study hall content:", error);
+    res.status(500).json({
+      success: false,
+      message: "خطأ في جلب محتوى قاعة التدارس",
+    });
+  }
+};
+
+// Update study hall content (Admin only)
+const updateStudyHallContent = async (req, res) => {
+  try {
+    const { progressId } = req.params;
+    const { journal_entry, notes, type, reason } = req.body;
+
+    if (!type || (type !== "reflection" && type !== "benefits")) {
+      return res.status(400).json({
+        success: false,
+        message: "نوع المحتوى غير صحيح",
+      });
+    }
+
+    if (!reason || reason.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "يرجى كتابة سبب التعديل",
+      });
+    }
+
+    // Get progress record with user and camp info
+    const [progress] = await db.query(
+      `
+      SELECT 
+        ctp.*,
+        ce.user_id,
+        ce.camp_id,
+        u.username,
+        qc.name as camp_name
+      FROM camp_task_progress ctp
+      JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
+      JOIN users u ON ce.user_id = u.id
+      JOIN quran_camps qc ON ce.camp_id = qc.id
+      WHERE ctp.id = ?
+    `,
+      [progressId]
+    );
+
+    if (progress.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المحتوى غير موجود",
+      });
+    }
+
+    const progressRecord = progress[0];
+
+    // Update the content based on type
+    if (type === "reflection" && journal_entry !== undefined) {
+      await db.query(
+        `UPDATE camp_task_progress SET journal_entry = ? WHERE id = ?`,
+        [journal_entry || null, progressId]
+      );
+    } else if (type === "benefits" && notes !== undefined) {
+      await db.query(`UPDATE camp_task_progress SET notes = ? WHERE id = ?`, [
+        notes || null,
+        progressId,
+      ]);
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "يرجى تحديد المحتوى المراد تحديثه",
+      });
+    }
+
+    // Send notification to user
+    const CampNotificationService = require("../services/campNotificationService");
+    await CampNotificationService.sendGeneralNotification(
+      progressRecord.user_id,
+      progressRecord.camp_id,
+      progressRecord.camp_name,
+      "تم تعديل محتوى قاعة التدارس",
+      `تم تعديل ${
+        type === "reflection" ? "التدبر" : "الفوائد"
+      } الخاص بك في مخيم "${
+        progressRecord.camp_name
+      }".\n\nالسبب: ${reason}\n\nيرجى مراجعة المحتوى المحدث.`
+    );
+
+    res.json({
+      success: true,
+      message: "تم تحديث المحتوى بنجاح",
+    });
+  } catch (error) {
+    console.error("Error updating study hall content:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في تحديث المحتوى",
+    });
+  }
+};
+
+// Duplicate camp (admin only)
+const duplicateCamp = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, start_date, duration_days, banner_image, tags } =
+      req.body;
+
+    // Get original camp
+    const [campData] = await db.query(
+      "SELECT * FROM quran_camps WHERE id = ?",
+      [id]
+    );
+
+    if (campData.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    const originalCamp = campData[0];
+
+    // Start transaction
+    const connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      // Create new camp
+      const share_link = shortid.generate();
+      const [newCampResult] = await connection.query(
+        `
+        INSERT INTO quran_camps (
+          name, description, surah_number, surah_name, start_date, duration_days,
+          banner_image, opening_surah_number, opening_surah_name, opening_youtube_url,
+          share_link, tags, status, is_template
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'early_registration', 0)
+      `,
+        [
+          name || `${originalCamp.name} (نسخة)`,
+          description || originalCamp.description,
+          originalCamp.surah_number,
+          originalCamp.surah_name,
+          start_date || originalCamp.start_date,
+          duration_days || originalCamp.duration_days,
+          banner_image || originalCamp.banner_image,
+          originalCamp.opening_surah_number,
+          originalCamp.opening_surah_name,
+          originalCamp.opening_youtube_url,
+          share_link,
+          tags || originalCamp.tags,
+        ]
+      );
+
+      const newCampId = newCampResult.insertId;
+
+      // Copy task groups
+      const [taskGroups] = await connection.query(
+        "SELECT * FROM camp_task_groups WHERE camp_id = ?",
+        [id]
+      );
+
+      const groupIdMap = new Map();
+      for (const group of taskGroups) {
+        const [newGroupResult] = await connection.query(
+          `
+          INSERT INTO camp_task_groups (camp_id, title, description, parent_group_id, order_in_camp)
+          VALUES (?, ?, ?, ?, ?)
+        `,
+          [
+            newCampId,
+            group.title,
+            group.description,
+            group.parent_group_id
+              ? groupIdMap.get(group.parent_group_id) || null
+              : null,
+            group.order_in_camp,
+          ]
+        );
+        groupIdMap.set(group.id, newGroupResult.insertId);
+      }
+
+      // Copy tasks
+      const [tasks] = await connection.query(
+        "SELECT * FROM camp_daily_tasks WHERE camp_id = ?",
+        [id]
+      );
+
+      for (const task of tasks) {
+        await connection.query(
+          `
+          INSERT INTO camp_daily_tasks (
+            camp_id, day_number, task_type, title, description, verses_from, verses_to,
+            tafseer_link, youtube_link, order_in_day, is_optional, points, estimated_time,
+            group_id, order_in_group
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+          [
+            newCampId,
+            task.day_number,
+            task.task_type,
+            task.title,
+            task.description,
+            task.verses_from,
+            task.verses_to,
+            task.tafseer_link,
+            task.youtube_link,
+            task.order_in_day,
+            task.is_optional,
+            task.points,
+            task.estimated_time,
+            task.group_id ? groupIdMap.get(task.group_id) || null : null,
+            task.order_in_group,
+          ]
+        );
+      }
+
+      // Copy resource categories
+      const [categories] = await connection.query(
+        "SELECT * FROM camp_resource_categories WHERE camp_id = ?",
+        [id]
+      );
+
+      const categoryIdMap = new Map();
+      for (const category of categories) {
+        const [newCategoryResult] = await connection.query(
+          `
+          INSERT INTO camp_resource_categories (camp_id, title, display_order)
+          VALUES (?, ?, ?)
+        `,
+          [newCampId, category.title, category.display_order]
+        );
+        categoryIdMap.set(category.id, newCategoryResult.insertId);
+      }
+
+      // Copy resources
+      const [resources] = await connection.query(
+        "SELECT * FROM camp_resources WHERE camp_id = ?",
+        [id]
+      );
+
+      for (const resource of resources) {
+        await connection.query(
+          `
+          INSERT INTO camp_resources (camp_id, category_id, title, url, resource_type, display_order)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `,
+          [
+            newCampId,
+            resource.category_id
+              ? categoryIdMap.get(resource.category_id) || null
+              : null,
+            resource.title,
+            resource.url,
+            resource.resource_type,
+            resource.display_order,
+          ]
+        );
+      }
+
+      // Copy admin settings
+      await connection.query(
+        `
+        UPDATE quran_camps SET
+          enable_leaderboard = ?,
+          enable_study_hall = ?,
+          enable_public_enrollment = ?,
+          auto_start_camp = ?,
+          max_participants = ?,
+          enable_notifications = ?,
+          enable_daily_reminders = ?,
+          enable_achievement_notifications = ?,
+          visibility_mode = ?,
+          allow_user_content = ?,
+          enable_interactions = ?
+        WHERE id = ?
+      `,
+        [
+          originalCamp.enable_leaderboard,
+          originalCamp.enable_study_hall,
+          originalCamp.enable_public_enrollment,
+          originalCamp.auto_start_camp,
+          originalCamp.max_participants,
+          originalCamp.enable_notifications,
+          originalCamp.enable_daily_reminders,
+          originalCamp.enable_achievement_notifications,
+          originalCamp.visibility_mode || "public",
+          originalCamp.allow_user_content,
+          originalCamp.enable_interactions,
+          newCampId,
+        ]
+      );
+
+      await connection.commit();
+      connection.release();
+
+      res.json({
+        success: true,
+        message: "تم نسخ المخيم بنجاح",
+        data: { campId: newCampId, share_link },
+      });
+    } catch (error) {
+      await connection.rollback();
+      connection.release();
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error duplicating camp:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء نسخ المخيم",
+    });
+  }
+};
+
+// Export camp data to Excel (admin only)
+const exportCampData = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { type = "participants" } = req.query; // participants, tasks, leaderboard, all
+
+    const ExcelJS = require("exceljs");
+    const workbook = new ExcelJS.Workbook();
+
+    // Get camp info
+    const [campData] = await db.query(
+      "SELECT * FROM quran_camps WHERE id = ?",
+      [id]
+    );
+
+    if (campData.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    const camp = campData[0];
+
+    // Export participants
+    if (type === "participants" || type === "all") {
+      // Get total tasks count
+      const [totalTasksResult] = await db.query(
+        "SELECT COUNT(*) as total FROM camp_daily_tasks WHERE camp_id = ?",
+        [id]
+      );
+      const totalTasks = totalTasksResult[0].total || 1;
+
+      const [participants] = await db.query(
+        `
+        SELECT 
+          ce.id,
+          u.username,
+          u.email,
+          ce.total_points,
+          ce.current_streak,
+          ce.longest_streak,
+          ce.enrollment_date as enrolled_at,
+          ce.last_activity_date as last_activity_at,
+          COUNT(ctp.id) as completed_tasks,
+          ? as total_tasks,
+          ROUND((COUNT(ctp.id) / ?) * 100, 2) as completion_percentage
+        FROM camp_enrollments ce
+        JOIN users u ON ce.user_id = u.id
+        LEFT JOIN camp_task_progress ctp ON ce.id = ctp.enrollment_id AND ctp.completed = 1
+        WHERE ce.camp_id = ?
+        GROUP BY ce.id
+        ORDER BY ce.total_points DESC
+      `,
+        [totalTasks, totalTasks, id]
+      );
+
+      const worksheet = workbook.addWorksheet("المشتركين");
+      worksheet.columns = [
+        { header: "اسم المستخدم", key: "username", width: 25 },
+        { header: "البريد الإلكتروني", key: "email", width: 30 },
+        { header: "النقاط", key: "total_points", width: 10 },
+        { header: "نسبة الإكمال (%)", key: "completion_percentage", width: 15 },
+        { header: "المهام المكتملة", key: "completed_tasks", width: 15 },
+        { header: "السلسلة الحالية", key: "current_streak", width: 15 },
+        { header: "أطول سلسلة", key: "longest_streak", width: 15 },
+        { header: "تاريخ التسجيل", key: "enrolled_at", width: 20 },
+        { header: "آخر نشاط", key: "last_activity_at", width: 20 },
+      ];
+
+      // Add data rows
+      if (participants && participants.length > 0) {
+        participants.forEach((p) => {
+          worksheet.addRow({
+            username: p.username || "",
+            email: p.email || "",
+            total_points: Number(p.total_points) || 0,
+            completion_percentage: parseFloat(
+              p.completion_percentage || 0
+            ).toFixed(2),
+            completed_tasks: Number(p.completed_tasks) || 0,
+            current_streak: Number(p.current_streak) || 0,
+            longest_streak: Number(p.longest_streak) || 0,
+            enrolled_at: p.enrolled_at
+              ? new Date(p.enrolled_at).toLocaleDateString("ar-SA")
+              : "",
+            last_activity_at: p.last_activity_at
+              ? new Date(p.last_activity_at).toLocaleDateString("ar-SA")
+              : "",
+          });
+        });
+      } else {
+        // Add a row indicating no participants
+        worksheet.addRow(["لا يوجد مشتركين", "", "", "", "", "", "", "", ""]);
+      }
+
+      // Style header
+      worksheet.getRow(1).font = { bold: true, color: { argb: "FFFFFF" } };
+      worksheet.getRow(1).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "8b5cf6" },
+      };
+
+      worksheet.eachRow((row) => {
+        row.eachCell((cell) => {
+          cell.font = { name: "Arial", size: 11 };
+          cell.alignment = {
+            horizontal: "right",
+            vertical: "middle",
+            wrapText: true,
+          };
+        });
+      });
+    }
+
+    // Export tasks completion stats
+    if (type === "tasks" || type === "all") {
+      const [taskStats] = await db.query(
+        `
+        SELECT 
+          cdt.id,
+          cdt.day_number,
+          cdt.task_type,
+          cdt.title,
+          COUNT(ctp.id) as completed_count,
+          (SELECT COUNT(*) FROM camp_enrollments WHERE camp_id = ?) as total_participants
+        FROM camp_daily_tasks cdt
+        LEFT JOIN camp_task_progress ctp ON cdt.id = ctp.task_id AND ctp.completed = 1
+        WHERE cdt.camp_id = ?
+        GROUP BY cdt.id
+        ORDER BY cdt.day_number, cdt.order_in_day
+      `,
+        [id, id]
+      );
+
+      const worksheet = workbook.addWorksheet("إحصائيات المهام");
+      worksheet.columns = [
+        { header: "اليوم", key: "day_number", width: 10 },
+        { header: "نوع المهمة", key: "task_type", width: 20 },
+        { header: "العنوان", key: "title", width: 40 },
+        { header: "عدد المكتملين", key: "completed_count", width: 15 },
+        { header: "إجمالي المشتركين", key: "total_participants", width: 15 },
+        {
+          header: "نسبة الإكمال (%)",
+          key: "completion_rate",
+          width: 15,
+        },
+      ];
+
+      // Add data rows
+      if (taskStats && taskStats.length > 0) {
+        taskStats.forEach((task) => {
+          const completionRate =
+            task.total_participants > 0
+              ? (
+                  (task.completed_count / task.total_participants) *
+                  100
+                ).toFixed(2)
+              : "0.00";
+          worksheet.addRow({
+            day_number: Number(task.day_number) || 0,
+            task_type: task.task_type || "",
+            title: task.title || "",
+            completed_count: Number(task.completed_count) || 0,
+            total_participants: Number(task.total_participants) || 0,
+            completion_rate: completionRate,
+          });
+        });
+      } else {
+        // Add a row indicating no task stats
+        worksheet.addRow(["", "لا يوجد بيانات", "", "", "", ""]);
+      }
+
+      worksheet.getRow(1).font = { bold: true, color: { argb: "FFFFFF" } };
+      worksheet.getRow(1).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "8b5cf6" },
+      };
+
+      worksheet.eachRow((row) => {
+        row.eachCell((cell) => {
+          cell.font = { name: "Arial", size: 11 };
+          cell.alignment = {
+            horizontal: "right",
+            vertical: "middle",
+            wrapText: true,
+          };
+        });
+      });
+    }
+
+    // Export leaderboard
+    if (type === "leaderboard" || type === "all") {
+      // Get total tasks count
+      const [totalTasksResult] = await db.query(
+        "SELECT COUNT(*) as total FROM camp_daily_tasks WHERE camp_id = ?",
+        [id]
+      );
+      const totalTasks = totalTasksResult[0].total || 1;
+
+      const [leaderboard] = await db.query(
+        `
+        SELECT 
+          ce.total_points,
+          u.username,
+          ce.current_streak,
+          ce.longest_streak,
+          COUNT(ctp.id) as completed_tasks,
+          ? as total_tasks,
+          ROUND((COUNT(ctp.id) / ?) * 100, 2) as completion_percentage
+        FROM camp_enrollments ce
+        JOIN users u ON ce.user_id = u.id
+        LEFT JOIN camp_settings cs ON ce.id = cs.enrollment_id
+        LEFT JOIN camp_task_progress ctp ON ce.id = ctp.enrollment_id AND ctp.completed = 1
+        WHERE ce.camp_id = ? 
+          AND COALESCE(cs.leaderboard_visibility, true) = true
+        GROUP BY ce.id
+        ORDER BY ce.total_points DESC
+      `,
+        [totalTasks, totalTasks, id]
+      );
+
+      const worksheet = workbook.addWorksheet("لوحة المتصدرين");
+      worksheet.columns = [
+        { header: "الترتيب", key: "rank", width: 10 },
+        { header: "اسم المستخدم", key: "username", width: 25 },
+        { header: "النقاط", key: "total_points", width: 15 },
+        { header: "نسبة الإكمال (%)", key: "completion_percentage", width: 15 },
+        { header: "السلسلة الحالية", key: "current_streak", width: 15 },
+        { header: "أطول سلسلة", key: "longest_streak", width: 15 },
+      ];
+
+      // Add data rows
+      if (leaderboard && leaderboard.length > 0) {
+        leaderboard.forEach((entry, index) => {
+          worksheet.addRow({
+            rank: index + 1,
+            username: entry.username || "",
+            total_points: Number(entry.total_points) || 0,
+            completion_percentage: parseFloat(
+              entry.completion_percentage || 0
+            ).toFixed(2),
+            current_streak: Number(entry.current_streak) || 0,
+            longest_streak: Number(entry.longest_streak) || 0,
+          });
+        });
+      } else {
+        // Add a row indicating no leaderboard data
+        worksheet.addRow(["", "لا يوجد بيانات", "", "", "", ""]);
+      }
+
+      worksheet.getRow(1).font = { bold: true, color: { argb: "FFFFFF" } };
+      worksheet.getRow(1).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "8b5cf6" },
+      };
+
+      worksheet.eachRow((row) => {
+        row.eachCell((cell) => {
+          cell.font = { name: "Arial", size: 11 };
+          cell.alignment = {
+            horizontal: "right",
+            vertical: "middle",
+            wrapText: true,
+          };
+        });
+      });
+    }
+
+    // Set response headers
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    const filename = `camp_${camp.id}_${type}_${
+      new Date().toISOString().split("T")[0]
+    }.xlsx`;
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error("Error exporting camp data:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء تصدير البيانات",
+    });
+  }
+};
+
+const deleteStudyHallContent = async (req, res) => {
+  try {
+    const { progressId } = req.params;
+    const { type, reason } = req.body;
+
+    if (!type || (type !== "reflection" && type !== "benefits")) {
+      return res.status(400).json({
+        success: false,
+        message: "نوع المحتوى غير صحيح",
+      });
+    }
+
+    if (!reason || reason.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "يرجى كتابة سبب الحذف",
+      });
+    }
+
+    // Get progress record with user and camp info
+    const [progress] = await db.query(
+      `
+      SELECT 
+        ctp.*,
+        ce.user_id,
+        ce.camp_id,
+        u.username,
+        qc.name as camp_name
+      FROM camp_task_progress ctp
+      JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
+      JOIN users u ON ce.user_id = u.id
+      JOIN quran_camps qc ON ce.camp_id = qc.id
+      WHERE ctp.id = ?
+    `,
+      [progressId]
+    );
+
+    if (progress.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المحتوى غير موجود",
+      });
+    }
+
+    const progressRecord = progress[0];
+
+    // Delete the content based on type
+    if (type === "reflection") {
+      await db.query(
+        `UPDATE camp_task_progress SET journal_entry = NULL WHERE id = ?`,
+        [progressId]
+      );
+    } else if (type === "benefits") {
+      await db.query(
+        `UPDATE camp_task_progress SET notes = NULL WHERE id = ?`,
+        [progressId]
+      );
+    }
+
+    // Send notification to user
+    const CampNotificationService = require("../services/campNotificationService");
+    await CampNotificationService.sendGeneralNotification(
+      progressRecord.user_id,
+      progressRecord.camp_id,
+      progressRecord.camp_name,
+      "تم حذف محتوى قاعة التدارس",
+      `تم حذف ${
+        type === "reflection" ? "التدبر" : "الفوائد"
+      } الخاص بك من قاعة التدارس في مخيم "${
+        progressRecord.camp_name
+      }".\n\nالسبب: ${reason}`
+    );
+
+    res.json({
+      success: true,
+      message: "تم حذف المحتوى بنجاح",
+    });
+  } catch (error) {
+    console.error("Error deleting study hall content:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في حذف المحتوى",
+    });
+  }
+};
+
+// Get all daily messages for a camp (admin only)
+const getCampDailyMessages = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if camp exists
+    const [camps] = await db.query(
+      "SELECT id, name, duration_days FROM quran_camps WHERE id = ?",
+      [id]
+    );
+    if (camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    const camp = camps[0];
+
+    // Check if table exists, if not return empty array
+    let messages = [];
+    try {
+      const [result] = await db.query(
+        `
+        SELECT 
+          id,
+          camp_id,
+          day_number,
+          title,
+          message,
+          is_active,
+          created_at,
+          updated_at
+        FROM camp_daily_messages
+        WHERE camp_id = ?
+        ORDER BY day_number ASC, created_at ASC
+      `,
+        [id]
+      );
+      messages = result || [];
+    } catch (tableError) {
+      // Table doesn't exist, return empty array
+      console.log("camp_daily_messages table doesn't exist yet");
+    }
+
+    res.json({
+      success: true,
+      data: {
+        camp_id: camp.id,
+        camp_name: camp.name,
+        duration_days: camp.duration_days,
+        messages: messages,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching daily messages:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في جلب الرسائل اليومية",
+      error: error.message,
+    });
+  }
+};
+
+// Create a daily message (admin only)
+const createDailyMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { day_number, title, message, is_active = true } = req.body;
+
+    // Validate required fields
+    if (!day_number || !title || !message) {
+      return res.status(400).json({
+        success: false,
+        message: "اليوم والعنوان والرسالة مطلوبون",
+      });
+    }
+
+    // Check if camp exists
+    const [camps] = await db.query(
+      "SELECT id, name, duration_days FROM quran_camps WHERE id = ?",
+      [id]
+    );
+    if (camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    const camp = camps[0];
+
+    // Validate day_number
+    if (day_number < 1 || day_number > camp.duration_days) {
+      return res.status(400).json({
+        success: false,
+        message: `رقم اليوم يجب أن يكون بين 1 و ${camp.duration_days}`,
+      });
+    }
+
+    // Create table if it doesn't exist
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS camp_daily_messages (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          camp_id INT NOT NULL,
+          day_number INT NOT NULL,
+          title VARCHAR(255) NOT NULL,
+          message TEXT NOT NULL,
+          is_active TINYINT(1) DEFAULT 1,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          FOREIGN KEY (camp_id) REFERENCES quran_camps(id) ON DELETE CASCADE,
+          INDEX idx_camp_day (camp_id, day_number)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+    } catch (tableError) {
+      // Table might already exist, continue
+      console.log("Table creation skipped or already exists");
+    }
+
+    // Insert the message
+    const [result] = await db.query(
+      `
+      INSERT INTO camp_daily_messages (camp_id, day_number, title, message, is_active)
+      VALUES (?, ?, ?, ?, ?)
+    `,
+      [id, day_number, title, message, is_active ? 1 : 0]
+    );
+
+    res.json({
+      success: true,
+      message: "تم إنشاء الرسالة اليومية بنجاح",
+      data: {
+        id: result.insertId,
+        camp_id: id,
+        day_number,
+        title,
+        message,
+        is_active,
+      },
+    });
+  } catch (error) {
+    console.error("Error creating daily message:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في إنشاء الرسالة اليومية",
+      error: error.message,
+    });
+  }
+};
+
+// Update a daily message (admin only)
+const updateDailyMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { day_number, title, message, is_active } = req.body;
+
+    // Check if message exists
+    const [messages] = await db.query(
+      `
+      SELECT dm.*, qc.duration_days
+      FROM camp_daily_messages dm
+      JOIN quran_camps qc ON dm.camp_id = qc.id
+      WHERE dm.id = ?
+    `,
+      [messageId]
+    );
+
+    if (messages.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الرسالة غير موجودة",
+      });
+    }
+
+    const existingMessage = messages[0];
+
+    // Validate day_number if provided
+    if (day_number !== undefined) {
+      if (day_number < 1 || day_number > existingMessage.duration_days) {
+        return res.status(400).json({
+          success: false,
+          message: `رقم اليوم يجب أن يكون بين 1 و ${existingMessage.duration_days}`,
+        });
+      }
+    }
+
+    // Build update query dynamically
+    const updates = [];
+    const values = [];
+
+    if (day_number !== undefined) {
+      updates.push("day_number = ?");
+      values.push(day_number);
+    }
+    if (title !== undefined) {
+      updates.push("title = ?");
+      values.push(title);
+    }
+    if (message !== undefined) {
+      updates.push("message = ?");
+      values.push(message);
+    }
+    if (is_active !== undefined) {
+      updates.push("is_active = ?");
+      values.push(is_active ? 1 : 0);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "لا توجد بيانات للتحديث",
+      });
+    }
+
+    updates.push("updated_at = CURRENT_TIMESTAMP");
+    values.push(messageId);
+
+    await db.query(
+      `
+      UPDATE camp_daily_messages
+      SET ${updates.join(", ")}
+      WHERE id = ?
+    `,
+      values
+    );
+
+    res.json({
+      success: true,
+      message: "تم تحديث الرسالة اليومية بنجاح",
+    });
+  } catch (error) {
+    console.error("Error updating daily message:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في تحديث الرسالة اليومية",
+      error: error.message,
+    });
+  }
+};
+
+// Delete a daily message (admin only)
+const deleteDailyMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+
+    // Check if message exists
+    const [messages] = await db.query(
+      "SELECT id FROM camp_daily_messages WHERE id = ?",
+      [messageId]
+    );
+
+    if (messages.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الرسالة غير موجودة",
+      });
+    }
+
+    // Delete the message
+    await db.query("DELETE FROM camp_daily_messages WHERE id = ?", [messageId]);
+
+    res.json({
+      success: true,
+      message: "تم حذف الرسالة اليومية بنجاح",
+    });
+  } catch (error) {
+    console.error("Error deleting daily message:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في حذف الرسالة اليومية",
+      error: error.message,
+    });
+  }
+};
+
+// Export camp tasks to JSON or CSV (admin only)
+const exportCampTasks = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { format = "json" } = req.query;
+
+    // Check if camp exists
+    const [camps] = await db.query(
+      "SELECT id, name, duration_days FROM quran_camps WHERE id = ?",
+      [id]
+    );
+    if (camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    // Get all tasks for the camp
+    const [tasks] = await db.query(
+      `
+      SELECT 
+        id,
+        day_number,
+        task_type,
+        title,
+        description,
+        verses_from,
+        verses_to,
+        tafseer_link,
+        youtube_link,
+        order_in_day,
+        is_optional,
+        points,
+        estimated_time,
+        group_id,
+        order_in_group
+      FROM camp_daily_tasks
+      WHERE camp_id = ?
+      ORDER BY day_number, order_in_day
+    `,
+      [id]
+    );
+
+    if (format === "csv") {
+      // Generate CSV
+      const csvRows = [];
+
+      // Header
+      csvRows.push(
+        "day_number,task_type,title,description,verses_from,verses_to,tafseer_link,youtube_link,order_in_day,is_optional,points,estimated_time,group_id,order_in_group"
+      );
+
+      // Data rows
+      tasks.forEach((task) => {
+        const row = [
+          task.day_number || "",
+          task.task_type || "",
+          `"${(task.title || "").replace(/"/g, '""')}"`,
+          `"${(task.description || "").replace(/"/g, '""')}"`,
+          task.verses_from || "",
+          task.verses_to || "",
+          task.tafseer_link || "",
+          task.youtube_link || "",
+          task.order_in_day || "",
+          task.is_optional ? "1" : "0",
+          task.points || "",
+          task.estimated_time || "",
+          task.group_id || "",
+          task.order_in_group || "",
+        ];
+        csvRows.push(row.join(","));
+      });
+
+      const csv = csvRows.join("\n");
+      const csvBuffer = Buffer.from("\ufeff" + csv, "utf8"); // BOM for Excel UTF-8 support
+
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="camp-${id}-tasks-${
+          new Date().toISOString().split("T")[0]
+        }.csv"`
+      );
+      return res.send(csvBuffer);
+    } else {
+      // JSON format
+      res.json({
+        success: true,
+        data: {
+          camp_id: parseInt(id),
+          camp_name: camps[0].name,
+          duration_days: camps[0].duration_days,
+          exported_at: new Date().toISOString(),
+          tasks: tasks.map((task) => ({
+            day_number: task.day_number,
+            task_type: task.task_type,
+            title: task.title,
+            description: task.description || "",
+            verses_from: task.verses_from,
+            verses_to: task.verses_to,
+            tafseer_link: task.tafseer_link || "",
+            youtube_link: task.youtube_link || "",
+            order_in_day: task.order_in_day,
+            is_optional: task.is_optional === 1 || task.is_optional === true,
+            points: task.points,
+            estimated_time: task.estimated_time,
+            group_id: task.group_id,
+            order_in_group: task.order_in_group,
+          })),
+        },
+      });
+    }
+  } catch (error) {
+    console.error("Error exporting tasks:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في تصدير المهام",
+      error: error.message,
+    });
+  }
+};
+
+// Helper function to parse CSV/XLSX file
+const parseTasksFile = async (file) => {
+  const ExcelJS = require("exceljs");
+  const tasks = [];
+
+  try {
+    // Check file extension
+    const fileName = file.originalname.toLowerCase();
+    const isCSV = fileName.endsWith(".csv");
+    const isXLSX = fileName.endsWith(".xlsx") || fileName.endsWith(".xls");
+
+    let worksheet;
+
+    if (isCSV) {
+      // Parse CSV using ExcelJS
+      const workbook = new ExcelJS.Workbook();
+      const csvText = file.buffer.toString("utf8");
+      await workbook.csv.read(csvText);
+      worksheet = workbook.worksheets[0];
+    } else if (isXLSX) {
+      // Parse XLSX
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(file.buffer);
+      worksheet = workbook.worksheets[0];
+    } else {
+      throw new Error("Unsupported file format. Please use CSV or XLSX.");
+    }
+
+    if (!worksheet || worksheet.rowCount < 2) {
+      throw new Error("File is empty or has no data rows");
+    }
+
+    // Get header row
+    const headerRow = worksheet.getRow(1);
+    const headers = [];
+    headerRow.eachCell((cell, colNumber) => {
+      headers[colNumber] = cell.value
+        ? cell.value.toString().trim().toLowerCase()
+        : "";
+    });
+
+    // Map header names to field names
+    const headerMap = {
+      day_number: "day_number",
+      day: "day_number",
+      task_type: "task_type",
+      type: "task_type",
+      title: "title",
+      description: "description",
+      verses_from: "verses_from",
+      verses_to: "verses_to",
+      tafseer_link: "tafseer_link",
+      youtube_link: "youtube_link",
+      order_in_day: "order_in_day",
+      order: "order_in_day",
+      is_optional: "is_optional",
+      optional: "is_optional",
+      points: "points",
+      estimated_time: "estimated_time",
+      time: "estimated_time",
+      group_id: "group_id",
+      order_in_group: "order_in_group",
+    };
+
+    // Normalize headers
+    const normalizedHeaders = headers.map((h) => {
+      const normalized = h.replace(/\s+/g, "_").toLowerCase();
+      return headerMap[normalized] || normalized;
+    });
+
+    // Parse data rows
+    for (let rowNum = 2; rowNum <= worksheet.rowCount; rowNum++) {
+      const row = worksheet.getRow(rowNum);
+      const task = {};
+      let hasData = false;
+
+      row.eachCell((cell, colNumber) => {
+        const fieldName = normalizedHeaders[colNumber];
+        if (fieldName) {
+          let value = cell.value;
+
+          // Convert Excel date to number
+          if (
+            value &&
+            typeof value === "object" &&
+            value.constructor.name === "DateTime"
+          ) {
+            value = value.getDate();
+          } else if (value && typeof value === "object" && value.getDate) {
+            value = value.getDate();
+          }
+
+          // Convert to appropriate type
+          if (value !== null && value !== undefined && value !== "") {
+            hasData = true;
+
+            if (
+              fieldName === "day_number" ||
+              fieldName === "verses_from" ||
+              fieldName === "verses_to" ||
+              fieldName === "order_in_day" ||
+              fieldName === "points" ||
+              fieldName === "estimated_time" ||
+              fieldName === "group_id" ||
+              fieldName === "order_in_group"
+            ) {
+              task[fieldName] = parseInt(value) || null;
+            } else if (fieldName === "is_optional") {
+              task[fieldName] =
+                value === true ||
+                value === 1 ||
+                value === "1" ||
+                value.toString().toLowerCase() === "true" ||
+                value.toString().toLowerCase() === "yes" ||
+                value.toString().toLowerCase() === "نعم";
+            } else {
+              task[fieldName] = value ? value.toString().trim() : "";
+            }
+          }
+        }
+      });
+
+      if (hasData) {
+        tasks.push(task);
+      }
+    }
+
+    return tasks;
+  } catch (error) {
+    throw new Error(`Error parsing file: ${error.message}`);
+  }
+};
+
+// Import camp tasks from JSON or CSV/XLSX (admin only)
+const importCampTasks = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let tasks = [];
+    let replace = false;
+
+    // Check if file was uploaded
+    if (req.file) {
+      // Parse CSV/XLSX file
+      tasks = await parseTasksFile(req.file);
+      replace = req.body.replace === "true" || req.body.replace === true;
+    } else {
+      // Parse JSON from body
+      tasks = req.body.tasks;
+      replace = req.body.replace || false;
+
+      // Validate input
+      if (!Array.isArray(tasks) || tasks.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "يجب إرسال قائمة بالمهام أو ملف CSV/XLSX",
+        });
+      }
+    }
+
+    // Check if camp exists
+    const [camps] = await db.query(
+      "SELECT id, name, duration_days FROM quran_camps WHERE id = ?",
+      [id]
+    );
+    if (camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    const camp = camps[0];
+
+    // Validate each task
+    const validTaskTypes = [
+      "reading",
+      "memorization",
+      "prayer",
+      "tafseer_tabari",
+      "tafseer_kathir",
+      "youtube",
+      "journal",
+    ];
+
+    const errors = [];
+    const validTasks = [];
+
+    tasks.forEach((task, index) => {
+      const errorMessages = [];
+
+      // Required fields
+      if (!task.day_number || task.day_number < 1) {
+        errorMessages.push("day_number is required and must be >= 1");
+      }
+      // Remove validation against camp.duration_days - accept tasks from file regardless
+      if (!task.task_type || !validTaskTypes.includes(task.task_type)) {
+        errorMessages.push(
+          `task_type is required and must be one of: ${validTaskTypes.join(
+            ", "
+          )}`
+        );
+      }
+      if (!task.title || task.title.trim().length === 0) {
+        errorMessages.push("title is required");
+      }
+
+      if (errorMessages.length > 0) {
+        errors.push({
+          index: index + 1,
+          task: task.title || `Task #${index + 1}`,
+          errors: errorMessages,
+        });
+      } else {
+        validTasks.push({
+          camp_id: parseInt(id),
+          day_number: parseInt(task.day_number),
+          task_type: task.task_type,
+          title: task.title.trim(),
+          description: task.description || "",
+          verses_from: task.verses_from || null,
+          verses_to: task.verses_to || null,
+          tafseer_link: task.tafseer_link || null,
+          youtube_link: task.youtube_link || null,
+          order_in_day: parseInt(task.order_in_day) || 1,
+          is_optional:
+            task.is_optional === true || task.is_optional === 1 || false,
+          points: parseInt(task.points) || 3,
+          estimated_time: task.estimated_time
+            ? parseInt(task.estimated_time)
+            : null,
+          group_id: task.group_id ? parseInt(task.group_id) : null,
+          order_in_group: task.order_in_group
+            ? parseInt(task.order_in_group)
+            : null,
+        });
+      }
+    });
+
+    if (errors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `تم العثور على ${errors.length} خطأ/أخطاء في البيانات`,
+        errors,
+      });
+    }
+
+    // Start transaction
+    const connection = await db.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      // Delete existing tasks if replace is true
+      // Must delete in order: joint_step_pledges -> camp_task_progress -> camp_daily_tasks
+      if (replace) {
+        // First, get all task IDs for this camp
+        const [taskIds] = await connection.query(
+          "SELECT id FROM camp_daily_tasks WHERE camp_id = ?",
+          [id]
+        );
+
+        if (taskIds.length > 0) {
+          const taskIdList = taskIds.map((t) => t.id);
+
+          // Get all progress IDs for these tasks
+          const [progressIds] = await connection.query(
+            "SELECT id FROM camp_task_progress WHERE task_id IN (?)",
+            [taskIdList]
+          );
+
+          if (progressIds.length > 0) {
+            const progressIdList = progressIds.map((p) => p.id);
+
+            // Delete joint_step_pledges related to these progress records
+            await connection.query(
+              "DELETE FROM joint_step_pledges WHERE progress_id IN (?)",
+              [progressIdList]
+            );
+          }
+
+          // Delete camp_task_progress related to these tasks
+          await connection.query(
+            "DELETE FROM camp_task_progress WHERE task_id IN (?)",
+            [taskIdList]
+          );
+        }
+
+        // Finally, delete the tasks
+        await connection.query(
+          "DELETE FROM camp_daily_tasks WHERE camp_id = ?",
+          [id]
+        );
+      }
+
+      // Insert new tasks
+      for (const task of validTasks) {
+        await connection.query(
+          `
+          INSERT INTO camp_daily_tasks (
+            camp_id, day_number, task_type, title, description,
+            verses_from, verses_to, tafseer_link, youtube_link,
+            order_in_day, is_optional, points, estimated_time, group_id, order_in_group
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+          [
+            task.camp_id,
+            task.day_number,
+            task.task_type,
+            task.title,
+            task.description,
+            task.verses_from,
+            task.verses_to,
+            task.tafseer_link,
+            task.youtube_link,
+            task.order_in_day,
+            task.is_optional ? 1 : 0,
+            task.points,
+            task.estimated_time,
+            task.group_id,
+            task.order_in_group,
+          ]
+        );
+      }
+
+      await connection.commit();
+      connection.release();
+
+      res.json({
+        success: true,
+        message: `تم استيراد ${validTasks.length} مهمة بنجاح`,
+        data: {
+          imported_count: validTasks.length,
+          replaced: replace,
+        },
+      });
+    } catch (transactionError) {
+      await connection.rollback();
+      connection.release();
+      throw transactionError;
+    }
+  } catch (error) {
+    console.error("Error importing tasks:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في استيراد المهام",
+      error: error.message,
+    });
+  }
+};
+
+// Download user reflections as PDF using external API (no Puppeteer required)
+const downloadReflectionsPDF = async (req, res) => {
+  try {
+    const { campId } = req.params;
+    const userId = req.user.id;
+
+    // Get user's enrollment
+    const [enrollments] = await db.query(
+      `SELECT * FROM camp_enrollments WHERE user_id = ? AND camp_id = ?`,
+      [userId, campId]
+    );
+
+    if (enrollments.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: "لست مسجلاً في هذا المخيم",
+      });
+    }
+
+    // Get camp details
+    const [campData] = await db.query(
+      `SELECT id, name, description, surah_name, start_date, duration_days, status FROM quran_camps WHERE id = ?`,
+      [campId]
+    );
+
+    if (campData.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    const camp = campData[0];
+
+    // Get user details
+    const [users] = await db.query(
+      `SELECT username, email FROM users WHERE id = ?`,
+      [userId]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المستخدم غير موجود",
+      });
+    }
+
+    const user = users[0];
+
+    // Get all reflections for this user and camp, sorted by creation date (oldest first)
+    const [reflections] = await db.query(
+      `
+      SELECT 
+        ctp.id,
+        ctp.journal_entry,
+        ctp.content_rich,
+        ctp.created_at,
+        ctp.completed_at,
+        cdt.title as task_title,
+        cdt.day_number,
+        cdt.verses_from,
+        cdt.verses_to,
+        cdt.task_type
+      FROM camp_task_progress ctp
+      JOIN camp_daily_tasks cdt ON ctp.task_id = cdt.id
+      WHERE ctp.enrollment_id = ? 
+        AND ctp.journal_entry IS NOT NULL 
+        AND ctp.journal_entry != ''
+      ORDER BY ctp.created_at ASC
+      `,
+      [enrollments[0].id]
+    );
+
+    if (reflections.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "لا توجد تدبرات متاحة للتصدير",
+      });
+    }
+
+    // Format ayah reference
+    const formatAyahReference = (task) => {
+      if (!task.verses_from) return null;
+      const surahName = camp.surah_name || "";
+      if (task.verses_to && task.verses_to !== task.verses_from) {
+        return `${surahName} ${task.verses_from}-${task.verses_to}`;
+      }
+      return `${surahName} ${task.verses_from}`;
+    };
+
+    // Convert rich content JSON to HTML if available
+    const getReflectionContent = (reflection) => {
+      // Always prefer journal_entry if available (it's the HTML version)
+      if (reflection.journal_entry) {
+        return reflection.journal_entry;
+      }
+
+      // Fallback to content_rich if journal_entry is not available
+      if (reflection.content_rich) {
+        try {
+          const richContent = JSON.parse(reflection.content_rich);
+          // If it's a Tiptap JSON structure, extract text
+          if (richContent.type === "doc" && richContent.content) {
+            const extractText = (node) => {
+              if (node.type === "text") return node.text || "";
+              if (node.content && Array.isArray(node.content)) {
+                return node.content.map(extractText).join("");
+              }
+              return "";
+            };
+            return extractText(richContent);
+          }
+          return "";
+        } catch (e) {
+          return "";
+        }
+      }
+      return "";
+    };
+
+    // Escape HTML to prevent XSS and ensure proper rendering
+    const escapeHtml = (text) => {
+      if (!text) return "";
+      const map = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;",
+      };
+      return text.replace(/[&<>"']/g, (m) => map[m]);
+    };
+
+    // Clean HTML content
+    const cleanHtmlContent = (html) => {
+      if (!html) return "";
+      // Remove null bytes and other control characters except newlines and tabs
+      html = html.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F]/g, "");
+      return html;
+    };
+
+    // Build HTML content for reflections
+    const reflectionsHtml = reflections
+      .map((reflection, index) => {
+        const ayahRef = formatAyahReference(reflection);
+        const content = getReflectionContent(reflection);
+        const date = new Date(
+          reflection.created_at || reflection.completed_at
+        ).toLocaleDateString("ar-SA", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+
+        const safeTaskTitle = escapeHtml(reflection.task_title || "");
+        const cleanContent = cleanHtmlContent(content || "");
+
+        return `
+          <div class="reflection-card">
+            <div class="reflection-header">
+              <div class="reflection-number">${index + 1}</div>
+              <div class="reflection-meta">
+                <span class="reflection-day">اليوم ${
+                  reflection.day_number
+                }</span>
+                ${
+                  ayahRef
+                    ? `<span class="reflection-ayah">${escapeHtml(
+                        ayahRef
+                      )}</span>`
+                    : ""
+                }
+                <span class="reflection-date">${date}</span>
+              </div>
+            </div>
+            <div class="reflection-task-title">${safeTaskTitle}</div>
+            <div class="reflection-content">${cleanContent}</div>
+          </div>
+        `;
+      })
+      .join("");
+
+    // Build complete HTML template
+    const campName = camp && camp.name ? String(camp.name).trim() : "مخيم";
+    const campNameSafe = campName.replace(/[<>:"/\\|?*]/g, "_");
+    const exportDate = new Date().toLocaleDateString("ar-SA", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html dir="rtl" lang="ar">
+    <head>
+        <meta charset="UTF-8">
+        <title>تدبرات ${campNameSafe}</title>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                font-family: 'Cairo', 'Arial', sans-serif;
+            }
+            body {
+                font-family: 'Cairo', 'Arial', sans-serif;
+                margin: 0;
+                padding: 40px;
+                line-height: 1.8;
+                color: #2c3e50;
+                direction: rtl;
+                text-align: right;
+                background: #ffffff;
+                font-size: 14px;
+            }
+            .cover-page {
+                page-break-after: always;
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                text-align: center;
+                padding: 40px;
+                background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            }
+            .cover-page-title {
+                font-size: 48px;
+                font-weight: 700;
+                color: #2c3e50;
+                margin-bottom: 40px;
+                letter-spacing: 1px;
+                line-height: 1.4;
+            }
+            .cover-page-cohort {
+                font-size: 32px;
+                font-weight: 600;
+                color: #4E27B9;
+                margin-top: 30px;
+                padding: 20px 40px;
+                border: 3px solid #4E27B9;
+                border-radius: 12px;
+                background: rgba(78, 39, 185, 0.05);
+            }
+            .header {
+                text-align: center;
+                margin-bottom: 50px;
+                padding: 30px 0;
+                border-bottom: 3px solid #4E27B9;
+                position: relative;
+            }
+            .camp-title {
+                font-size: 32px;
+                font-weight: 700;
+                color: #2c3e50;
+                margin-bottom: 10px;
+                letter-spacing: 0.5px;
+            }
+            .user-name {
+                font-size: 18px;
+                color: #4E27B9;
+                font-weight: 600;
+                margin-top: 10px;
+            }
+            .reflection-card {
+                margin-bottom: 40px;
+                padding: 30px;
+                border: 2px solid #28a745;
+                background: #f8fff9;
+                border-radius: 12px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+                page-break-inside: avoid;
+                border-right: 4px solid #28a745;
+            }
+            .reflection-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 20px;
+                padding-bottom: 15px;
+                border-bottom: 2px solid #e9ecef;
+            }
+            .reflection-number {
+                background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+                color: white;
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 700;
+                font-size: 18px;
+                flex-shrink: 0;
+            }
+            .reflection-meta {
+                display: flex;
+                gap: 15px;
+                flex-wrap: wrap;
+                flex: 1;
+                margin-right: 15px;
+            }
+            .reflection-day {
+                background: #e8f5e9;
+                color: #28a745;
+                padding: 6px 14px;
+                border-radius: 20px;
+                font-size: 13px;
+                font-weight: 600;
+                border: 1px solid #28a745;
+            }
+            .reflection-ayah {
+                background: #fff3e0;
+                color: #e65100;
+                padding: 6px 14px;
+                border-radius: 20px;
+                font-size: 13px;
+                font-weight: 600;
+                border: 1px solid #ffb74d;
+            }
+            .reflection-date {
+                color: #7f8c8d;
+                font-size: 12px;
+                padding: 6px 0;
+            }
+            .reflection-task-title {
+                font-size: 20px;
+                font-weight: 700;
+                color: #2c3e50;
+                margin-bottom: 20px;
+                padding: 15px;
+                background: #f8f9fa;
+                border-radius: 8px;
+                border-right: 3px solid #28a745;
+            }
+            .reflection-content {
+                color: #2c3e50;
+                line-height: 2;
+                font-size: 15px;
+                padding: 20px;
+                background: #ffffff;
+                border-radius: 8px;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+            }
+            .footer {
+                text-align: center;
+                margin-top: 60px;
+                padding: 30px 0;
+                border-top: 2px solid #e9ecef;
+                color: #7f8c8d;
+                font-size: 12px;
+            }
+            @media print {
+                body { 
+                    margin: 0; 
+                    padding: 20px; 
+                }
+                .cover-page {
+                    page-break-after: always;
+                    height: 100vh;
+                }
+                .reflection-card { 
+                    page-break-inside: avoid; 
+                    margin-bottom: 30px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="cover-page">
+            <div class="cover-page-title">${escapeHtml(campName)}</div>
+            <div class="cover-page-cohort">الفوج الأول</div>
+        </div>
+        
+        <div class="header">
+            <div class="camp-title">${escapeHtml(campName)}</div>
+            <div class="user-name">تدبرات ${escapeHtml(user.username)}</div>
+        </div>
+        
+        ${reflectionsHtml}
+        
+        <div class="footer">
+            <div>تم التصدير في ${exportDate}</div>
+            <div style="margin-top: 10px;">عدد التدبرات: ${
+              reflections.length
+            }</div>
+            <div style="margin-top: 10px; color: #4E27B9; font-weight: 600;">Exported from Mishkah App</div>
+        </div>
+    </body>
+    </html>
+    `;
+
+    // Call external PDF generation API
+    try {
+      // You can replace this URL with your preferred PDF API service
+      // Options: html2pdf.app, PDFShift, Gotenberg, etc.
+      const pdfApiUrl =
+        process.env.PDF_API_URL || "https://api.html2pdf.app/v1/generate";
+      const pdfApiKey = process.env.PDF_API_KEY || "";
+
+      // First, make the API call with JSON response type to get the FileUrl
+      const apiResponse = await axios.post(
+        "https://v2.api2pdf.com/chrome/pdf/html",
+        {
+          html: htmlContent,
+          apiKey: pdfApiKey, // سجل مجاناً في موقعهم لو طلبوا
+          settings: {
+            format: "A4",
+            margin: { top: 20, right: 20, bottom: 20, left: 20 },
+          },
+        },
+        {
+          headers: {
+            Authorization: `${pdfApiKey}`,
+          },
+          responseType: "json", // First get JSON response to check for FileUrl
+          validateStatus: function (status) {
+            // Accept all status codes so we can handle errors manually
+            return true;
+          },
+        }
+      );
+
+      // Check if response is successful
+      if (apiResponse.status < 200 || apiResponse.status >= 300) {
+        let errorMessage = "خطأ غير معروف من API";
+        if (apiResponse.data) {
+          errorMessage =
+            apiResponse.data.message ||
+            apiResponse.data.error ||
+            apiResponse.data.Error ||
+            JSON.stringify(apiResponse.data);
+        }
+        throw new Error(
+          `فشل API في إنشاء PDF (Status: ${apiResponse.status}): ${errorMessage}`
+        );
+      }
+
+      // Parse the response
+      const responseData = apiResponse.data;
+
+      // Check if API returned an error
+      if (responseData.Error || !responseData.Success) {
+        const errorMsg =
+          responseData.Error || responseData.message || "فشل في إنشاء ملف PDF";
+        throw new Error(`خطأ من API: ${errorMsg}`);
+      }
+
+      // Check if we have a FileUrl (API returns URL instead of direct PDF)
+      let pdfBuffer;
+      if (responseData.FileUrl) {
+        // Download the PDF from the provided URL
+        console.log("Downloading PDF from:", responseData.FileUrl);
+        const pdfDownloadResponse = await axios.get(responseData.FileUrl, {
+          responseType: "arraybuffer",
+        });
+
+        if (
+          !pdfDownloadResponse.data ||
+          pdfDownloadResponse.data.length === 0
+        ) {
+          throw new Error("فشل في تحميل ملف PDF - الملف فارغ");
+        }
+
+        // Validate it's a PDF
+        const firstBytes = Buffer.from(pdfDownloadResponse.data).slice(0, 4);
+        const pdfHeader = String.fromCharCode(...firstBytes);
+
+        if (pdfHeader !== "%PDF") {
+          throw new Error(
+            `الملف المُحمل ليس ملف PDF صالح. Header: ${pdfHeader}`
+          );
+        }
+
+        pdfBuffer = pdfDownloadResponse.data;
+      } else {
+        // If no FileUrl, check if PDF is in response directly
+        if (!responseData || !Buffer.isBuffer(responseData)) {
+          throw new Error("لم يتم العثور على رابط ملف PDF في الاستجابة من API");
+        }
+        pdfBuffer = responseData;
+      }
+
+      // Create filename
+      const campNameSafe = (camp.name || "").replace(/[<>:"/\\|?*]/g, "_");
+      const filename = `${campNameSafe} - تدبري.pdf`;
+      const asciiFilename = `${
+        campNameSafe
+          .replace(/[^a-zA-Z0-9\s-]/g, "_")
+          .trim()
+          .replace(/\s+/g, "_") || `camp_${camp.id}`
+      }_tadabburi.pdf`;
+      const encodedFilename = encodeURIComponent(filename);
+
+      // Set response headers
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodedFilename}`
+      );
+      res.setHeader("Content-Length", pdfBuffer.length.toString());
+      res.setHeader("Cache-Control", "no-cache");
+
+      // Send PDF buffer
+      res.send(Buffer.from(pdfBuffer));
+    } catch (apiError) {
+      console.error("Error calling external PDF API:", apiError);
+
+      // More detailed error logging
+      let errorMessage = apiError.message;
+
+      if (apiError.response) {
+        console.error("API Response Status:", apiError.response.status);
+
+        // Try to parse error response - could be arraybuffer or already parsed
+        let errorDataStr = "";
+        try {
+          if (
+            Buffer.isBuffer(apiError.response.data) ||
+            apiError.response.data instanceof ArrayBuffer
+          ) {
+            errorDataStr = Buffer.from(apiError.response.data).toString();
+          } else {
+            errorDataStr = JSON.stringify(apiError.response.data);
+          }
+
+          // Try to parse as JSON to get structured error
+          try {
+            const errorData = JSON.parse(errorDataStr);
+            errorMessage =
+              errorData.message ||
+              errorData.error ||
+              errorData.Message ||
+              errorMessage;
+            console.error("API Error Details:", errorData);
+          } catch (e) {
+            // Not JSON, use as-is
+            errorMessage = errorDataStr.substring(0, 200) || errorMessage;
+          }
+        } catch (e) {
+          errorMessage =
+            apiError.response.data?.toString().substring(0, 200) ||
+            errorMessage;
+        }
+
+        console.error("API Response Data:", errorDataStr.substring(0, 500));
+      }
+
+      throw new Error(
+        `فشل في إنشاء ملف PDF عبر API الخارجي. الخطأ: ${errorMessage}`
+      );
+    }
+  } catch (error) {
+    console.error("Error generating reflections PDF:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في إنشاء ملف PDF",
+      error: error.message,
+    });
+  }
+};
+
+// Download user reflections as PDF (original Puppeteer version - kept for backward compatibility)
+const downloadUserReflections = async (req, res) => {
+  let browser;
+  try {
+    const { campId } = req.params;
+    const userId = req.user.id;
+
+    // Get user's enrollment
+    const [enrollments] = await db.query(
+      `SELECT * FROM camp_enrollments WHERE user_id = ? AND camp_id = ?`,
+      [userId, campId]
+    );
+
+    if (enrollments.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: "لست مسجلاً في هذا المخيم",
+      });
+    }
+
+    // Get camp details - explicitly select name to ensure it's retrieved
+    const [campData] = await db.query(
+      `SELECT id, name, description, surah_name, start_date, duration_days, status FROM quran_camps WHERE id = ?`,
+      [campId]
+    );
+
+    if (campData.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    const camp = campData[0];
+
+    // Debug: Log camp data to verify name exists
+    console.log("Camp data:", {
+      id: camp.id,
+      name: camp.name,
+      hasName: !!camp.name,
+      nameType: typeof camp.name,
+    });
+
+    // Get user details
+    const [users] = await db.query(
+      `SELECT username, email FROM users WHERE id = ?`,
+      [userId]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المستخدم غير موجود",
+      });
+    }
+
+    const user = users[0];
+
+    // Get all reflections for this user and camp, sorted by creation date (oldest first)
+    const [reflections] = await db.query(
+      `
+      SELECT 
+        ctp.id,
+        ctp.journal_entry,
+        ctp.content_rich,
+        ctp.created_at,
+        ctp.completed_at,
+        cdt.title as task_title,
+        cdt.day_number,
+        cdt.verses_from,
+        cdt.verses_to,
+        cdt.task_type
+      FROM camp_task_progress ctp
+      JOIN camp_daily_tasks cdt ON ctp.task_id = cdt.id
+      WHERE ctp.enrollment_id = ? 
+        AND ctp.journal_entry IS NOT NULL 
+        AND ctp.journal_entry != ''
+      ORDER BY ctp.created_at ASC
+      `,
+      [enrollments[0].id]
+    );
+
+    if (reflections.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "لا توجد تدبرات متاحة للتصدير",
+      });
+    }
+
+    // Format ayah reference
+    const formatAyahReference = (task) => {
+      if (!task.verses_from) return null;
+      const surahName = camp.surah_name || "";
+      if (task.verses_to && task.verses_to !== task.verses_from) {
+        return `${surahName} ${task.verses_from}-${task.verses_to}`;
+      }
+      return `${surahName} ${task.verses_from}`;
+    };
+
+    // Convert rich content JSON to HTML if available
+    const getReflectionContent = (reflection) => {
+      // Always prefer journal_entry if available (it's the HTML version)
+      if (reflection.journal_entry) {
+        return reflection.journal_entry;
+      }
+
+      // Fallback to content_rich if journal_entry is not available
+      if (reflection.content_rich) {
+        try {
+          const richContent = JSON.parse(reflection.content_rich);
+          // If it's a Tiptap JSON structure, extract text
+          if (richContent.type === "doc" && richContent.content) {
+            // Simple extraction - you might want to use a proper Tiptap HTML renderer
+            const extractText = (node) => {
+              if (node.type === "text") return node.text || "";
+              if (node.content && Array.isArray(node.content)) {
+                return node.content.map(extractText).join("");
+              }
+              return "";
+            };
+            return extractText(richContent);
+          }
+          return "";
+        } catch (e) {
+          return "";
+        }
+      }
+      return "";
+    };
+
+    // Escape HTML to prevent XSS and ensure proper rendering
+    const escapeHtml = (text) => {
+      if (!text) return "";
+      const map = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;",
+      };
+      return text.replace(/[&<>"']/g, (m) => map[m]);
+    };
+
+    // Clean HTML content - remove potentially problematic characters and ensure valid HTML
+    const cleanHtmlContent = (html) => {
+      if (!html) return "";
+      // Remove null bytes and other control characters except newlines and tabs
+      html = html.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F]/g, "");
+      // Ensure proper encoding
+      return html;
+    };
+
+    // Build HTML content
+    const reflectionsHtml = reflections
+      .map((reflection, index) => {
+        const ayahRef = formatAyahReference(reflection);
+        const content = getReflectionContent(reflection);
+        const date = new Date(
+          reflection.created_at || reflection.completed_at
+        ).toLocaleDateString("ar-SA", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+
+        // Escape task title for safety
+        const safeTaskTitle = escapeHtml(reflection.task_title || "");
+        // Clean and sanitize content HTML
+        const cleanContent = cleanHtmlContent(content || "");
+
+        return `
+          <div class="reflection-card">
+            <div class="reflection-header">
+              <div class="reflection-number">${index + 1}</div>
+              <div class="reflection-meta">
+                <span class="reflection-day">اليوم ${
+                  reflection.day_number
+                }</span>
+                ${
+                  ayahRef
+                    ? `<span class="reflection-ayah">${escapeHtml(
+                        ayahRef
+                      )}</span>`
+                    : ""
+                }
+                <span class="reflection-date">${date}</span>
+              </div>
+            </div>
+            <div class="reflection-task-title">${safeTaskTitle}</div>
+            <div class="reflection-content">${cleanContent}</div>
+          </div>
+        `;
+      })
+      .join("");
+
+    // HTML template with Arabic RTL support
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html dir="rtl" lang="ar">
+    <head>
+        <meta charset="UTF-8">
+        <title>تدبرات ${camp.name}</title>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                font-family: 'Cairo', 'Arial', sans-serif;
+            }
+            body {
+                font-family: 'Cairo', 'Arial', sans-serif;
+                margin: 0;
+                padding: 40px;
+                line-height: 1.8;
+                color: #2c3e50;
+                direction: rtl;
+                text-align: right;
+                background: #ffffff;
+                font-size: 14px;
+            }
+            .header {
+                text-align: center;
+                margin-bottom: 50px;
+                padding: 30px 0;
+                border-bottom: 3px solid #4E27B9;
+                position: relative;
+            }
+            .logo-placeholder {
+                width: 80px;
+                height: 80px;
+                background: linear-gradient(135deg, #4E27B9 0%, #3D1F94 100%);
+                border-radius: 50%;
+                margin: 0 auto 20px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-size: 32px;
+                font-weight: bold;
+            }
+            .camp-title {
+                font-size: 32px;
+                font-weight: 700;
+                color: #2c3e50;
+                margin-bottom: 10px;
+                letter-spacing: 0.5px;
+            }
+            .user-name {
+                font-size: 18px;
+                color: #4E27B9;
+                font-weight: 600;
+                margin-top: 10px;
+            }
+            .reflection-card {
+                margin-bottom: 40px;
+                padding: 30px;
+                border: 2px solid #e9ecef;
+                background: #ffffff;
+                border-radius: 12px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+                page-break-inside: avoid;
+                border-right: 4px solid #4E27B9;
+            }
+            .reflection-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 20px;
+                padding-bottom: 15px;
+                border-bottom: 2px solid #f0f0f0;
+            }
+            .reflection-number {
+                background: linear-gradient(135deg, #4E27B9 0%, #3D1F94 100%);
+                color: white;
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 700;
+                font-size: 18px;
+                flex-shrink: 0;
+            }
+            .reflection-meta {
+                display: flex;
+                gap: 15px;
+                flex-wrap: wrap;
+                flex: 1;
+                margin-right: 15px;
+            }
+            .reflection-day {
+                background: #f8f9fa;
+                color: #4E27B9;
+                padding: 6px 14px;
+                border-radius: 20px;
+                font-size: 13px;
+                font-weight: 600;
+                border: 1px solid #4E27B9;
+            }
+            .reflection-ayah {
+                background: #fff3e0;
+                color: #e65100;
+                padding: 6px 14px;
+                border-radius: 20px;
+                font-size: 13px;
+                font-weight: 600;
+                border: 1px solid #ffb74d;
+            }
+            .reflection-date {
+                color: #7f8c8d;
+                font-size: 12px;
+                padding: 6px 0;
+            }
+            .reflection-task-title {
+                font-size: 20px;
+                font-weight: 700;
+                color: #2c3e50;
+                margin-bottom: 20px;
+                padding: 15px;
+                background: #f8f9fa;
+                border-radius: 8px;
+                border-right: 3px solid #4E27B9;
+            }
+            .reflection-content {
+                color: #2c3e50;
+                line-height: 2;
+                font-size: 15px;
+                padding: 20px;
+                background: #fafafa;
+                border-radius: 8px;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+            }
+            .cover-page {
+                page-break-after: always;
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                text-align: center;
+                padding: 40px;
+                background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            }
+            .cover-page-title {
+                font-size: 48px;
+                font-weight: 700;
+                color: #2c3e50;
+                margin-bottom: 40px;
+                letter-spacing: 1px;
+                line-height: 1.4;
+            }
+            .cover-page-cohort {
+                font-size: 32px;
+                font-weight: 600;
+                color: #4E27B9;
+                margin-top: 30px;
+                padding: 20px 40px;
+                border: 3px solid #4E27B9;
+                border-radius: 12px;
+                background: rgba(78, 39, 185, 0.05);
+            }
+            .footer {
+                text-align: center;
+                margin-top: 60px;
+                padding: 30px 0;
+                border-top: 2px solid #e9ecef;
+                color: #7f8c8d;
+                font-size: 12px;
+            }
+            @media print {
+                body { 
+                    margin: 0; 
+                    padding: 20px; 
+                }
+                .cover-page {
+                    page-break-after: always;
+                    height: 100vh;
+                }
+                .reflection-card { 
+                    page-break-inside: avoid; 
+                    margin-bottom: 30px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="cover-page">
+            <div class="cover-page-title">${escapeHtml(camp.name)}</div>
+            <div class="cover-page-cohort">الفوج الأول</div>
+        </div>
+        
+        <div class="header">
+            <div class="camp-title">${camp.name}</div>
+            <div class="user-name">تدبرات ${user.username}</div>
+        </div>
+        
+        ${reflectionsHtml}
+        
+        <div class="footer">
+            <div>تم التصدير في ${new Date().toLocaleDateString("ar-SA", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}</div>
+            <div style="margin-top: 10px;">عدد التدبرات: ${
+              reflections.length
+            }</div>
+        </div>
+    </body>
+    </html>
+    `;
+
+    // Launch Puppeteer with channel or executablePath
+    // Try to find Chrome in common locations
+    const os = require("os");
+    const fs = require("fs");
+    const { execSync } = require("child_process");
+    const platform = os.platform();
+    let executablePath = null;
+
+    // Check environment variable first (useful for production servers)
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+      executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+      console.log("Using PUPPETEER_EXECUTABLE_PATH:", executablePath);
+    } else {
+      // Common Chrome/Chromium paths
+      if (platform === "darwin") {
+        // macOS
+        const chromePaths = [
+          "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+          "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        ];
+        for (const path of chromePaths) {
+          if (fs.existsSync(path)) {
+            executablePath = path;
+            break;
+          }
+        }
+      } else if (platform === "linux") {
+        // Linux - more paths for production servers
+        const chromePaths = [
+          "/usr/bin/google-chrome",
+          "/usr/bin/google-chrome-stable",
+          "/usr/bin/chromium",
+          "/usr/bin/chromium-browser",
+          "/usr/bin/chromium-chromium",
+          "/snap/bin/chromium",
+          "/opt/google/chrome/chrome",
+          "/opt/google/chrome/google-chrome",
+          "/usr/local/bin/chromium",
+          "/usr/local/bin/chromium-browser",
+          process.env.CHROME_BIN, // Common environment variable
+        ].filter(Boolean); // Remove undefined values
+
+        for (const path of chromePaths) {
+          if (fs.existsSync(path)) {
+            executablePath = path;
+            console.log("Found Chrome at:", path);
+            break;
+          }
+        }
+
+        // If not found, try to find it using 'which' command
+        if (!executablePath) {
+          try {
+            const whichChrome = execSync(
+              "which google-chrome 2>/dev/null || which chromium-browser 2>/dev/null || which chromium 2>/dev/null",
+              {
+                encoding: "utf8",
+                timeout: 2000,
+              }
+            ).trim();
+            if (whichChrome && fs.existsSync(whichChrome)) {
+              executablePath = whichChrome;
+              console.log("Found Chrome using 'which':", whichChrome);
+            }
+          } catch (e) {
+            // 'which' command failed, continue with other options
+            console.log("Could not find Chrome using 'which' command");
+          }
+        }
+      } else if (platform === "win32") {
+        // Windows
+        const chromePaths = [
+          "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+          "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+          process.env.LOCALAPPDATA +
+            "\\Google\\Chrome\\Application\\chrome.exe",
+        ];
+        for (const path of chromePaths) {
+          if (fs.existsSync(path)) {
+            executablePath = path;
+            break;
+          }
+        }
+      }
+    }
+
+    const launchOptions = {
+      headless: true,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-accelerated-2d-canvas",
+        "--no-first-run",
+        "--no-zygote",
+        "--disable-gpu",
+        "--disable-web-security",
+        "--disable-features=VizDisplayCompositor",
+        "--single-process", // Useful for limited memory environments
+      ],
+      timeout: 60000,
+    };
+
+    // If we have bundled Chromium (from puppeteer), NEVER set executablePath or channel
+    // This ensures we use the bundled Chromium
+    if (hasBundledChromium) {
+      // Explicitly don't set executablePath or channel - use bundled Chromium
+      console.log(
+        "Using bundled Chromium from puppeteer (no external Chrome needed)"
+      );
+      // Make sure we don't accidentally use channel or executablePath
+      delete launchOptions.executablePath;
+      delete launchOptions.channel;
+    } else if (executablePath) {
+      // Only use executablePath if we're using puppeteer-core
+      launchOptions.executablePath = executablePath;
+      console.log("Launching Puppeteer with executablePath:", executablePath);
+    }
+
+    try {
+      browser = await puppeteer.launch(launchOptions);
+    } catch (launchError) {
+      console.error("Puppeteer launch error:", launchError.message);
+
+      if (hasBundledChromium) {
+        // If bundled Chromium failed, there might be missing dependencies
+        // Try with more minimal args
+        console.log("Retrying with minimal launch options...");
+        const minimalOptions = {
+          headless: true,
+          args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--single-process",
+          ],
+          timeout: 60000,
+        };
+        try {
+          browser = await puppeteer.launch(minimalOptions);
+        } catch (minimalError) {
+          throw new Error(
+            `فشل في تشغيل Chromium المدمج. الخطأ: ${minimalError.message}\n\n` +
+              `قد تحتاج إلى تثبيت المكتبات المطلوبة على Ubuntu:\n` +
+              `apt-get update && apt-get install -y ca-certificates fonts-liberation libappindicator3-1 libasound2 libatk-bridge2.0-0 libatk1.0-0 libc6 libcairo2 libcups2 libdbus-1-3 libexpat1 libfontconfig1 libgbm1 libgcc1 libglib2.0-0 libgtk-3-0 libnspr4 libnss3 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 lsb-release wget xdg-utils`
+          );
+        }
+      } else if (!hasBundledChromium) {
+        // Using puppeteer-core without Chrome installed
+        throw new Error(
+          `فشل في تشغيل Chrome. يرجى التأكد من تثبيت Google Chrome أو Chromium على الخادم.\n\n` +
+            `الخطأ: ${launchError.message}\n\n` +
+            `الحلول:\n` +
+            `1. تثبيت Chrome على Ubuntu: apt-get update && apt-get install -y google-chrome-stable\n` +
+            `2. أو تثبيت Chromium: apt-get install -y chromium-browser\n` +
+            `3. أو استخدام puppeteer العادي بدلاً من puppeteer-core (يأتي مع Chromium المدمج)\n` +
+            `4. أو تعيين متغير البيئة: export PUPPETEER_EXECUTABLE_PATH=/path/to/chrome`
+        );
+      } else {
+        throw new Error(`فشل في تشغيل Chrome. الخطأ: ${launchError.message}`);
+      }
+    }
+
+    const page = await browser.newPage();
+
+    // Set viewport for better rendering
+    await page.setViewport({
+      width: 1200,
+      height: 1600,
+    });
+
+    // Set content and wait for fonts to load
+    try {
+      await page.setContent(htmlContent, {
+        waitUntil: "networkidle0",
+        timeout: 30000,
+      });
+    } catch (contentError) {
+      console.error("Error setting page content:", contentError);
+      // Try with a simpler wait condition
+      await page.setContent(htmlContent, {
+        waitUntil: "domcontentloaded",
+        timeout: 30000,
+      });
+    }
+
+    // Wait a bit for fonts to fully load (using Promise instead of waitForTimeout)
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    // Generate PDF
+    let pdfBuffer;
+    try {
+      // Check if page content loaded correctly
+      const pageTitle = await page.title();
+
+      pdfBuffer = await page.pdf({
+        format: "A4",
+        margin: {
+          top: "20mm",
+          right: "20mm",
+          bottom: "20mm",
+          left: "20mm",
+        },
+        printBackground: true,
+        displayHeaderFooter: true,
+        headerTemplate: "<div></div>",
+        footerTemplate: `
+          <div style="font-size: 10px; text-align: center; color: #666; width: 100%; padding: 0 20px;">
+            صفحة <span class="pageNumber"></span> من <span class="totalPages"></span>
+          </div>
+        `,
+      });
+    } catch (pdfError) {
+      console.error("Error generating PDF:", pdfError);
+      // Try to get page content for debugging
+      try {
+        const bodyText = await page.evaluate(() =>
+          document.body?.innerText?.substring(0, 200)
+        );
+        console.log("Page body preview:", bodyText);
+      } catch (e) {
+        console.error("Could not get page content:", e);
+      }
+      throw new Error(`فشل في إنشاء PDF: ${pdfError.message}`);
+    }
+
+    // Close browser
+    await browser.close();
+
+    // Validate PDF buffer
+    if (!pdfBuffer || pdfBuffer.length === 0) {
+      throw new Error("فشل في إنشاء ملف PDF - الملف فارغ");
+    }
+
+    // Check if it's a valid PDF (starts with PDF magic bytes: %PDF)
+    // Convert first 4 bytes to string properly
+    const firstBytes = pdfBuffer.slice(0, 4);
+    const pdfHeader = String.fromCharCode(...firstBytes);
+
+    if (pdfHeader !== "%PDF") {
+      console.error("Invalid PDF header:", pdfHeader);
+      console.error("PDF buffer length:", pdfBuffer.length);
+      console.error("First 4 bytes (decimal):", Array.from(firstBytes));
+      console.error(
+        "First 20 bytes as hex:",
+        pdfBuffer.slice(0, 20).toString("hex")
+      );
+      throw new Error(
+        `الملف المُنشأ ليس ملف PDF صالح. Header: ${pdfHeader}, Length: ${pdfBuffer.length}`
+      );
+    }
+
+    // Set response headers
+    // Create filename in format: "[اسم المخيم] - تدبري"
+    // Remove invalid filename characters but keep Arabic text and spaces
+    // Always use camp.name, never fallback to camp.id
+    // Ensure we're using the actual name field from database
+    const campName = camp && camp.name ? String(camp.name).trim() : "مخيم";
+
+    // Debug log
+    console.log("Creating filename with camp name:", campName);
+
+    const campNameSafe = campName.replace(/[<>:"/\\|?*]/g, "_");
+    const filename = `${campNameSafe} - تدبري.pdf`;
+
+    // Debug log
+    console.log("Final filename:", filename);
+
+    // Create safe ASCII filename for fallback (Content-Disposition filename)
+    // Only ASCII characters allowed in the basic filename parameter
+    // Convert Arabic to transliteration or use safe characters
+    const safeCampName = campName
+      .replace(/[^a-zA-Z0-9\s-]/g, "_")
+      .trim()
+      .replace(/\s+/g, "_");
+    // If after removing non-ASCII it's empty, use a generic name
+    const finalSafeName = safeCampName || "camp";
+    const asciiFilename = `${finalSafeName}_tadabburi.pdf`;
+
+    // Create UTF-8 filename for display (using RFC 5987 encoding)
+    const encodedFilename = encodeURIComponent(filename);
+
+    // Set response headers BEFORE sending
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodedFilename}`
+    );
+    res.setHeader("Content-Length", pdfBuffer.length.toString());
+    res.setHeader("Cache-Control", "no-cache");
+
+    // Ensure pdfBuffer is a Buffer
+    if (!Buffer.isBuffer(pdfBuffer)) {
+      pdfBuffer = Buffer.from(pdfBuffer);
+    }
+
+    // Send PDF buffer
+    res.send(pdfBuffer);
+  } catch (error) {
+    if (browser) {
+      await browser.close();
+    }
+    console.error("Error generating reflections PDF:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في إنشاء ملف PDF",
+      error: error.message,
+    });
+  }
+};
+
+// Start a new cohort for a camp (Admin only)
+const startNewCohort = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { start_date, status } = req.body;
+
+    // Get camp details
+    const [camps] = await db.query(
+      `SELECT *, COALESCE(current_cohort_number, 1) as current_cohort_number, COALESCE(total_cohorts, 1) as total_cohorts FROM quran_camps WHERE id = ?`,
+      [id]
+    );
+
+    if (camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    const camp = camps[0];
+
+    // Check if camp is in a valid state to start a new cohort
+    if (camp.status !== "completed" && camp.status !== "reopened") {
+      return res.status(400).json({
+        success: false,
+        message: "لا يمكن بدء فوج جديد إلا للمخيمات المنتهية أو المفتوحة",
+      });
+    }
+
+    // Increment cohort numbers
+    const newCohortNumber = (camp.current_cohort_number || 1) + 1;
+    const newTotalCohorts = (camp.total_cohorts || 1) + 1;
+
+    // Validate start_date if provided
+    let newStartDate = start_date || camp.start_date;
+    if (start_date) {
+      const startDateObj = new Date(start_date);
+      if (isNaN(startDateObj.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: "تاريخ البدء غير صحيح",
+        });
+      }
+      newStartDate = start_date;
+    }
+
+    // Determine new status
+    let newStatus = status || "early_registration";
+    if (!["early_registration", "active"].includes(newStatus)) {
+      newStatus = "early_registration";
+    }
+
+    // Delete all old friendships from previous cohorts when starting a new cohort
+    // This ensures that users start fresh with no friends in the new cohort
+    await db.query(
+      `DELETE FROM camp_friendships 
+       WHERE camp_id = ? AND cohort_number < ?`,
+      [id, newCohortNumber]
+    );
+
+    // Update camp with new cohort information
+    await db.query(
+      `UPDATE quran_camps 
+       SET current_cohort_number = ?, 
+           total_cohorts = ?, 
+           start_date = ?, 
+           status = ?,
+           reopened_date = CASE WHEN status = 'completed' THEN NOW() ELSE reopened_date END
+       WHERE id = ?`,
+      [newCohortNumber, newTotalCohorts, newStartDate, newStatus, id]
+    );
+
+    res.json({
+      success: true,
+      message: `تم بدء الفوج رقم ${newCohortNumber} بنجاح`,
+      data: {
+        camp_id: id,
+        cohort_number: newCohortNumber,
+        total_cohorts: newTotalCohorts,
+        start_date: newStartDate,
+        status: newStatus,
+      },
+    });
+  } catch (error) {
+    console.error("Error starting new cohort:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في بدء الفوج الجديد",
+      error: error.message,
+    });
+  }
+};
+
+const getCampInteractions = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // التحقق من وجود المخيم وجلب cohort_number الحالي
+    const [camps] = await db.query(
+      `SELECT id, name, COALESCE(current_cohort_number, 1) as current_cohort_number 
+       FROM quran_camps WHERE id = ?`,
+      [id]
+    );
+
+    if (camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    const currentCohortNumber = camps[0].current_cohort_number || 1;
+
+    // جلب جميع المهمات المكتملة مع معلومات المستخدمين مقسمة بالأيام
+    const [interactions] = await db.query(
+      `
+      SELECT 
+        cdt.day_number,
+        cdt.id as task_id,
+        cdt.title as task_title,
+        cdt.description as task_description,
+        cdt.task_type,
+        ctp.completed_at,
+        u.id as user_id,
+        u.username,
+        ce.id as enrollment_id
+      FROM camp_daily_tasks cdt
+      INNER JOIN camp_task_progress ctp ON cdt.id = ctp.task_id
+      INNER JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
+      INNER JOIN users u ON ce.user_id = u.id
+      WHERE cdt.camp_id = ?
+        AND ce.cohort_number = ?
+        AND ctp.completed = true
+      ORDER BY cdt.day_number ASC, ctp.completed_at ASC
+      `,
+      [id, currentCohortNumber]
+    );
+
+    // تنظيم البيانات حسب الأيام
+    const interactionsByDay = {};
+
+    interactions.forEach((interaction) => {
+      const dayNumber = interaction.day_number;
+
+      if (!interactionsByDay[dayNumber]) {
+        interactionsByDay[dayNumber] = {
+          day_number: dayNumber,
+          tasks: {},
+        };
+      }
+
+      const taskId = interaction.task_id;
+      if (!interactionsByDay[dayNumber].tasks[taskId]) {
+        interactionsByDay[dayNumber].tasks[taskId] = {
+          task_id: taskId,
+          task_title: interaction.task_title,
+          task_description: interaction.task_description,
+          task_type: interaction.task_type,
+          completions: [],
+        };
+      }
+
+      interactionsByDay[dayNumber].tasks[taskId].completions.push({
+        user_id: interaction.user_id,
+        username: interaction.username,
+        completed_at: interaction.completed_at,
+      });
+    });
+
+    // تحويل الكائن إلى مصفوفة
+    const result = Object.keys(interactionsByDay)
+      .sort((a, b) => parseInt(a) - parseInt(b))
+      .map((dayNumber) => ({
+        day_number: parseInt(dayNumber),
+        tasks: Object.values(interactionsByDay[dayNumber].tasks),
+      }));
+
+    res.json({
+      success: true,
+      data: result,
+      total_days: result.length,
+      total_interactions: interactions.length,
+    });
+  } catch (error) {
+    console.error("Error getting camp interactions:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في جلب تفاصيل التفاعلات",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   // User APIs
   getAllCamps,
@@ -7638,6 +12262,7 @@ module.exports = {
   getMyProgress,
   completeTask,
   markTaskComplete,
+  trackReadingTime,
   updateTaskBenefits,
   getCampLeaderboard,
   getMyStreak,
@@ -7664,6 +12289,9 @@ module.exports = {
   updateCamp,
   addDailyTasks,
   updateDailyTask,
+  getCampDayChallenges,
+  upsertCampDayChallenge,
+  deleteCampDayChallenge,
   getAdminStats,
   getCampParticipants,
   getCampAnalytics,
@@ -7671,9 +12299,11 @@ module.exports = {
   deleteCamp,
   getCampDetailsForAdmin,
   leaveCamp,
+  duplicateCamp,
   getCampSettings,
   updateCampSettings,
   getAdminCampSettings,
+  getCampInteractions,
   updateAdminCampSettings,
   getUserNotifications,
   markNotificationAsRead,
@@ -7685,6 +12315,8 @@ module.exports = {
   // User management function
   removeUserFromCamp,
   getUserDetails,
+  getUserCampProgress,
+  uploadTaskAttachment,
   deleteDailyTask,
   sendCampNotification,
   // Camp Resources
@@ -7716,4 +12348,36 @@ module.exports = {
   getCampTemplates,
   saveCampAsTemplate,
   createCampFromTemplate,
+  // Cohorts Management
+  startNewCohort,
+  // Study Hall Content Management (Admin)
+  getAdminStudyHallContent,
+  updateStudyHallContent,
+  deleteStudyHallContent,
+  // Export
+  exportCampData,
+  // Daily Messages
+  getCampDailyMessages,
+  createDailyMessage,
+  updateDailyMessage,
+  deleteDailyMessage,
+  // Tasks Import/Export
+  exportCampTasks,
+  importCampTasks,
+  // Reflections Export
+  downloadUserReflections,
+  downloadReflectionsPDF,
+  // Help System
+  getCampHelpGuide,
+  getCampHelpFAQ,
+  submitHelpFeedback,
+  // Help System Admin APIs
+  getCampHelpArticles,
+  createCampHelpArticle,
+  updateCampHelpArticle,
+  deleteCampHelpArticle,
+  getCampHelpFAQAdmin,
+  createCampHelpFAQ,
+  updateCampHelpFAQ,
+  deleteCampHelpFAQ,
 };

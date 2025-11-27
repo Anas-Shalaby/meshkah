@@ -38,6 +38,9 @@ const {
 } = require("../middleware/authMiddleware");
 const db = require("../config/database");
 const { getMyFriendCode } = require("../controllers/friendsController");
+const QuranService = require("../services/quranService");
+const axios = require("axios");
+const multer = require("multer");
 const {
   validateCampCreation,
   validateCampUpdate,
@@ -51,6 +54,95 @@ const {
   validateTaskGroup,
 } = require("../middleware/campValidation");
 
+// Configure multer for file uploads (CSV/XLSX)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      "text/csv",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ];
+    const fileName = file.originalname.toLowerCase();
+    const isAllowed =
+      allowedTypes.includes(file.mimetype) ||
+      fileName.endsWith(".csv") ||
+      fileName.endsWith(".xlsx") ||
+      fileName.endsWith(".xls");
+    if (isAllowed) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only CSV and XLSX files are allowed"), false);
+    }
+  },
+});
+
+// Configure multer for task attachments (PDF, images, documents)
+const path = require("path");
+const fs = require("fs");
+
+// Ensure uploads directory exists
+const taskAttachmentsDir = path.join(
+  __dirname,
+  "../public/api/uploads/camp-tasks"
+);
+if (!fs.existsSync(taskAttachmentsDir)) {
+  fs.mkdirSync(taskAttachmentsDir, { recursive: true });
+}
+
+const taskAttachmentUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, taskAttachmentsDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const ext = path.extname(file.originalname);
+      const name = path.basename(file.originalname, ext);
+      cb(null, `${name}-${uniqueSuffix}${ext}`);
+    },
+  }),
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      "application/pdf",
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "text/plain",
+    ];
+    const fileName = file.originalname.toLowerCase();
+    const isAllowed =
+      allowedTypes.includes(file.mimetype) ||
+      fileName.endsWith(".pdf") ||
+      fileName.endsWith(".jpg") ||
+      fileName.endsWith(".jpeg") ||
+      fileName.endsWith(".png") ||
+      fileName.endsWith(".gif") ||
+      fileName.endsWith(".webp") ||
+      fileName.endsWith(".doc") ||
+      fileName.endsWith(".docx") ||
+      fileName.endsWith(".txt");
+    if (isAllowed) {
+      cb(null, true);
+    } else {
+      cb(
+        new Error("نوع الملف غير مسموح. المسموح: PDF, صور, مستندات Word, نص"),
+        false
+      );
+    }
+  },
+});
+
 const {
   // User APIs
   getAllCamps,
@@ -60,6 +152,7 @@ const {
   getMyProgress,
   completeTask,
   markTaskComplete,
+  trackReadingTime,
   updateTaskBenefits,
   getCampLeaderboard,
   getMyStreak,
@@ -73,6 +166,8 @@ const {
   toggleUpvoteReflection,
   toggleSaveReflection,
   getSavedReflections,
+  downloadUserReflections,
+  downloadReflectionsPDF,
   deleteReflection,
   shareBenefit,
   searchHadithForAutocomplete,
@@ -84,6 +179,9 @@ const {
   updateCamp,
   addDailyTasks,
   updateDailyTask,
+  getCampDayChallenges,
+  upsertCampDayChallenge,
+  deleteCampDayChallenge,
   getAdminStats,
   getCampParticipants,
   getCampAnalytics,
@@ -94,14 +192,19 @@ const {
   updateAdminCampSettings,
   getCampDetailsForAdmin,
   leaveCamp,
+  getCampInteractions,
   // User management functions
   getUserNotifications,
   markNotificationAsRead,
   markAllNotificationsAsRead,
   removeUserFromCamp,
   getUserDetails,
+  getUserCampProgress,
   deleteDailyTask,
+  uploadTaskAttachment,
   sendCampNotification,
+  exportCampData,
+  duplicateCamp,
   // Camp Resources
   getCampResources,
   createCampResource,
@@ -113,6 +216,19 @@ const {
   deleteCampResourceCategory,
   updateCategoryOrder,
   updateResourceOrder,
+  // Help System
+  getCampHelpGuide,
+  getCampHelpFAQ,
+  submitHelpFeedback,
+  // Help System Admin APIs
+  getCampHelpArticles,
+  createCampHelpArticle,
+  updateCampHelpArticle,
+  deleteCampHelpArticle,
+  getCampHelpFAQAdmin,
+  createCampHelpFAQ,
+  updateCampHelpFAQ,
+  deleteCampHelpFAQ,
   // Camp Q&A
   getCampQuestions,
   askCampQuestion,
@@ -128,6 +244,17 @@ const {
   getCampTemplates,
   saveCampAsTemplate,
   createCampFromTemplate,
+  // Study Hall Content Management (Admin)
+  getAdminStudyHallContent,
+  updateStudyHallContent,
+  deleteStudyHallContent,
+  getCampDailyMessages,
+  createDailyMessage,
+  updateDailyMessage,
+  deleteDailyMessage,
+  exportCampTasks,
+  importCampTasks,
+  startNewCohort,
 } = require("../controllers/quranCampsController");
 
 // Resolve :id or :campId to numeric camp id when a share_link is provided
@@ -256,6 +383,13 @@ router.post("/tasks/:taskId/mark-complete", authMiddleware, markTaskComplete);
 // Update task benefits (protected)
 router.post("/tasks/:taskId/benefits", authMiddleware, updateTaskBenefits);
 
+// Track reading time (protected)
+router.post(
+  "/tasks/:taskId/track-reading-time",
+  authMiddleware,
+  trackReadingTime
+);
+
 // Get my streak (protected)
 router.get("/:id/my-streak", authMiddleware, getMyStreak);
 
@@ -270,6 +404,61 @@ router.get("/:id/resources", authMiddleware, getCampResources);
 
 // Get camp Q&A (protected)
 router.get("/:id/qanda", authMiddleware, getCampQuestions);
+
+// Help System (protected)
+router.get("/:id/help-guide", authMiddleware, getCampHelpGuide);
+router.get("/:id/help-faq", authMiddleware, getCampHelpFAQ);
+router.post("/:id/help-feedback", authMiddleware, submitHelpFeedback);
+
+// Help System Admin APIs (admin only)
+router.get(
+  "/:id/admin/help-articles",
+  authMiddleware,
+  adminMiddleware,
+  getCampHelpArticles
+);
+router.post(
+  "/:id/admin/help-articles",
+  authMiddleware,
+  adminMiddleware,
+  createCampHelpArticle
+);
+router.put(
+  "/:id/admin/help-articles/:articleId",
+  authMiddleware,
+  adminMiddleware,
+  updateCampHelpArticle
+);
+router.delete(
+  "/:id/admin/help-articles/:articleId",
+  authMiddleware,
+  adminMiddleware,
+  deleteCampHelpArticle
+);
+router.get(
+  "/:id/admin/help-faq",
+  authMiddleware,
+  adminMiddleware,
+  getCampHelpFAQAdmin
+);
+router.post(
+  "/:id/admin/help-faq",
+  authMiddleware,
+  adminMiddleware,
+  createCampHelpFAQ
+);
+router.put(
+  "/:id/admin/help-faq/:faqId",
+  authMiddleware,
+  adminMiddleware,
+  updateCampHelpFAQ
+);
+router.delete(
+  "/:id/admin/help-faq/:faqId",
+  authMiddleware,
+  adminMiddleware,
+  deleteCampHelpFAQ
+);
 
 // Ask a question (protected)
 router.post(
@@ -343,6 +532,26 @@ router.post(
   addDailyTasks
 );
 
+// Day challenges management (admin only)
+router.get(
+  "/admin/:id/day-challenges",
+  authMiddleware,
+  adminMiddleware,
+  getCampDayChallenges
+);
+router.post(
+  "/admin/:id/day-challenges",
+  authMiddleware,
+  adminMiddleware,
+  upsertCampDayChallenge
+);
+router.delete(
+  "/admin/:id/day-challenges/:dayNumber",
+  authMiddleware,
+  adminMiddleware,
+  deleteCampDayChallenge
+);
+
 // Update daily task (admin only)
 router.put(
   "/admin/tasks/:taskId",
@@ -359,6 +568,15 @@ router.delete(
   deleteDailyTask
 );
 
+// Upload attachment to task (admin only)
+router.post(
+  "/admin/tasks/:taskId/upload-attachment",
+  authMiddleware,
+  adminMiddleware,
+  taskAttachmentUpload.single("file"),
+  uploadTaskAttachment
+);
+
 // Get admin stats (admin only)
 router.get("/admin/stats", authMiddleware, adminMiddleware, getAdminStats);
 
@@ -373,8 +591,32 @@ router.get(
 // Get camp analytics (admin only)
 router.get("/:id/analytics", authMiddleware, adminMiddleware, getCampAnalytics);
 
+// Get camp interactions by day (admin only)
+router.get(
+  "/:id/interactions",
+  authMiddleware,
+  adminMiddleware,
+  getCampInteractions
+);
+
+// Export camp data (admin only)
+router.get(
+  "/admin/:id/export",
+  authMiddleware,
+  adminMiddleware,
+  exportCampData
+);
+
 // Update camp status (admin only)
 router.put("/:id/status", authMiddleware, adminMiddleware, updateCampStatus);
+
+// Start a new cohort for a camp (admin only)
+router.post(
+  "/admin/:id/cohorts/start",
+  authMiddleware,
+  adminMiddleware,
+  startNewCohort
+);
 
 // Get camp details for admin (admin only)
 router.get(
@@ -410,7 +652,16 @@ router.delete(
   removeUserFromCamp
 );
 router.get("/users/:userId", authMiddleware, adminMiddleware, getUserDetails);
+router.get(
+  "/:campId/participants/:userId/progress",
+  authMiddleware,
+  adminMiddleware,
+  getUserCampProgress
+);
 router.delete("/:id", authMiddleware, adminMiddleware, deleteCamp);
+
+// Duplicate camp (admin only)
+router.post("/:id/duplicate", authMiddleware, adminMiddleware, duplicateCamp);
 
 // Camp settings routes
 router.get("/:id/settings", authMiddleware, getCampSettings);
@@ -553,6 +804,10 @@ router.post(
 
 // Get saved reflections for a user
 router.get("/:campId/saved-reflections", authMiddleware, getSavedReflections);
+// PDF export routes - use external API version (no Puppeteer required)
+router.get("/:campId/reflections/pdf", authMiddleware, downloadReflectionsPDF);
+// Keep old route for backward compatibility (if needed)
+// router.get("/:campId/reflections/pdf-puppeteer", authMiddleware, downloadUserReflections);
 
 // Delete a reflection
 router.delete(
@@ -573,5 +828,285 @@ router.get(
   authMiddleware,
   searchHadithForAutocomplete
 );
+
+// Study Hall Content Management Routes (Admin only)
+// Get all study hall content for admin
+router.get(
+  "/admin/:id/study-hall",
+  authMiddleware,
+  adminMiddleware,
+  getAdminStudyHallContent
+);
+
+// Update study hall content
+router.put(
+  "/admin/study-hall/:progressId",
+  authMiddleware,
+  adminMiddleware,
+  updateStudyHallContent
+);
+
+// Delete study hall content
+router.delete(
+  "/admin/study-hall/:progressId",
+  authMiddleware,
+  adminMiddleware,
+  deleteStudyHallContent
+);
+
+// Daily Messages (admin only)
+router.get(
+  "/admin/:id/daily-messages",
+  authMiddleware,
+  adminMiddleware,
+  getCampDailyMessages
+);
+router.post(
+  "/admin/:id/daily-messages",
+  authMiddleware,
+  adminMiddleware,
+  createDailyMessage
+);
+router.put(
+  "/admin/daily-messages/:messageId",
+  authMiddleware,
+  adminMiddleware,
+  updateDailyMessage
+);
+router.delete(
+  "/admin/daily-messages/:messageId",
+  authMiddleware,
+  adminMiddleware,
+  deleteDailyMessage
+);
+
+// Tasks Import/Export (admin only)
+router.get(
+  "/admin/:id/tasks/export",
+  authMiddleware,
+  adminMiddleware,
+  exportCampTasks
+);
+router.post(
+  "/admin/:id/tasks/import",
+  authMiddleware,
+  adminMiddleware,
+  upload.single("file"), // Accept file upload
+  importCampTasks
+);
+
+// Tafseer text API
+router.get("/quran/tafseer-text", authMiddleware, async (req, res) => {
+  try {
+    const { surah, from, to, tafsir } = req.query;
+
+    if (!surah || !from) {
+      return res.status(400).json({
+        success: false,
+        message: "يجب تحديد رقم السورة ورقم الآية",
+      });
+    }
+
+    const surahNumber = parseInt(surah);
+    const fromVerse = parseInt(from);
+    const toVerse = to ? parseInt(to) : fromVerse;
+
+    const tafseer = await QuranService.getTafseer(
+      surahNumber,
+      fromVerse,
+      toVerse,
+      tafsir
+    );
+
+    res.json({
+      success: true,
+      data: tafseer,
+      meta: {
+        tafsir: tafsir,
+        surah: surahNumber,
+        from: fromVerse,
+        to: toVerse,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching tafseer text:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "حدث خطأ في جلب التفسير",
+    });
+  }
+});
+
+// Tafseer Proxy (to fetch and display tafseer content)
+router.get("/quran/tafseer", authMiddleware, async (req, res) => {
+  try {
+    const { url } = req.query;
+
+    if (!url) {
+      return res.status(400).json({
+        success: false,
+        message: "يجب تحديد رابط التفسير",
+      });
+    }
+
+    // Decode URL
+    const decodedUrl = decodeURIComponent(url);
+
+    // Validate URL
+    if (
+      !decodedUrl.startsWith("http://") &&
+      !decodedUrl.startsWith("https://")
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "رابط غير صالح",
+      });
+    }
+
+    try {
+      // Fetch HTML content
+      const response = await axios.get(decodedUrl, {
+        timeout: 30000,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+          Accept:
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "ar,en-US;q=0.9,en;q=0.8",
+        },
+      });
+
+      // Return HTML content
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.send(response.data);
+    } catch (error) {
+      console.error("Error fetching tafseer:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "حدث خطأ في تحميل التفسير",
+      });
+    }
+  } catch (error) {
+    console.error("Error in tafseer proxy:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "حدث خطأ في معالجة الطلب",
+    });
+  }
+});
+
+// Quran Audio Proxy (to bypass CORS)
+// Handle OPTIONS request for CORS preflight
+router.options("/quran/audio", (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.status(200).end();
+});
+
+router.get("/quran/audio", authMiddleware, async (req, res) => {
+  try {
+    const { url } = req.query;
+
+    if (!url) {
+      return res.status(400).json({
+        success: false,
+        message: "يجب تحديد رابط الصوت",
+      });
+    }
+
+    // Decode URL
+    const decodedUrl = decodeURIComponent(url);
+
+    // Validate URL is from cdn.islamic.network
+    if (!decodedUrl.includes("cdn.islamic.network")) {
+      return res.status(400).json({
+        success: false,
+        message: "رابط غير صالح",
+      });
+    }
+
+    // Fetch audio from CDN
+    const response = await axios.get(decodedUrl, {
+      responseType: "stream",
+      timeout: 30000,
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+      },
+    });
+
+    // Set appropriate headers for CORS
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization"
+    );
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Cache-Control", "public, max-age=31536000"); // Cache for 1 year
+
+    // Pipe the audio stream to response
+    response.data.pipe(res);
+  } catch (error) {
+    console.error("Error proxying audio:", error);
+
+    // Set CORS headers even for errors
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization"
+    );
+
+    res.status(500).json({
+      success: false,
+      message: error.message || "حدث خطأ في تحميل الصوت",
+    });
+  }
+});
+
+// Quran Verses API (for embedded reader)
+router.get("/quran/verses", authMiddleware, async (req, res) => {
+  try {
+    const { surah, from, to } = req.query;
+
+    if (!surah || !from) {
+      return res.status(400).json({
+        success: false,
+        message: "يجب تحديد رقم السورة ورقم الآية",
+      });
+    }
+
+    const surahNumber = parseInt(surah);
+    const fromVerse = parseInt(from);
+    const toVerse = to ? parseInt(to) : fromVerse;
+    const reciter = req.query.reciter || "ar.minshawi"; // Default to ar.minshawi
+
+    // Only allow ar.minshawi or ar.alafasy
+    const allowedReciters = ["ar.minshawi", "ar.alafasy"];
+    const reciterId = allowedReciters.includes(reciter)
+      ? reciter
+      : "ar.minshawi";
+
+    const verses = await QuranService.getVerses(
+      surahNumber,
+      fromVerse,
+      toVerse,
+      reciterId
+    );
+
+    res.json({
+      success: true,
+      data: verses,
+    });
+  } catch (error) {
+    console.error("Error fetching Quran verses:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "حدث خطأ في جلب الآيات",
+    });
+  }
+});
 
 module.exports = router;

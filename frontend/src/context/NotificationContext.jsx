@@ -22,15 +22,22 @@ export const NotificationProvider = ({ children }) => {
       setLoading(true);
       const token = localStorage.getItem("token");
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/quran-camps/notifications`,
+        `${import.meta.env.VITE_API_URL}/camp-notifications?limit=50&page=1`,
         {
           headers: { "x-auth-token": token },
         }
       );
       const data = await response.json();
       if (data.success) {
-        setNotifications(data.data.notifications || []);
-        setUnreadCount(data.data.unreadCount || 0);
+        const notificationsList = data.data.notifications || [];
+        const unread = data.data.unreadCount || 0;
+
+        setNotifications(notificationsList);
+        setUnreadCount(unread);
+      } else {
+        console.error("Failed to fetch notifications:", data.message);
+        setNotifications([]);
+        setUnreadCount(0);
       }
     } catch (error) {
       console.error("Error fetching notifications:", error);
@@ -56,15 +63,18 @@ export const NotificationProvider = ({ children }) => {
         setUnreadCount((prev) => (prev > 0 ? prev - 1 : 0));
         // نداء للباك
         const token = localStorage.getItem("token");
-        await fetch(
+        const response = await fetch(
           `${
             import.meta.env.VITE_API_URL
-          }/quran-camps/notifications/${notificationId}/read`,
+          }/camp-notifications/${notificationId}/read`,
           {
             method: "PUT",
             headers: { "x-auth-token": token },
           }
         );
+        if (!response.ok) {
+          throw new Error("Failed to mark notification as read");
+        }
         // جلب الإشعارات لضمان التزامن مع الداتابيز
         fetchNotifications();
       } catch (error) {
@@ -83,13 +93,16 @@ export const NotificationProvider = ({ children }) => {
 
       // نداء للباك
       const token = localStorage.getItem("token");
-      await fetch(
-        `${import.meta.env.VITE_API_URL}/quran-camps/notifications/read-all`,
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/camp-notifications/read-all`,
         {
           method: "PUT",
           headers: { "x-auth-token": token },
         }
       );
+      if (!response.ok) {
+        throw new Error("Failed to mark all notifications as read");
+      }
 
       // جلب الإشعارات لضمان التزامن مع الداتابيز
       fetchNotifications();

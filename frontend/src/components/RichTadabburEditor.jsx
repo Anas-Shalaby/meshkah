@@ -17,6 +17,9 @@ import {
   Redo,
   Link as LinkIcon,
   Edit,
+  Save,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
 
 import HadithSuggestionList from "./HadithSuggestionList";
@@ -586,6 +589,7 @@ const RichTadabburEditor = ({
   onChange,
   placeholder,
   onJSONChange,
+  taskId, // معرف المهمة للحفظ التلقائي
 }) => {
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [linkEditData, setLinkEditData] = useState({
@@ -596,6 +600,87 @@ const RichTadabburEditor = ({
   });
   const editorRef = useRef(null);
   const linkEditDataRef = useRef({ url: "", text: "", from: null, to: null });
+
+  // حالة الحفظ التلقائي
+  const [saveStatus, setSaveStatus] = useState("saved"); // "saving", "saved", "unsaved"
+  const autoSaveTimeoutRef = useRef(null);
+  const lastSavedContentRef = useRef("");
+
+  // دالة للحصول على مفتاح localStorage
+  const getStorageKey = () => {
+    if (!taskId) return null;
+    return `tadabbur_draft_${taskId}`;
+  };
+
+  // حفظ تلقائي في localStorage
+  const autoSave = (content) => {
+    const storageKey = getStorageKey();
+    if (!storageKey || !content) return;
+
+    try {
+      const draftData = {
+        content,
+        timestamp: new Date().toISOString(),
+        taskId,
+      };
+      localStorage.setItem(storageKey, JSON.stringify(draftData));
+      lastSavedContentRef.current = content;
+      setSaveStatus("saved");
+    } catch (error) {
+      console.error("Error saving draft:", error);
+      setSaveStatus("unsaved");
+    }
+  };
+
+  // استعادة المسودة من localStorage (قبل إنشاء المحرر)
+  const getDraftContent = () => {
+    const storageKey = getStorageKey();
+    if (!storageKey) return null;
+
+    try {
+      const savedDraft = localStorage.getItem(storageKey);
+      if (savedDraft) {
+        const draftData = JSON.parse(savedDraft);
+        // التحقق من أن المسودة ليست قديمة جداً (أكثر من 30 يوم)
+        const draftDate = new Date(draftData.timestamp);
+        const daysDiff = (new Date() - draftDate) / (1000 * 60 * 60 * 24);
+
+        if (daysDiff < 30 && draftData.content) {
+          return draftData.content;
+        } else {
+          // حذف المسودة القديمة
+          localStorage.removeItem(storageKey);
+        }
+      }
+    } catch (error) {
+      console.error("Error restoring draft:", error);
+    }
+
+    return null;
+  };
+
+  // حذف المسودة بعد الحفظ النهائي
+  const clearDraft = () => {
+    const storageKey = getStorageKey();
+    if (storageKey) {
+      try {
+        localStorage.removeItem(storageKey);
+        lastSavedContentRef.current = "";
+      } catch (error) {
+        console.error("Error clearing draft:", error);
+      }
+    }
+  };
+
+  // الحصول على المحتوى الأولي (من prop أو من المسودة)
+  const getInitialContent = () => {
+    if (initialContent) return initialContent;
+    if (taskId) {
+      const draftContent = getDraftContent();
+      if (draftContent) return draftContent;
+    }
+    return "";
+  };
 
   const editor = useEditor({
     extensions: [
@@ -620,13 +705,29 @@ const RichTadabburEditor = ({
         },
       }),
     ],
-    content: initialContent || "",
+    content: getInitialContent(),
     // (إرسال المحتوى كـ HTML عند كل تحديث)
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+      const htmlContent = editor.getHTML();
+      onChange(htmlContent);
       // إذا كان هناك معالج للتغييرات JSON
       if (onJSONChange) {
         onJSONChange(editor.getJSON());
+      }
+
+      // حفظ تلقائي مع debounce
+      if (taskId) {
+        setSaveStatus("saving");
+
+        // إلغاء أي timeout سابق
+        if (autoSaveTimeoutRef.current) {
+          clearTimeout(autoSaveTimeoutRef.current);
+        }
+
+        // حفظ بعد 1 ثانية من آخر تعديل
+        autoSaveTimeoutRef.current = setTimeout(() => {
+          autoSave(htmlContent);
+        }, 1000);
       }
     },
     // (تنسيق المحرر نفسه)
@@ -643,6 +744,53 @@ const RichTadabburEditor = ({
     editorRef.current = editor;
     linkEditDataRef.current = linkEditData;
   }, [editor, linkEditData]);
+
+  // تنظيف عند إلغاء التحميل
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // تنبيه عند محاولة الخروج بدون حفظ
+  useEffect(() => {
+    if (!taskId) return;
+
+    const handleBeforeUnload = (e) => {
+      const storageKey = getStorageKey();
+      if (storageKey) {
+        const savedDraft = localStorage.getItem(storageKey);
+        if (savedDraft && editor) {
+          const currentContent = editor.getHTML();
+          const draftData = JSON.parse(savedDraft);
+
+          // إذا كان المحتوى الحالي مختلف عن المحفوظ
+          if (
+            currentContent !== draftData.content &&
+            currentContent.trim() !== ""
+          ) {
+            // حفظ فوري قبل الخروج
+            autoSave(currentContent);
+          }
+        }
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [taskId, editor]);
+
+  // دالة لحذف المسودة (يمكن استدعاؤها بعد الحفظ النهائي)
+  useEffect(() => {
+    // تصدير دالة clearDraft للاستخدام الخارجي
+    if (onChange && typeof onChange === "function") {
+      // يمكن إضافة callback للحفظ النهائي
+    }
+  }, []);
 
   // إضافة event listeners للروابط عند التمرير عليها
   useEffect(() => {
@@ -844,8 +992,32 @@ const RichTadabburEditor = ({
           setShowLinkModal(true);
         }}
       />
-      <div className="min-h-[200px] bg-white rounded-b-lg">
+      <div className="min-h-[200px] bg-white rounded-b-lg relative">
         <EditorContent editor={editor} />
+
+        {/* مؤشر حالة الحفظ */}
+        {taskId && (
+          <div className="absolute bottom-2 left-2 flex items-center gap-2 text-xs">
+            {saveStatus === "saving" && (
+              <div className="flex items-center gap-1 text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                <Save className="w-3 h-3 animate-pulse" />
+                <span>جاري الحفظ...</span>
+              </div>
+            )}
+            {saveStatus === "saved" && (
+              <div className="flex items-center gap-1 text-green-600 bg-green-50 px-2 py-1 rounded">
+                <CheckCircle className="w-3 h-3" />
+                <span>تم الحفظ</span>
+              </div>
+            )}
+            {saveStatus === "unsaved" && (
+              <div className="flex items-center gap-1 text-orange-600 bg-orange-50 px-2 py-1 rounded">
+                <AlertCircle className="w-3 h-3" />
+                <span>غير محفوظ</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <LinkModal
@@ -860,8 +1032,26 @@ const RichTadabburEditor = ({
         initialText={linkEditData.text}
         isEdit={linkEditData.from !== null}
       />
+
+      {/* تصدير دالة clearDraft للاستخدام الخارجي */}
+      {taskId && editor && (
+        <div style={{ display: "none" }}>
+          {/* يمكن إضافة ref أو callback هنا إذا لزم الأمر */}
+        </div>
+      )}
     </div>
   );
+};
+
+// تصدير دالة مساعدة لحذف المسودة
+export const clearTadabburDraft = (taskId) => {
+  if (!taskId) return;
+  try {
+    const storageKey = `tadabbur_draft_${taskId}`;
+    localStorage.removeItem(storageKey);
+  } catch (error) {
+    console.error("Error clearing draft:", error);
+  }
 };
 
 export default RichTadabburEditor;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Bell, X, Check, CheckCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNotificationContext } from "../context/NotificationContext";
@@ -133,11 +133,14 @@ const NotificationCenter = ({ isOpen, onClose }) => {
         return "🎉";
       case "daily_reminder":
         return "📅";
+      case "daily_message":
+        return "💬";
       case "achievement":
         return "🏆";
       case "milestone":
         return "⭐";
       case "general":
+      case "admin_message":
         return "📢";
       default:
         return "🔔";
@@ -170,38 +173,40 @@ const NotificationCenter = ({ isOpen, onClose }) => {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -20 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="fixed top-[71px] font-cairo right-4 w-80 max-w-[90vw] bg-white rounded-2xl shadow-lg border border-gray-100 z-50 max-h-[70vh] overflow-hidden md:top-16 md:right-6 md:w-96"
+            className="fixed top-[71px] font-cairo right-2 left-2 sm:right-4 sm:left-auto w-auto sm:w-80 max-w-[calc(100vw-1rem)] sm:max-w-[90vw] bg-white rounded-2xl shadow-lg border border-gray-100 z-50 max-h-[70vh] overflow-hidden md:top-16 md:right-6 md:w-96"
           >
             {/* الهيدر */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-100">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-[#7440E9] rounded-xl flex items-center justify-center">
-                  <Bell className="w-5 h-5 text-white" />
+            <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-100">
+              <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#7440E9] rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-gray-800 text-lg">الإشعارات</h3>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-gray-800 text-base sm:text-lg truncate">
+                    الإشعارات
+                  </h3>
                   {unreadCount > 0 && (
-                    <p className="text-sm text-gray-600">
+                    <p className="text-xs sm:text-sm text-gray-600 truncate">
                       {unreadCount} إشعار غير مقروء
                     </p>
                   )}
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllAsRead}
-                    className="px-3 py-1 bg-[#7440E9] text-white rounded-lg hover:bg-[#5a2fc7] transition-colors font-medium text-sm flex items-center space-x-1"
+                    className="px-2 py-1 sm:px-3 sm:py-1 bg-[#7440E9] text-white rounded-lg hover:bg-[#5a2fc7] transition-colors font-medium text-xs sm:text-sm flex items-center space-x-1"
                   >
                     <CheckCheck className="w-3 h-3" />
-                    <span>تحديد الكل</span>
+                    <span className="hidden sm:inline">تحديد الكل</span>
                   </button>
                 )}
                 <button
                   onClick={onClose}
-                  className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition-colors"
+                  className="w-7 h-7 sm:w-8 sm:h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition-colors"
                 >
-                  <X className="w-4 h-4 text-gray-600" />
+                  <X className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-600" />
                 </button>
               </div>
             </div>
@@ -209,9 +214,11 @@ const NotificationCenter = ({ isOpen, onClose }) => {
             {/* قائمة الإشعارات */}
             <div className="max-h-80 overflow-y-auto">
               {loading ? (
-                <div className="p-8 text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-4 border-[#7440E9] mx-auto mb-4"></div>
-                  <p className="text-gray-600 text-sm">جاري التحميل...</p>
+                <div className="p-6 sm:p-8 text-center">
+                  <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-4 border-[#7440E9] mx-auto mb-3 sm:mb-4"></div>
+                  <p className="text-gray-600 text-xs sm:text-sm">
+                    جاري التحميل...
+                  </p>
                 </div>
               ) : (
                 (() => {
@@ -225,14 +232,14 @@ const NotificationCenter = ({ isOpen, onClose }) => {
 
                   if (unreadNotifications.length === 0) {
                     return (
-                      <div className="p-8 text-center">
-                        <div className="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                          <Bell className="w-8 h-8 text-gray-400" />
+                      <div className="p-6 sm:p-8 text-center">
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                          <Bell className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
                         </div>
-                        <h4 className="text-gray-600 font-medium mb-2">
+                        <h4 className="text-gray-600 font-medium mb-2 text-sm sm:text-base">
                           لا توجد إشعارات غير مقروءة
                         </h4>
-                        <p className="text-gray-500 text-sm">
+                        <p className="text-gray-500 text-xs sm:text-sm">
                           جميع إشعاراتك مقروءة
                         </p>
                       </div>
@@ -244,25 +251,25 @@ const NotificationCenter = ({ isOpen, onClose }) => {
                       key={notification.id}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      className={`p-4 border-b border-gray-100 hover:bg-gray-50 transition-all duration-200 ${
+                      className={`p-3 sm:p-4 border-b border-gray-100 hover:bg-gray-50 transition-all duration-200 ${
                         !notification.is_read
                           ? "bg-gray-50 border-l-4 border-l-[#7440E9]"
                           : ""
                       }`}
                     >
-                      <div className="flex items-start space-x-3">
-                        <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-lg">
+                      <div className="flex items-start space-x-2 sm:space-x-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 rounded-xl flex items-center justify-center text-base sm:text-lg flex-shrink-0">
                           {getNotificationIcon(notification.type)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h4 className="font-semibold text-gray-800 text-sm leading-tight">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-gray-800 text-xs sm:text-sm leading-tight break-words">
                                 {notification.title}
                               </h4>
                               {!isExpanded(notification.id) ? (
                                 <>
-                                  <p className="text-gray-600 text-sm mt-1 leading-relaxed line-clamp-2">
+                                  <p className="text-gray-600 text-xs sm:text-sm mt-1 leading-relaxed line-clamp-2 break-words">
                                     {notification.message}
                                   </p>
                                   {isClamped(notification.message) && (
@@ -278,7 +285,7 @@ const NotificationCenter = ({ isOpen, onClose }) => {
                                 </>
                               ) : (
                                 <>
-                                  <p className="text-gray-600 text-sm mt-1 leading-relaxed">
+                                  <p className="text-gray-600 text-xs sm:text-sm mt-1 leading-relaxed break-words">
                                     {notification.message}
                                   </p>
                                   <button
@@ -292,26 +299,26 @@ const NotificationCenter = ({ isOpen, onClose }) => {
                                 </>
                               )}
                             </div>
-                            <div className="flex items-center space-x-2 ml-2">
+                            <div className="flex items-center space-x-1 sm:space-x-2 ml-1 sm:ml-2 flex-shrink-0">
                               {!notification.is_read && (
-                                <div className="w-3 h-3 bg-[#7440E9] rounded-full"></div>
+                                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-[#7440E9] rounded-full"></div>
                               )}
                               {!notification.is_read && (
                                 <button
                                   onClick={() => markAsRead(notification.id)}
-                                  className="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition-colors"
+                                  className="w-5 h-5 sm:w-6 sm:h-6 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition-colors"
                                 >
-                                  <Check className="w-3 h-3 text-gray-600" />
+                                  <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-gray-600" />
                                 </button>
                               )}
                             </div>
                           </div>
-                          <div className="flex items-center justify-between mt-3">
-                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                          <div className="flex items-center justify-between gap-2 mt-2 sm:mt-3 flex-wrap">
+                            <span className="text-[10px] sm:text-xs text-gray-500 bg-gray-100 px-2 py-0.5 sm:py-1 rounded-full whitespace-nowrap">
                               {formatDate(notification.sent_at)}
                             </span>
                             {notification.camp_name && (
-                              <span className="text-xs text-gray-600 bg-gray-100 px-3 py-1 rounded-lg font-medium">
+                              <span className="text-[10px] sm:text-xs text-gray-600 bg-gray-100 px-2 sm:px-3 py-0.5 sm:py-1 rounded-lg font-medium truncate max-w-[50%] sm:max-w-none">
                                 {notification.camp_name}
                               </span>
                             )}
@@ -334,12 +341,12 @@ const NotificationCenter = ({ isOpen, onClose }) => {
               );
               return unreadNotifications.length > 0;
             })() && (
-              <div className="p-4 border-t border-gray-100">
+              <div className="p-3 sm:p-4 border-t border-gray-100">
                 <button
                   onClick={fetchNotifications}
-                  className="w-full bg-[#7440E9] hover:bg-[#5a2fc7] text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                  className="w-full bg-[#7440E9] hover:bg-[#5a2fc7] text-white text-xs sm:text-sm font-medium py-2 px-3 sm:px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
                 >
-                  <Bell className="w-4 h-4" />
+                  <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span>تحديث الإشعارات</span>
                 </button>
               </div>

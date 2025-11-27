@@ -43,6 +43,7 @@ const QuranCampsPage = () => {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [difficultyFilter, setDifficultyFilter] = useState("all");
   const [durationFilter, setDurationFilter] = useState("all");
+  const [tagsFilter, setTagsFilter] = useState("all");
   const [favorites, setFavorites] = useState(new Set());
   const [viewMode, setViewMode] = useState(() => {
     try {
@@ -52,6 +53,11 @@ const QuranCampsPage = () => {
     }
   }); // grid or list
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [displayedCamps, setDisplayedCamps] = useState([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const itemsPerPage = 12;
 
   useEffect(() => {
     const fetchCamps = async () => {
@@ -82,6 +88,187 @@ const QuranCampsPage = () => {
     fetchCamps();
   }, []);
 
+  // Load saved filters
+  useEffect(() => {
+    try {
+      const savedFilters = localStorage.getItem("camps_filters");
+      if (savedFilters) {
+        const parsed = JSON.parse(savedFilters);
+        if (parsed.filter) setFilter(parsed.filter);
+        if (parsed.difficultyFilter)
+          setDifficultyFilter(parsed.difficultyFilter);
+        if (parsed.durationFilter) setDurationFilter(parsed.durationFilter);
+        if (parsed.tagsFilter) setTagsFilter(parsed.tagsFilter);
+        if (parsed.searchQuery) setSearchQuery(parsed.searchQuery);
+      }
+    } catch (_) {}
+  }, []);
+
+  // Save filters
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "camps_filters",
+        JSON.stringify({
+          filter,
+          difficultyFilter,
+          durationFilter,
+          tagsFilter,
+          searchQuery,
+        })
+      );
+    } catch (_) {}
+  }, [filter, difficultyFilter, durationFilter, tagsFilter, searchQuery]);
+
+  // Search suggestions
+  useEffect(() => {
+    if (searchQuery.trim().length > 0) {
+      const suggestions = camps
+        .flatMap((camp) => [camp.name, camp.surah_name, ...(camp.tags || [])])
+        .filter((item) =>
+          item?.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        .slice(0, 5);
+      setSearchSuggestions([...new Set(suggestions)]);
+      setShowSuggestions(suggestions.length > 0);
+    } else {
+      setSearchSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, [searchQuery, camps]);
+  // Advanced filtering and sorting with useMemo for performance optimization
+  const filteredCamps = useMemo(() => {
+    return camps
+      .filter((camp) => {
+        // Note: Hidden camps (private/unlisted) are already filtered in the backend API
+        // They are not sent in the response at all, so no need to filter here
+
+        // Public enrollment: hide camps with public enrollment disabled (unless user is already enrolled)
+        if (camp.enable_public_enrollment === 0 && !camp.is_enrolled) {
+          return false;
+        }
+
+        // Status filter
+        if (filter !== "all" && camp.status !== filter) return false;
+
+        // Search query
+        if (searchQuery) {
+          const query = searchQuery.toLowerCase();
+          return (
+            camp.name.toLowerCase().includes(query) ||
+            camp.surah_name.toLowerCase().includes(query) ||
+            camp.description?.toLowerCase().includes(query)
+          );
+        }
+
+        // Difficulty filter
+        if (difficultyFilter !== "all") {
+          const difficulty = getDifficultyLevel(camp);
+          if (difficultyFilter === "beginner" && difficulty !== "beginner")
+            return false;
+          if (
+            difficultyFilter === "intermediate" &&
+            difficulty !== "intermediate"
+          )
+            return false;
+          if (difficultyFilter === "advanced" && difficulty !== "advanced")
+            return false;
+        }
+
+        // Duration filter
+        if (durationFilter !== "all") {
+          if (durationFilter === "short" && camp.duration_days > 7)
+            return false;
+          if (
+            durationFilter === "medium" &&
+            (camp.duration_days <= 7 || camp.duration_days > 14)
+          )
+            return false;
+          if (durationFilter === "long" && camp.duration_days <= 14)
+            return false;
+        }
+
+        // Tags filter
+        if (tagsFilter !== "all") {
+          if (!camp.tags || !Array.isArray(camp.tags) || camp.tags.length === 0)
+            return false;
+          const hasTag = camp.tags.some(
+            (tag) =>
+              tag && tag.trim().toLowerCase() === tagsFilter.toLowerCase()
+          );
+          if (!hasTag) return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case "newest":
+            return new Date(b.start_date) - new Date(a.start_date);
+          case "oldest":
+            return new Date(a.start_date) - new Date(b.start_date);
+          case "popular":
+            return (b.enrolled_count || 0) - (a.enrolled_count || 0);
+          case "name":
+            return a.name.localeCompare(b.name);
+          case "duration":
+            return a.duration_days - b.duration_days;
+          default:
+            return 0;
+        }
+      });
+  }, [
+    camps,
+    filter,
+    searchQuery,
+    sortBy,
+    difficultyFilter,
+    durationFilter,
+    tagsFilter,
+  ]);
+
+  // Infinite scroll - initialize displayed camps
+  useEffect(() => {
+    const initialCamps = filteredCamps.slice(0, itemsPerPage);
+    setDisplayedCamps(initialCamps);
+    setHasMore(filteredCamps.length > itemsPerPage);
+  }, [filteredCamps]);
+
+  // Infinite scroll handler
+  useEffect(() => {
+    const handleScroll = () => {
+      if (
+        window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 1000
+      ) {
+        if (
+          hasMore &&
+          !loading &&
+          filteredCamps.length > displayedCamps.length
+        ) {
+          setDisplayedCamps((prev) => {
+            const nextBatch = filteredCamps.slice(
+              0,
+              prev.length + itemsPerPage
+            );
+            setHasMore(nextBatch.length < filteredCamps.length);
+            return nextBatch;
+          });
+        }
+      }
+      setShowScrollTop(window.scrollY > 400);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [
+    displayedCamps.length,
+    filteredCamps.length,
+    hasMore,
+    loading,
+    filteredCamps,
+  ]);
+
   // persist view mode & sort
   useEffect(() => {
     try {
@@ -96,15 +283,6 @@ const QuranCampsPage = () => {
       if (savedSort) setSortBy(savedSort);
     } catch (_) {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Scroll to top button visibility
-  useEffect(() => {
-    const handleScroll = () => {
-      setShowScrollTop(window.scrollY > 400);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const getStatusColor = (status) => {
@@ -178,89 +356,16 @@ const QuranCampsPage = () => {
     }
   };
 
-  // اشتقاق حالة "قريباً" من تاريخ البدء لحماية الواجهة من أي أخطاء حالة من الخادم
-
-  const getEffectiveStatus = (camp) =>
-    camp.status === "early_registration" ? "early_registration" : camp.status;
-
-  // Advanced filtering and sorting with useMemo for performance optimization
-  const filteredCamps = useMemo(() => {
-    return camps
-      .filter((camp) => {
-        // Visibility: hide private and unlisted from public listing
-        if (camp.visibility_mode && camp.visibility_mode !== "public")
-          return false;
-
-        // Public enrollment: hide camps with public enrollment disabled (unless user is already enrolled)
-        if (camp.enable_public_enrollment === 0 && !camp.is_enrolled) {
-          return false;
-        }
-
-        // Status filter
-        if (filter !== "all" && camp.status !== filter) return false;
-
-        // Search query
-        if (searchQuery) {
-          const query = searchQuery.toLowerCase();
-          return (
-            camp.name.toLowerCase().includes(query) ||
-            camp.surah_name.toLowerCase().includes(query) ||
-            camp.description?.toLowerCase().includes(query)
-          );
-        }
-
-        // Difficulty filter
-        if (difficultyFilter !== "all") {
-          const difficulty = getDifficultyLevel(camp);
-          if (difficultyFilter === "beginner" && difficulty !== "beginner")
-            return false;
-          if (
-            difficultyFilter === "intermediate" &&
-            difficulty !== "intermediate"
-          )
-            return false;
-          if (difficultyFilter === "advanced" && difficulty !== "advanced")
-            return false;
-        }
-
-        // Duration filter
-        if (durationFilter !== "all") {
-          if (durationFilter === "short" && camp.duration_days > 7)
-            return false;
-          if (
-            durationFilter === "medium" &&
-            (camp.duration_days <= 7 || camp.duration_days > 14)
-          )
-            return false;
-          if (durationFilter === "long" && camp.duration_days <= 14)
-            return false;
-        }
-
-        return true;
-      })
-      .sort((a, b) => {
-        switch (sortBy) {
-          case "newest":
-            return new Date(b.start_date) - new Date(a.start_date);
-          case "oldest":
-            return new Date(a.start_date) - new Date(b.start_date);
-          case "popular":
-            return (b.enrolled_count || 0) - (a.enrolled_count || 0);
-          case "name":
-            return a.name.localeCompare(b.name);
-          case "duration":
-            return a.duration_days - b.duration_days;
-          default:
-            return 0;
-        }
-      });
-  }, [camps, filter, searchQuery, sortBy, difficultyFilter, durationFilter]);
-
   const getDifficultyLevel = (camp) => {
     if (camp.duration_days <= 7) return "beginner";
     if (camp.duration_days <= 14) return "intermediate";
     return "advanced";
   };
+
+  // اشتقاق حالة "قريباً" من تاريخ البدء لحماية الواجهة من أي أخطاء حالة من الخادم
+
+  const getEffectiveStatus = (camp) =>
+    camp.status === "early_registration" ? "early_registration" : camp.status;
 
   const getDifficultyColor = (difficulty) => {
     switch (difficulty) {
@@ -301,6 +406,21 @@ const QuranCampsPage = () => {
   const getFilteredCampsCount = (status) => {
     return camps.filter((camp) => camp.status === status).length;
   };
+
+  // Get all unique tags from all camps
+  const getAllUniqueTags = useMemo(() => {
+    const tagsSet = new Set();
+    camps.forEach((camp) => {
+      if (camp.tags && Array.isArray(camp.tags)) {
+        camp.tags.forEach((tag) => {
+          if (tag && tag.trim()) {
+            tagsSet.add(tag.trim());
+          }
+        });
+      }
+    });
+    return Array.from(tagsSet).sort();
+  }, [camps]);
 
   if (loading) {
     return (
@@ -574,13 +694,16 @@ const QuranCampsPage = () => {
           <div className="flex flex-col gap-4 sm:gap-6">
             {/* Search Input */}
             <div className="w-full">
-              <div className="relative">
+              <div className="relative z-50">
                 <Search className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5 pointer-events-none z-10" />
                 {searchQuery && (
                   <motion.button
                     initial={{ opacity: 0, scale: 0 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    onClick={() => setSearchQuery("")}
+                    onClick={() => {
+                      setSearchQuery("");
+                      setShowSuggestions(false);
+                    }}
                     className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors z-10 p-1 rounded-full hover:bg-gray-100"
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
@@ -593,9 +716,39 @@ const QuranCampsPage = () => {
                   placeholder="ابحث عن مخيم، سورة، أو وصف..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-4 py-3 sm:py-4 pr-10 sm:pr-12 bg-gray-50 border border-gray-200 rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-base sm:text-lg search-input"
+                  onFocus={() =>
+                    setShowSuggestions(searchSuggestions.length > 0)
+                  }
+                  onBlur={() =>
+                    setTimeout(() => setShowSuggestions(false), 200)
+                  }
+                  className="w-full px-4 py-3 sm:py-4 pr-10 sm:pr-12 text-black bg-gray-50 border border-gray-200 rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-base sm:text-lg relative z-10"
                   aria-label="البحث في المخيمات"
                 />
+                {/* Search Suggestions */}
+                {showSuggestions && searchSuggestions.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 z-[9999] max-h-60 overflow-y-auto"
+                    style={{ zIndex: 9999 }}
+                  >
+                    {searchSuggestions.map((suggestion, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setSearchQuery(suggestion);
+                          setShowSuggestions(false);
+                        }}
+                        className="w-full text-right px-4 py-3 hover:bg-purple-50 transition-colors text-sm text-gray-700 border-b border-gray-100 z-[9999] last:border-b-0 relative"
+                      >
+                        <Search className="w-4 h-4 inline-block ml-2 text-gray-400" />
+                        {suggestion}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
               </div>
               {searchQuery && (
                 <motion.p
@@ -662,7 +815,11 @@ const QuranCampsPage = () => {
               {/* Advanced Filters Toggle */}
               <button
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                className="flex items-center justify-center px-3 sm:px-4 py-2 sm:py-3 bg-purple-100 text-purple-700 rounded-xl hover:bg-purple-200 transition-all text-sm sm:text-base"
+                className={`flex items-center justify-center px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl transition-all text-sm sm:text-base font-semibold shadow-sm hover:shadow-md ${
+                  showAdvancedFilters
+                    ? "bg-purple-600 text-white"
+                    : "bg-purple-100 text-purple-700 hover:bg-purple-200"
+                }`}
               >
                 <Filter className="w-4 h-4 mr-2" />
                 <span className="hidden sm:inline">فلاتر متقدمة</span>
@@ -672,23 +829,40 @@ const QuranCampsPage = () => {
                 ) : (
                   <ChevronDown className="w-4 h-4 mr-2" />
                 )}
+                {(difficultyFilter !== "all" ||
+                  durationFilter !== "all" ||
+                  tagsFilter !== "all") && (
+                  <span className="mr-2 px-2 py-0.5 bg-white/30 dark:bg-gray-800/30 rounded-full text-xs font-bold">
+                    {[
+                      difficultyFilter !== "all" ? 1 : 0,
+                      durationFilter !== "all" ? 1 : 0,
+                      tagsFilter !== "all" ? 1 : 0,
+                    ].reduce((a, b) => a + b, 0)}
+                  </span>
+                )}
               </button>
             </div>
           </div>
 
           {/* Advanced Filters */}
           {showAdvancedFilters && (
-            <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200">
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200 dark:border-gray-700"
+            >
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {/* Difficulty Filter */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    <Zap className="w-4 h-4 text-purple-500" />
                     مستوى الصعوبة
                   </label>
                   <select
                     value={difficultyFilter}
                     onChange={(e) => setDifficultyFilter(e.target.value)}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-sm sm:text-base"
+                    className="w-full px-4 py-3 bg-gradient-to-br from-gray-50 to-white dark:from-gray-700 dark:to-gray-800 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-sm sm:text-base shadow-sm hover:shadow-md"
                   >
                     <option value="all">جميع المستويات</option>
                     <option value="beginner">مبتدئ (7 أيام أو أقل)</option>
@@ -698,14 +872,15 @@ const QuranCampsPage = () => {
                 </div>
 
                 {/* Duration Filter */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    <Clock className="w-4 h-4 text-blue-500" />
                     مدة المخيم
                   </label>
                   <select
                     value={durationFilter}
                     onChange={(e) => setDurationFilter(e.target.value)}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-sm sm:text-base"
+                    className="w-full px-4 py-3 bg-gradient-to-br from-gray-50 to-white dark:from-gray-700 dark:to-gray-800 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-sm sm:text-base shadow-sm hover:shadow-md"
                   >
                     <option value="all">جميع المدد</option>
                     <option value="short">قصير (7 أيام أو أقل)</option>
@@ -714,67 +889,203 @@ const QuranCampsPage = () => {
                   </select>
                 </div>
 
+                {/* Tags Filter */}
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    <Sparkles className="w-4 h-4 text-indigo-500" />
+                    العلامات التوضيحية
+                  </label>
+                  <select
+                    value={tagsFilter}
+                    onChange={(e) => setTagsFilter(e.target.value)}
+                    className="w-full px-4 py-3 bg-gradient-to-br from-gray-50 to-white dark:from-gray-700 dark:to-gray-800 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-sm sm:text-base shadow-sm hover:shadow-md"
+                  >
+                    <option value="all">جميع العلامات</option>
+                    {getAllUniqueTags.map((tag) => (
+                      <option key={tag} value={tag}>
+                        {tag}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 {/* Clear Filters */}
-                <div className="flex items-end sm:col-span-2 lg:col-span-1">
+                <div className="flex items-end sm:col-span-2 lg:col-span-3">
                   <button
                     onClick={() => {
                       setSearchQuery("");
                       setDifficultyFilter("all");
                       setDurationFilter("all");
+                      setTagsFilter("all");
                       setFilter("all");
                     }}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all font-medium text-sm sm:text-base"
+                    className="w-full px-4 py-3 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-200 rounded-xl hover:from-gray-200 hover:to-gray-300 dark:hover:from-gray-600 dark:hover:to-gray-500 transition-all font-semibold text-sm sm:text-base shadow-sm hover:shadow-md flex items-center justify-center gap-2"
                   >
-                    مسح الفلاتر
+                    <X className="w-4 h-4" />
+                    مسح جميع الفلاتر
                   </button>
                 </div>
               </div>
-            </div>
+            </motion.div>
           )}
         </div>
 
-        {/* Status Filter Tabs */}
-        <div className="flex flex-wrap justify-center gap-2 sm:gap-3 mb-6 sm:mb-8 px-4">
-          <button
-            onClick={() => setFilter("all")}
-            className={`px-4 py-2 sm:px-6 sm:py-3 lg:px-8 lg:py-4 rounded-full font-medium transition-all duration-300 text-sm sm:text-base ${
-              filter === "all"
-                ? "bg-purple-600 text-white shadow-xl transform scale-105"
-                : "bg-white/90 text-gray-600 hover:bg-purple-50 hover:text-purple-600 backdrop-blur-md shadow-lg border border-gray-200"
-            }`}
-          >
-            الكل ({camps.length})
-          </button>
-          <button
-            onClick={() => setFilter("early_registration")}
-            className={`px-4 py-2 sm:px-6 sm:py-3 lg:px-8 lg:py-4 rounded-full font-medium transition-all duration-300 text-sm sm:text-base ${
-              filter === "early_registration"
-                ? "bg-purple-600 text-white shadow-xl transform scale-105"
-                : "bg-white/90 text-gray-600 hover:bg-purple-50 hover:text-purple-600 backdrop-blur-md shadow-lg border border-gray-200"
-            }`}
-          >
-            قريباً ({getFilteredCampsCount("early_registration")})
-          </button>
-          <button
-            onClick={() => setFilter("active")}
-            className={`px-4 py-2 sm:px-6 sm:py-3 lg:px-8 lg:py-4 rounded-full font-medium transition-all duration-300 text-sm sm:text-base ${
-              filter === "active"
-                ? "bg-purple-600 text-white shadow-xl transform scale-105"
-                : "bg-white/90 text-gray-600 hover:bg-purple-50 hover:text-purple-600 backdrop-blur-md shadow-lg border border-gray-200"
-            }`}
-          >
-            نشط ({getFilteredCampsCount("active")})
-          </button>
-          <button
-            onClick={() => setFilter("completed")}
-            className={`px-4 py-2 sm:px-6 sm:py-3 lg:px-8 lg:py-4 rounded-full font-medium transition-all duration-300 text-sm sm:text-base ${
-              filter === "completed"
-                ? "bg-purple-600 text-white shadow-xl transform scale-105"
-                : "bg-white/90 text-gray-600 hover:bg-purple-50 hover:text-purple-600 backdrop-blur-md shadow-lg border border-gray-200"
-            }`}
-          >
-            منتهي ({getFilteredCampsCount("completed")})
-          </button>
+        {/* Status Filter Tabs - Enhanced Design */}
+        <div className="relative mb-6 sm:mb-8 px-4">
+          {/* Background Container with Glassmorphism */}
+          <div className="bg-white/60 z-10 relative backdrop-blur-xl rounded-2xl sm:rounded-3xl p-2 sm:p-3 shadow-xl border border-white/50">
+            <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
+              {/* All Filter */}
+              <motion.button
+                onClick={() => setFilter("all")}
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                className={`relative px-4 py-2.5 sm:px-6 sm:py-3 lg:px-7 lg:py-3.5 rounded-xl font-semibold transition-all duration-300 text-sm sm:text-base flex items-center gap-2 ${
+                  filter === "all"
+                    ? "bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 text-white shadow-2xl shadow-purple-500/50"
+                    : "bg-white/80 text-gray-700 hover:bg-purple-50/80 hover:text-purple-700 backdrop-blur-sm shadow-md border border-gray-200/50"
+                }`}
+              >
+                {filter === "all" && (
+                  <motion.div
+                    layoutId="activeFilter"
+                    className="absolute inset-0 bg-purple-600 rounded-xl -z-0"
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-2">
+                  <BookOpen
+                    className={`w-4 h-4 ${
+                      filter === "all" ? "text-white" : "text-gray-500"
+                    }`}
+                  />
+                  <span>الكل</span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                      filter === "all"
+                        ? "bg-white/20 text-white"
+                        : "bg-purple-100 text-purple-700"
+                    }`}
+                  >
+                    {camps.length}
+                  </span>
+                </span>
+              </motion.button>
+
+              {/* Early Registration Filter */}
+              <motion.button
+                onClick={() => setFilter("early_registration")}
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                className={`relative px-4 py-2.5 sm:px-6 sm:py-3 lg:px-7 lg:py-3.5 rounded-xl font-semibold transition-all duration-300 text-sm sm:text-base flex items-center gap-2 ${
+                  filter === "early_registration"
+                    ? "bg-gradient-to-r from-blue-500 via-blue-600 to-cyan-500 text-white shadow-2xl shadow-blue-500/50"
+                    : "bg-white/80 text-gray-700 hover:bg-blue-50/80 hover:text-blue-700 backdrop-blur-sm shadow-md border border-gray-200/50"
+                }`}
+              >
+                {filter === "early_registration" && (
+                  <motion.div
+                    layoutId="activeFilter"
+                    className="absolute inset-0 bg-gradient-to-r from-blue-500 via-blue-600 to-cyan-500 rounded-xl -z-0"
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-2">
+                  <Clock3
+                    className={`w-4 h-4 ${
+                      filter === "early_registration"
+                        ? "text-white"
+                        : "text-blue-500"
+                    }`}
+                  />
+                  <span>قريباً</span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                      filter === "early_registration"
+                        ? "bg-white/20 text-white"
+                        : "bg-blue-100 text-blue-700"
+                    }`}
+                  >
+                    {getFilteredCampsCount("early_registration")}
+                  </span>
+                </span>
+              </motion.button>
+
+              {/* Active Filter */}
+              <motion.button
+                onClick={() => setFilter("active")}
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                className={`relative px-4 py-2.5 sm:px-6 sm:py-3 lg:px-7 lg:py-3.5 rounded-xl font-semibold transition-all duration-300 text-sm sm:text-base flex items-center gap-2 ${
+                  filter === "active"
+                    ? " bg-purple-600 text-white shadow-2xl shadow-purple-500/50"
+                    : "bg-white/80 text-gray-700 hover:bg-purple-50/80 hover:text-purple-700 backdrop-blur-sm shadow-md border border-gray-200/50"
+                }`}
+              >
+                {filter === "active" && (
+                  <motion.div
+                    layoutId="activeFilter"
+                    className="absolute inset-0 bg-purple-600 rounded-xl -z-0"
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-2">
+                  <Play
+                    className={`w-4 h-4 ${
+                      filter === "active" ? "text-white" : "text-purple-500"
+                    }`}
+                  />
+                  <span>نشط</span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                      filter === "active"
+                        ? "bg-white/20 text-white"
+                        : "bg-purple-100 text-purple-700"
+                    }`}
+                  >
+                    {getFilteredCampsCount("active")}
+                  </span>
+                </span>
+              </motion.button>
+
+              {/* Completed Filter */}
+              <motion.button
+                onClick={() => setFilter("completed")}
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                className={`relative px-4 py-2.5 sm:px-6 sm:py-3 lg:px-7 lg:py-3.5 rounded-xl font-semibold transition-all duration-300 text-sm sm:text-base flex items-center gap-2 ${
+                  filter === "completed"
+                    ? "bg-gradient-to-r from-gray-600 via-gray-700 to-slate-600 text-white shadow-2xl shadow-gray-500/50"
+                    : "bg-white/80 text-gray-700 hover:bg-gray-50/80 hover:text-gray-800 backdrop-blur-sm shadow-md border border-gray-200/50"
+                }`}
+              >
+                {filter === "completed" && (
+                  <motion.div
+                    layoutId="activeFilter"
+                    className="absolute inset-0 bg-gradient-to-r from-gray-600 via-gray-700 to-slate-600 rounded-xl -z-0"
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-2">
+                  <CheckCircle
+                    className={`w-4 h-4 ${
+                      filter === "completed" ? "text-white" : "text-gray-500"
+                    }`}
+                  />
+                  <span>منتهي</span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                      filter === "completed"
+                        ? "bg-white/20 text-white"
+                        : "bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    {getFilteredCampsCount("completed")}
+                  </span>
+                </span>
+              </motion.button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -815,7 +1126,8 @@ const QuranCampsPage = () => {
             {(searchQuery ||
               filter !== "all" ||
               difficultyFilter !== "all" ||
-              durationFilter !== "all") && (
+              durationFilter !== "all" ||
+              tagsFilter !== "all") && (
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -834,12 +1146,14 @@ const QuranCampsPage = () => {
               {(searchQuery ||
                 filter !== "all" ||
                 difficultyFilter !== "all" ||
-                durationFilter !== "all") && (
+                durationFilter !== "all" ||
+                tagsFilter !== "all") && (
                 <motion.button
                   onClick={() => {
                     setSearchQuery("");
                     setDifficultyFilter("all");
                     setDurationFilter("all");
+                    setTagsFilter("all");
                     setFilter("all");
                   }}
                   className="px-6 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
@@ -862,26 +1176,40 @@ const QuranCampsPage = () => {
             </motion.div>
           </motion.div>
         ) : (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className={
-              viewMode === "grid"
-                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8"
-                : "space-y-4 sm:space-y-6"
-            }
-          >
-            <AnimatePresence mode="wait">
-              {filteredCamps.map((camp, index) => (
-                <CampPublicCard
-                  key={camp.id}
-                  camp={camp}
-                  index={index}
-                  searchQuery={searchQuery}
-                />
-              ))}
-            </AnimatePresence>
-          </motion.div>
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className={
+                viewMode === "grid"
+                  ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8"
+                  : "space-y-4 sm:space-y-6"
+              }
+            >
+              <AnimatePresence mode="wait">
+                {displayedCamps.map((camp, index) => (
+                  <CampPublicCard
+                    key={camp.id}
+                    camp={camp}
+                    index={index}
+                    searchQuery={searchQuery}
+                  />
+                ))}
+              </AnimatePresence>
+            </motion.div>
+            {hasMore && (
+              <div className="flex justify-center mt-8">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex items-center gap-2 text-gray-600"
+                >
+                  <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-sm">جاري تحميل المزيد...</span>
+                </motion.div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
