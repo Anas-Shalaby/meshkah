@@ -1,0 +1,9 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 GitHub Discussions
+    url: https://github.com/Anas-Shalaby/meshkah/discussions
+    about: اسأل أسئلة عامة أو ناقش أفكاراً في Discussions
+  - name: 📧 البريد الإلكتروني
+    url: mailto:Meshkah@hadith-shareef.com
+    about: اتصل بنا عبر البريد الإلكتروني
+

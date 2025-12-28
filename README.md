@@ -1,333 +1,580 @@
-# 🕌 Meshkah - Islamic Knowledge Platform
+# 🕌 Meshkah - منصة المعرفة الإسلامية الشاملة
+
+<div align="center">
 
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 [![React](https://img.shields.io/badge/React-18+-blue.svg)](https://reactjs.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-15+-black.svg)](https://nextjs.org/)
+[![MySQL](https://img.shields.io/badge/MySQL-8.0+-orange.svg)](https://www.mysql.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 
-A comprehensive Islamic knowledge platform featuring hadith sharing, daily reminders, Islamic library, quiz system, and admin dashboard. Built with modern web technologies and designed for Arabic language support.
+**منصة متكاملة للمعرفة الإسلامية مع مخيمات قرآنية تفاعلية، مكتبة حديث شاملة، ونظام اختبارات ذكي**
 
-## 🌟 Features
+[المميزات](#-المميزات-الرئيسية) • [البدء السريع](#-البدء-السريع) • [التوثيق](#-التوثيق) • [المساهمة](#-المساهمة)
 
-### 📚 Islamic Library
-- **Comprehensive Hadith Database**: Access to thousands of authentic hadiths
-- **Smart Search**: Advanced search with Arabic text support
-- **Categories & Tags**: Organized by Islamic topics and themes
-- **Bookmarking System**: Save and organize favorite hadiths
-- **Daily Hadith**: Curated daily hadith with AI analysis
-- **Public Sharing**: Share hadiths with beautiful cards
+</div>
 
-### 🎯 Quiz System
-- **AI-Powered Questions**: Personalized quizzes based on reading history
-- **Multiple Categories**: Aqeedah, Ibadah, Muamalat, Akhlaq, Seerah, Hadith
-- **Difficulty Levels**: Beginner, Intermediate, Advanced
-- **Progress Tracking**: Monitor learning progress and performance
-- **Real-time Scoring**: Immediate feedback and detailed explanations
+---
 
-### 📱 Chrome Extension
-- **Daily Reminders**: Get notified with daily hadiths
-- **Quick Access**: Instant access to Islamic content
-- **Customizable Settings**: Personalize notification preferences
-- **Offline Support**: Works without internet connection
+## 📖 نظرة عامة
 
-### 🎨 Modern UI/UX
-- **Elegant Design**: Glass-morphism and modern animations
-- **Responsive Layout**: Works perfectly on all devices
-- **Arabic RTL Support**: Full right-to-left text support
-- **Dark/Light Themes**: Customizable appearance
-- **Smooth Animations**: Framer Motion powered interactions
+**Meshkah** هي منصة إسلامية شاملة تجمع بين:
 
-### 🔧 Admin Dashboard
-- **User Management**: Monitor and manage user accounts
-- **Content Analytics**: Track platform usage and engagement
-- **Print Requests**: Handle physical content requests
-- **Memorization Plans**: Manage Islamic learning programs
-- **Real-time Statistics**: Live platform metrics
+- 📚 **مكتبة حديث شاملة** مع آلاف الأحاديث الصحيحة
+- 🎯 **مخيمات قرآنية تفاعلية** مع نظام مهام يومية وتتبع تقدم
+- 📝 **نظام اختبارات يومية** ذكي مع تصحيح تلقائي
+- 👥 **نظام أفواج متقدم** لإدارة مجموعات متعددة
+- 🏆 **شهادات رقمية** قابلة للتحقق
+- 📱 **إشعارات ذكية** وتذكيرات يومية
+- 🎨 **واجهة مستخدم حديثة** مع دعم كامل للعربية
 
-## 🏗️ Architecture
+---
+
+## ✨ المميزات الرئيسية
+
+### 🎓 مخيمات القرآن التفاعلية
+
+#### نظام الأفواج (Cohorts)
+
+- ✅ **أفواج متعددة** لكل مخيم مع تواريخ بدء منفصلة
+- ✅ **مشرفون مخصصون** لكل فوج
+- ✅ **تقدم منفصل** لكل فوج
+- ✅ **إحصائيات مفصلة** لكل فوج
+- ✅ **إشعارات بريدية** تلقائية للأفواج
+
+#### المهام اليومية
+
+- ✅ **مهام متنوعة**: قراءة، حفظ، تفسير، فيديو، يوميات
+- ✅ **مهام اختيارية وإجبارية**
+- ✅ **تتبع التقدم** في الوقت الفعلي
+- ✅ **نظام نقاط** وتحفيز
+- ✅ **سلسلة الإنجاز** (Streak)
+- ✅ **لوحة صدارة** للمشاركين
+
+#### نظام الاختبارات اليومية 🆕
+
+- ✅ **اختبارات يومية** بعد إكمال المهام
+- ✅ **أسئلة متعددة الخيارات وصحيح/خطأ**
+- ✅ **تصحيح تلقائي** مع حساب النقاط
+- ✅ **مراجعة الإجابات** مع تفسيرات
+- ✅ **إحصائيات شاملة** للمديرين
+- ✅ **عرض تفاصيل إجابات** كل مستخدم
+
+#### قاعة التدارس (Study Hall)
+
+- ✅ **مشاركة التدبر** والفوائد
+- ✅ **نظام Upvote** و Save
+- ✅ **ترتيب متقدم**: الأحدث، الأكثر تصويتاً، المحفوظات
+- ✅ **فلترة حسب اليوم** والفوج
+- ✅ **تصدير PDF** للتدبر
+
+#### نظام الإحالة (Referral System) 🆕
+
+- ✅ **إحالة مبنية على الأفواج**
+- ✅ **كود إحالة فريد** لكل مشارك
+- ✅ **نقاط مكافأة** للإحالات
+- ✅ **QR Code** للمشاركة السريعة
+- ✅ **إحصائيات الإحالة** في الوقت الفعلي
+
+#### الشهادات الرقمية 🆕
+
+- ✅ **شهادات PDF** احترافية
+- ✅ **QR Code للتحقق** الفوري
+- ✅ **كود تحقق فريد** لكل شهادة
+- ✅ **صفحة تحقق عامة** للجميع
+- ✅ **تصميم عربي** احترافي
+
+### 📚 المكتبة الإسلامية
+
+- ✅ **آلاف الأحاديث** من مصادر موثوقة
+- ✅ **بحث ذكي** بدعم كامل للعربية
+- ✅ **تصنيفات متعددة** حسب الموضوع
+- ✅ **نظام الإشارات المرجعية** (Bookmarks)
+- ✅ **حديث اليوم** مع تحليل ذكي
+- ✅ **مشاركة عامة** مع بطاقات جميلة
+
+### 🎯 نظام الاختبارات الذكية
+
+- ✅ **أسئلة مدعومة بالذكاء الاصطناعي**
+- ✅ **فئات متعددة**: عقيدة، عبادة، معاملات، أخلاق، سيرة، حديث
+- ✅ **مستويات صعوبة**: مبتدئ، متوسط، متقدم
+- ✅ **تتبع التقدم** والأداء
+- ✅ **نتائج فورية** مع تفسيرات
+
+### 🔔 الإشعارات والتذكيرات
+
+- ✅ **إشعارات داخلية** في الوقت الفعلي
+- ✅ **تذكيرات بريدية** يومية
+- ✅ **إشعارات بداية/نهاية** المخيمات
+- ✅ **تذكيرات المهام** المتأخرة
+- ✅ **إشعارات الأصدقاء** والتقدم
+
+### 🎨 واجهة المستخدم
+
+- ✅ **تصميم عصري** مع Glass-morphism
+- ✅ **دعم كامل للعربية** RTL
+- ✅ **تصميم متجاوب** لجميع الأجهزة
+- ✅ **أنيميشن سلس** مع Framer Motion
+- ✅ **ثيمات داكنة/فاتحة**
+- ✅ **تجربة مستخدم محسنة** للجوال
+
+### 🔧 لوحة التحكم (Admin Dashboard)
+
+- ✅ **إدارة شاملة** للمخيمات والأفواج
+- ✅ **إحصائيات مفصلة** وتحليلات
+- ✅ **إدارة المستخدمين** والمشاركين
+- ✅ **إدارة الاختبارات** اليومية
+- ✅ **إدارة الموارد** والـ Q&A
+- ✅ **تصدير البيانات** والإحصائيات
+
+---
+
+## 🏗️ المعمارية التقنية
+
+### Stack التكنولوجي
+
+```
+Frontend:
+├── React 18 + Vite
+├── TailwindCSS
+├── Framer Motion
+├── React Router
+└── React Query
+
+Backend:
+├── Node.js + Express
+├── MySQL 8.0+
+├── JWT Authentication
+├── Socket.io (Real-time)
+└── Node-cron (Scheduling)
+
+Dashboard:
+├── Next.js 15
+├── TypeScript
+├── TailwindCSS
+└── Server Components
+
+Extensions:
+└── Chrome Extension (Manifest V3)
+```
+
+### هيكل المشروع
 
 ```
 meshkah/
 ├── backend/                 # Node.js Express API
+│   ├── controllers/        # Business logic
+│   ├── services/           # Core services
+│   ├── routes/            # API routes
+│   ├── middleware/        # Auth & validation
+│   ├── config/            # Database & schedulers
+│   └── database/          # Migrations
+│
 ├── frontend/               # React Vite Application
+│   ├── src/
+│   │   ├── components/     # UI components
+│   │   ├── pages/         # Page components
+│   │   ├── services/      # API services
+│   │   └── context/       # State management
+│   └── public/            # Static assets
+│
 ├── dashboard/              # Next.js Admin Dashboard
+│   ├── src/
+│   │   ├── app/           # Next.js app directory
+│   │   ├── components/    # Dashboard components
+│   │   └── services/      # API services
+│   └── public/            # Static assets
+│
 ├── chrome-extension/       # Chrome Extension
-└── QUIZ_SYSTEM_README.md  # Quiz System Documentation
+│   ├── background.js      # Service worker
+│   ├── manifest.json      # Extension config
+│   └── icons/             # Extension icons
+│
+└── docs/                  # Comprehensive documentation
+    ├── DOCUMENTATION_DAILY_TESTS_SYSTEM.md
+    ├── CAMPS_COHORTS_SYSTEM_DOCUMENTATION.md
+    └── ... (وثائق أخرى)
 ```
 
-## 🚀 Quick Start
+---
 
-### Prerequisites
-- Node.js 18+ 
-- MySQL 8.0+
-- Redis (optional, for caching)
-- Git
+## 🚀 البدء السريع
 
-### 1. Clone the Repository
+### المتطلبات الأساسية
+
+- **Node.js** 18+
+- **MySQL** 8.0+
+- **Redis** (اختياري، للـ caching)
+- **Git**
+
+### 1. استنساخ المستودع
+
 ```bash
 git clone https://github.com/Anas-Shalaby/meshkah.git
 cd meshkah
 ```
 
-### 2. Backend Setup
+### 2. إعداد Backend
+
 ```bash
 cd backend
 npm install
+
+# نسخ ملف البيئة
 cp .env.example .env
-# Configure your .env file with database credentials
+
+# تعديل ملف .env مع بيانات قاعدة البيانات
+# DB_HOST=localhost
+# DB_USER=your_user
+# DB_PASSWORD=your_password
+# DB_NAME=meshkah
+# JWT_SECRET=your_secret_key
+
+# تشغيل الـ migrations (إن وجدت)
+npm run migrate
+
+# تشغيل السيرفر
 npm start
 ```
 
-### 3. Frontend Setup
+الـ Backend سيعمل على: `http://localhost:5000`
+
+### 3. إعداد Frontend
+
 ```bash
 cd frontend
 npm install
+
+# نسخ ملف البيئة
+cp .env.example .env
+
+# تعديل ملف .env
+# VITE_API_URL=http://localhost:5000
+
+# تشغيل التطبيق
 npm run dev
 ```
 
-### 4. Dashboard Setup
+الـ Frontend سيعمل على: `http://localhost:5173`
+
+### 4. إعداد Dashboard
+
 ```bash
 cd dashboard
 npm install
+
+# نسخ ملف البيئة
+cp .env.example .env
+
+# تعديل ملف .env
+# NEXT_PUBLIC_API_URL=http://localhost:5000
+
+# تشغيل Dashboard
 npm run dev
 ```
 
-### 5. Chrome Extension
+الـ Dashboard سيعمل على: `http://localhost:3000`
+
+### 5. Chrome Extension (اختياري)
+
 ```bash
 cd chrome-extension
-# Load the extension in Chrome:
-# 1. Open Chrome Extensions (chrome://extensions/)
-# 2. Enable Developer Mode
-# 3. Click "Load unpacked"
-# 4. Select the chrome-extension folder
+
+# في Chrome:
+# 1. افتح chrome://extensions/
+# 2. فعّل Developer Mode
+# 3. اضغط "Load unpacked"
+# 4. اختر مجلد chrome-extension
 ```
 
-## 📦 Project Structure
+---
 
-### Backend (`/backend`)
-```
-backend/
-├── config/                 # Database, auth, scheduler configs
-├── controllers/            # Business logic controllers
-├── data/                  # Static data files
-├── middleware/             # Express middleware
-├── models/                # Database models
-├── routes/                # API route handlers
-├── services/              # External service integrations
-├── utils/                 # Helper utilities
-└── index.js               # Main server file
-```
+## 📚 التوثيق الشامل
 
-**Key Features:**
-- RESTful API with Express.js
-- MySQL database with mysql2
-- JWT authentication
-- Google OAuth integration
-- File upload handling
-- Email notifications
-- Socket.io real-time features
-- Rate limiting and security
-- Task scheduling with node-cron
+### وثائق الأنظمة الرئيسية
 
-### Frontend (`/frontend`)
-```
-frontend/
-├── src/
-│   ├── components/         # Reusable UI components
-│   ├── pages/             # Page components
-│   ├── services/          # API service layer
-│   ├── utils/             # Helper utilities
-│   ├── hooks/             # Custom React hooks
-│   ├── context/           # React context providers
-│   └── assets/            # Static assets
-├── public/                # Public assets
-└── package.json
-```
+- 📘 [نظام الاختبارات اليومية](./docs/DOCUMENTATION_DAILY_TESTS_SYSTEM.md) - توثيق فني شامل
+- 📗 [نظام الأفواج (Cohorts)](./docs/CAMPS_COHORTS_SYSTEM_DOCUMENTATION.md) - دليل كامل
+- 📙 [نظام المخيمات القرآنية](./docs/QURAN_CAMPS_SYSTEM_OVERVIEW.md) - نظرة عامة
+- 📕 [نظام الإحالة والشهادات](./docs/systems-summary.md) - توثيق تفصيلي
 
-**Key Features:**
-- React 18 with Vite
-- Tailwind CSS for styling
-- Framer Motion animations
-- React Router for navigation
-- React Query for data fetching
-- PWA capabilities
-- Arabic RTL support
-- Responsive design
+### وثائق API
 
-### Dashboard (`/dashboard`)
-```
-dashboard/
-├── src/
-│   ├── app/               # Next.js app directory
-│   ├── components/        # Dashboard components
-│   ├── lib/              # Utility libraries
-│   └── services/         # API services
-└── package.json
-```
+- 🔌 [Quran Camps API](./docs/QURAN_CAMPS_API.md)
+- 🔌 [Hadith Verification API](./docs/HADITH_VERIFICATION_API_DOCUMENTATION.md)
+- 🔌 [Profile APIs](./docs/PROFILE_APIS.md)
+- 🔌 [Admin Camp Settings API](./docs/ADMIN_CAMP_SETTINGS_API.md)
 
-**Key Features:**
-- Next.js 15 with App Router
-- TypeScript support
-- Admin authentication
-- Analytics dashboard
-- User management
-- Content moderation tools
+### أدلة التطوير
 
-### Chrome Extension (`/chrome-extension`)
-```
-chrome-extension/
-├── background.js          # Service worker
-├── content.js            # Content script
-├── settings.html         # Extension popup
-├── manifest.json         # Extension manifest
-└── icons/               # Extension icons
-```
+- 🛠️ [Frontend Integration Guide](./docs/FRONTEND_INTEGRATION_GUIDE.md)
+- 🛠️ [Rich Text Editor Implementation](./docs/RICH_TEXT_EDITOR_IMPLEMENTATION_COMPLETE.md)
+- 🛠️ [Interactive Study Hall Guide](./docs/INTERACTIVE_STUDY_HALL_GUIDE.md)
 
-**Key Features:**
-- Manifest V3
-- Daily hadith notifications
-- Customizable settings
-- Background sync
-- Cross-origin permissions
+---
 
-## 🔌 API Endpoints
+## 🎯 الميزات الجديدة (Latest Updates)
+
+### ✨ نظام الاختبارات اليومية
+
+نظام متكامل للاختبارات اليومية في المخيمات القرآنية:
+
+- إنشاء وتعديل الاختبارات من لوحة التحكم
+- فتح تلقائي بعد إكمال المهام المطلوبة
+- تصحيح تلقائي مع حساب النقاط والنسب
+- مراجعة الإجابات مع تفسيرات من المدير
+- إحصائيات شاملة للمديرين
+
+**اقرأ المزيد**: [توثيق نظام الاختبارات اليومية](./docs/DOCUMENTATION_DAILY_TESTS_SYSTEM.md)
+
+### ✨ نظام الأفواج (Cohorts)
+
+نظام متقدم لإدارة مجموعات متعددة داخل مخيم واحد:
+
+- أفواج متعددة مع تواريخ بدء منفصلة
+- مشرفون مخصصون لكل فوج
+- تقدم وإحصائيات منفصلة
+- إشعارات بريدية تلقائية
+
+**اقرأ المزيد**: [توثيق نظام الأفواج](./docs/CAMPS_COHORTS_SYSTEM_DOCUMENTATION.md)
+
+### ✨ نظام الإحالة والشهادات
+
+- **نظام إحالة مبني على الأفواج**: كود إحالة فريد لكل مشارك
+- **شهادات رقمية PDF**: مع QR Code للتحقق
+- **صفحة تحقق عامة**: للتحقق من صحة الشهادات
+
+**اقرأ المزيد**: [توثيق نظام الإحالة والشهادات](./docs/systems-summary.md)
+
+---
+
+## 🔌 API Endpoints الرئيسية
 
 ### Authentication
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login
-- `POST /api/auth/google` - Google OAuth
-- `GET /api/auth/verify` - Token verification
 
-### Hadith Management
-- `GET /api/hadith/random` - Get random hadith
-- `GET /api/hadith/:id/details` - Get detailed hadith info
-- `GET /api/hadith/:id/simple` - Get simple hadith info
-- `GET /api/hadith/hadith-ids` - Get all hadith IDs
+```
+POST   /api/auth/register          # تسجيل مستخدم جديد
+POST   /api/auth/login             # تسجيل الدخول
+POST   /api/auth/google            # تسجيل الدخول بـ Google
+GET    /api/auth/verify            # التحقق من الـ token
+```
 
-### Bookmarks & Cards
-- `GET /api/bookmarks` - Get user bookmarks
-- `POST /api/bookmarks` - Add bookmark
-- `GET /api/card/dawah-cards` - Get user's dawah cards
-- `POST /api/card/create` - Create dawah card
+### Quran Camps
 
-### Quiz System
-- `POST /api/ai-quiz/generate-quiz` - Generate AI quiz
-- `POST /api/quiz-session/start` - Start quiz session
-- `POST /api/quiz-session/submit` - Submit quiz answers
-- `GET /api/quiz-session/history` - Get quiz history
+```
+GET    /api/quran-camps                    # قائمة المخيمات
+GET    /api/quran-camps/:id                # تفاصيل مخيم
+POST   /api/quran-camps/:id/enroll         # الاشتراك في مخيم
+GET    /api/quran-camps/:id/daily-tasks    # المهام اليومية
+POST   /api/quran-camps/task/:id/complete  # إكمال مهمة
+GET    /api/quran-camps/:id/leaderboard    # لوحة الصدارة
+GET    /api/quran-camps/:id/my-streak      # سلسلة الإنجاز
+```
 
-### Admin Dashboard
-- `GET /api/admin/users` - Get all users
-- `GET /api/admin/analytics` - Get platform analytics
-- `POST /api/admin/print-requests` - Handle print requests
+### Daily Tests 🆕
 
-## 🗄️ Database Schema
+```
+GET    /api/quran-camps/:id/daily-tests/:dayNumber           # جلب اختبار
+POST   /api/quran-camps/:id/daily-tests/:dayNumber/submit    # إرسال إجابات
+GET    /api/quran-camps/:id/daily-tests/:dayNumber/results    # نتائج الاختبار
+GET    /api/quran-camps/:id/daily-tests/:dayNumber/check      # التحقق من الإتاحة
+```
 
-### Core Tables
-- `users` - User accounts and profiles
-- `hadiths` - Hadith content and metadata
-- `hadith_collections` - Hadith collections
-- `bookmarks` - User bookmarks
-- `dawah_cards` - User-created hadith cards
-- `card_hadiths` - Hadiths in cards
+### Study Hall
 
-### Quiz System Tables
-- `quiz_sessions` - Quiz session data
-- `quiz_questions` - Individual questions
-- `quiz_answers` - User answers
-- `quiz_categories` - Quiz categories
-- `quiz_difficulty_levels` - Difficulty levels
+```
+GET    /api/quran-camps/:id/study-hall        # محتوى قاعة التدارس
+POST   /api/quran-camps/reflection/upvote    # تصويت على تدبر
+POST   /api/quran-camps/reflection/save      # حفظ تدبر
+GET    /api/quran-camps/reflection/saved    # التدبر المحفوظة
+```
 
-### Admin Tables
-- `print_requests` - Physical content requests
-- `memorization_plans` - Learning plans
-- `plan_users` - Users in plans
+### Hadith Library
 
-## 🎨 UI/UX Features
+```
+GET    /api/hadith/random              # حديث عشوائي
+GET    /api/hadith/:id/details         # تفاصيل حديث
+GET    /api/hadith/search              # بحث في الأحاديث
+GET    /api/hadith/daily               # حديث اليوم
+```
 
-### Design System
-- **Glass-morphism**: Translucent elements with backdrop blur
-- **Gradient Backgrounds**: Purple to blue gradient themes
-- **Smooth Animations**: Framer Motion powered transitions
-- **Responsive Grid**: Adaptive layouts for all screen sizes
-- **Arabic Typography**: Optimized for Arabic text display
+### Admin APIs
 
-### Components
-- **Animated Cards**: Hover effects and entrance animations
-- **Loading States**: Skeleton loaders and spinners
-- **Toast Notifications**: Success/error feedback
-- **Modal Dialogs**: Smooth open/close transitions
-- **Progress Indicators**: Visual progress tracking
+```
+GET    /api/quran-camps/admin/:id/participants      # قائمة المشاركين
+GET    /api/quran-camps/admin/:id/analytics         # التحليلات
+GET    /api/quran-camps/admin/:id/daily-tests       # قائمة الاختبارات
+POST   /api/quran-camps/admin/:id/daily-tests       # إنشاء اختبار
+GET    /api/quran-camps/admin/:id/daily-tests/:day/statistics  # إحصائيات الاختبار
+```
 
-## 🔒 Security Features
+**للمزيد من التفاصيل**: راجع [وثائق API](./docs/QURAN_CAMPS_API.md)
 
-- **JWT Authentication**: Secure token-based auth
-- **Rate Limiting**: API request throttling
-- **Input Validation**: Request data sanitization
-- **CORS Configuration**: Cross-origin security
-- **Password Hashing**: bcrypt encryption
-- **Session Management**: Secure session handling
+---
 
-## 📱 Mobile Support
+## 🗄️ قاعدة البيانات
 
-- **Responsive Design**: Mobile-first approach
-- **Touch Gestures**: Swipe and tap interactions
-- **Offline Capabilities**: PWA features
-- **Push Notifications**: Real-time updates
-- **Progressive Enhancement**: Works without JavaScript
+### الجداول الرئيسية
 
-## 🚀 Deployment
+#### مخيمات القرآن
+
+- `quran_camps` - معلومات المخيمات
+- `camp_enrollments` - تسجيلات المستخدمين
+- `camp_daily_tasks` - المهام اليومية
+- `camp_task_progress` - تقدم المهام
+- `camp_cohorts` - الأفواج
+
+#### الاختبارات اليومية 🆕
+
+- `camp_daily_tests` - الاختبارات
+- `camp_test_questions` - الأسئلة
+- `camp_test_answers` - الإجابات
+- `camp_test_attempts` - محاولات المستخدمين
+- `camp_test_responses` - إجابات المستخدمين
+
+#### قاعة التدارس
+
+- `camp_reflections` - التدبر والفوائد
+- `reflection_upvotes` - التصويتات
+- `user_saved_reflections` - التدبر المحفوظة
+
+#### الإحالة والشهادات 🆕
+
+- `camp_referrals` - الإحالات
+- `certificates` - الشهادات الرقمية
+
+#### المكتبة الإسلامية
+
+- `hadiths` - الأحاديث
+- `hadith_collections` - المجموعات
+- `bookmarks` - الإشارات المرجعية
+
+---
+
+## 🔒 الأمان
+
+- ✅ **JWT Authentication** - مصادقة آمنة
+- ✅ **Password Hashing** - تشفير كلمات المرور
+- ✅ **Rate Limiting** - حماية من الهجمات
+- ✅ **Input Validation** - التحقق من المدخلات
+- ✅ **CORS Configuration** - أمان Cross-Origin
+- ✅ **SQL Injection Protection** - حماية من SQL Injection
+- ✅ **XSS Protection** - حماية من XSS
+
+---
+
+## 🧪 الاختبار
+
+```bash
+# Backend Tests
+cd backend
+npm test
+
+# Frontend Tests
+cd frontend
+npm test
+
+# Dashboard Tests
+cd dashboard
+npm test
+```
+
+---
+
+## 📦 النشر (Deployment)
 
 ### Backend Deployment
+
 ```bash
 cd backend
-npm run prod
-pm2 start index.js --env production
+npm run build
+pm2 start index.js --name meshkah-backend --env production
 pm2 save
 pm2 startup
 ```
 
 ### Frontend Deployment
+
 ```bash
 cd frontend
 npm run build
-# Deploy dist/ folder to your hosting service
+# رفع مجلد dist/ إلى خدمة الاستضافة
 ```
 
 ### Dashboard Deployment
+
 ```bash
 cd dashboard
 npm run build
 npm start
+# أو استخدام Vercel/Netlify
 ```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the ISC License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- **Hadith Sources**: Integration with authentic Islamic hadith databases
-- **Arabic Typography**: Special thanks to Arabic font contributors
-- **Open Source Community**: Built with amazing open-source libraries
-- **Islamic Scholars**: For guidance in authentic content curation
-
-## 📞 Support
-
-- **Email**: Meshkah@hadith-shareef.com
-- **Documentation**: [Wiki](https://github.com/Anas-Shalaby/meshkah/wiki)
-- **Issues**: [GitHub Issues](https://github.com/Anas-Shalaby/meshkah/issues)
 
 ---
 
-**Made with ❤️ for the Islamic community**
+## 🤝 المساهمة
 
-*"Seeking knowledge is obligatory upon every Muslim" - Prophet Muhammad ﷺ* 
+نرحب بمساهماتكم! للمساهمة في المشروع:
+
+1. **Fork** المستودع
+2. **إنشاء branch** جديد (`git checkout -b feature/amazing-feature`)
+3. **Commit** التغييرات (`git commit -m 'Add amazing feature'`)
+4. **Push** إلى الـ branch (`git push origin feature/amazing-feature`)
+5. **فتح Pull Request**
+
+### إرشادات المساهمة
+
+- اتبع معايير الكود الموجودة
+- أضف توثيقاً للكود الجديد
+- تأكد من عمل الاختبارات
+- اكتب commit messages واضحة
+
+**للمزيد**: راجع [دليل المساهمة](./CONTRIBUTING.md)
+
+---
+
+## 📄 الترخيص
+
+هذا المشروع مرخص تحت [ISC License](./LICENSE).
+
+---
+
+## 🙏 شكر وتقدير
+
+- **مصادر الأحاديث**: تكامل مع قواعد بيانات حديث موثوقة
+- **الخطوط العربية**: شكر خاص لمساهمي الخطوط العربية
+- **المجتمع مفتوح المصدر**: بُني باستخدام مكتبات مفتوحة المصدر رائعة
+- **العلماء**: للدعم في اختيار المحتوى الأصيل
+
+---
+
+## 📞 الدعم والاتصال
+
+- **البريد الإلكتروني**: Meshkah@hadith-shareef.com
+- **التوثيق**: [Wiki](https://github.com/Anas-Shalaby/meshkah/wiki)
+- **الإبلاغ عن مشاكل**: [GitHub Issues](https://github.com/Anas-Shalaby/meshkah/issues)
+- **الاقتراحات**: [GitHub Discussions](https://github.com/Anas-Shalaby/meshkah/discussions)
+
+---
+
+## 🌟 الميزات القادمة
+
+- [ ] تطبيق موبايل (React Native)
+- [ ] نظام إشعارات Push للموبايل
+- [ ] تكامل مع منصات التواصل الاجتماعي
+- [ ] نظام شارات وإنجازات
+- [ ] تحليلات متقدمة بالذكاء الاصطناعي
+- [ ] دعم لغات إضافية
+
+---
+
+<div align="center">
+
+**صُنع بـ ❤️ للمجتمع الإسلامي**
+
+_"طلب العلم فريضة على كل مسلم" - رسول الله ﷺ_
+
+[⭐ Star على GitHub](https://github.com/Anas-Shalaby/meshkah) • [📖 اقرأ الوثائق](./docs/) • [🐛 الإبلاغ عن مشكلة](https://github.com/Anas-Shalaby/meshkah/issues)
+
+</div>
