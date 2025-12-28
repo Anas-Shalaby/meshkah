@@ -61,7 +61,15 @@ const TASK_TYPES = [
 ];
 
 // Sortable Task Component
-function SortableTask({ task, onEdit, onDelete, getTaskTypeText, bulkDeleteMode, isSelected, onToggleSelect }) {
+function SortableTask({
+  task,
+  onEdit,
+  onDelete,
+  getTaskTypeText,
+  bulkDeleteMode,
+  isSelected,
+  onToggleSelect,
+}) {
   const {
     attributes,
     listeners,
@@ -458,6 +466,9 @@ export default function CampTasksPage() {
   const [showTaskPreview, setShowTaskPreview] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState<Set<number>>(new Set());
   const [bulkDeleteMode, setBulkDeleteMode] = useState(false);
+  const [selectedCohortNumber, setSelectedCohortNumber] = useState<
+    number | null
+  >(null);
 
   const applyTasksPayload = (tasksResponse: any) => {
     const payload = tasksResponse?.data ?? tasksResponse ?? {};
@@ -502,7 +513,10 @@ export default function CampTasksPage() {
         title: trimmedTitle,
         description: trimmedDescription,
       });
-      const tasksResponse = await dashboardService.getCampDailyTasks(campId);
+      const tasksResponse = await dashboardService.getCampDailyTasks(
+        campId,
+        selectedCohortNumber || undefined
+      );
       applyTasksPayload(tasksResponse);
       closeChallengeEditor();
     } catch (error) {
@@ -522,7 +536,10 @@ export default function CampTasksPage() {
       setChallengeSaving(true);
       setChallengeError(null);
       await dashboardService.deleteCampDayChallenge(campId, dayNumber);
-      const tasksResponse = await dashboardService.getCampDailyTasks(campId);
+      const tasksResponse = await dashboardService.getCampDailyTasks(
+        campId,
+        selectedCohortNumber || undefined
+      );
       applyTasksPayload(tasksResponse);
       if (challengeEditor.day === dayNumber) {
         closeChallengeEditor();
@@ -634,11 +651,11 @@ export default function CampTasksPage() {
     setEditingTask(task);
     setShowTaskPreview(false);
   };
-  
+
   // دالة نسخ المهمة إلى يوم آخر
   const handleCopyTask = async (task: CampTask, targetDay: number) => {
     if (!campId) return;
-    
+
     try {
       setSaving(true);
       const taskPayload: NewTaskPayload = {
@@ -657,7 +674,7 @@ export default function CampTasksPage() {
         group_id: task.group_id ?? null,
         order_in_group: task.order_in_group ?? null,
       };
-      
+
       await dashboardService.addDailyTasks(campId, { tasks: [taskPayload] });
       await loadTasks();
       alert("تم نسخ المهمة بنجاح!");
@@ -668,13 +685,13 @@ export default function CampTasksPage() {
       setSaving(false);
     }
   };
-  
+
   // دالة الحذف الجماعي
   const handleBulkDelete = async () => {
     if (!campId || selectedTasks.size === 0) return;
-    
+
     if (!confirm(`هل أنت متأكد من حذف ${selectedTasks.size} مهمة؟`)) return;
-    
+
     try {
       setSaving(true);
       const deletePromises = Array.from(selectedTasks).map((taskId) =>
@@ -692,7 +709,7 @@ export default function CampTasksPage() {
       setSaving(false);
     }
   };
-  
+
   // تبديل اختيار مهمة
   const toggleTaskSelection = (taskId: number) => {
     const newSelected = new Set(selectedTasks);
@@ -739,12 +756,22 @@ export default function CampTasksPage() {
         const [campResponse, tasksResponse, groupsResponse] = await Promise.all(
           [
             dashboardService.getQuranCampDetails(campId),
-            dashboardService.getCampDailyTasks(campId),
+            dashboardService.getCampDailyTasks(
+              campId,
+              selectedCohortNumber || undefined
+            ),
             dashboardService.getCampTaskGroups(campId),
           ]
         );
 
-        setCamp(campResponse.data?.data ?? null);
+        const campData = campResponse.data?.data ?? null;
+        setCamp(campData);
+
+        // Set default cohort number
+        if (campData?.current_cohort_number && !selectedCohortNumber) {
+          setSelectedCohortNumber(campData.current_cohort_number);
+        }
+
         applyTasksPayload(tasksResponse);
         setTaskGroups(groupsResponse.data || []);
       } catch (err) {
@@ -758,7 +785,7 @@ export default function CampTasksPage() {
     if (campId) {
       fetchData();
     }
-  }, [campId]);
+  }, [campId, selectedCohortNumber]);
 
   const handleAddTask = async () => {
     if (!campId) return;
@@ -769,7 +796,10 @@ export default function CampTasksPage() {
       await dashboardService.addDailyTasks(campId, [newTask]);
 
       // Refresh tasks
-      const tasksResponse = await dashboardService.getCampDailyTasks(campId);
+      const tasksResponse = await dashboardService.getCampDailyTasks(
+        campId,
+        selectedCohortNumber || undefined
+      );
       applyTasksPayload(tasksResponse);
 
       closeAddTaskModal();
@@ -796,7 +826,10 @@ export default function CampTasksPage() {
       setSaving(true);
       setError(null);
       await dashboardService.deleteDailyTask(String(taskToDelete.id));
-      const tasksResponse = await dashboardService.getCampDailyTasks(campId);
+      const tasksResponse = await dashboardService.getCampDailyTasks(
+        campId,
+        selectedCohortNumber || undefined
+      );
       applyTasksPayload(tasksResponse);
       setTaskToDelete(null);
     } catch (error) {
@@ -2382,7 +2415,8 @@ export default function CampTasksPage() {
                       className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-rose-500/40 bg-rose-900/30 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium text-rose-100 transition hover:bg-rose-800/40 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                      حذف {selectedTasks.size > 0 ? `(${selectedTasks.size})` : ""}
+                      حذف{" "}
+                      {selectedTasks.size > 0 ? `(${selectedTasks.size})` : ""}
                     </button>
                   </>
                 ) : (
@@ -2399,7 +2433,9 @@ export default function CampTasksPage() {
                       className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-purple-500/40 bg-purple-900/30 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium text-purple-100 transition hover:bg-purple-800/40"
                     >
                       <BookOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                      <span className="hidden sm:inline">إدارة قاعة التدارس</span>
+                      <span className="hidden sm:inline">
+                        إدارة قاعة التدارس
+                      </span>
                       <span className="sm:hidden">قاعة التدارس</span>
                     </Link>
                   </>
@@ -2541,6 +2577,7 @@ export default function CampTasksPage() {
             }
           />
           <CampNavigation campId={campId} />
+
           {/* Error Message */}
           {error && (
             <div className="rounded-3xl border border-rose-700/40 bg-rose-900/30 p-4 text-sm text-rose-100">
@@ -2798,7 +2835,7 @@ export default function CampTasksPage() {
                   </button>
                 </div>
               </div>
-              
+
               {/* معاينة المهمة */}
               {showTaskPreview && (
                 <div className="mb-6 rounded-xl border border-slate-700 bg-slate-950/60 p-4">
@@ -2808,15 +2845,21 @@ export default function CampTasksPage() {
                   <div className="space-y-2 text-sm">
                     <div>
                       <span className="text-slate-400">العنوان:</span>{" "}
-                      <span className="text-slate-100">{editingTask.title || "(بدون عنوان)"}</span>
+                      <span className="text-slate-100">
+                        {editingTask.title || "(بدون عنوان)"}
+                      </span>
                     </div>
                     <div>
                       <span className="text-slate-400">النوع:</span>{" "}
-                      <span className="text-slate-100">{getTaskTypeText(editingTask.task_type)}</span>
+                      <span className="text-slate-100">
+                        {getTaskTypeText(editingTask.task_type)}
+                      </span>
                     </div>
                     <div>
                       <span className="text-slate-400">اليوم:</span>{" "}
-                      <span className="text-slate-100">{editingTask.day_number}</span>
+                      <span className="text-slate-100">
+                        {editingTask.day_number}
+                      </span>
                     </div>
                     {editingTask.description && (
                       <div>
@@ -2836,7 +2879,9 @@ export default function CampTasksPage() {
                     )}
                     <div>
                       <span className="text-slate-400">النقاط:</span>{" "}
-                      <span className="text-slate-100">{editingTask.points || 0}</span>
+                      <span className="text-slate-100">
+                        {editingTask.points || 0}
+                      </span>
                     </div>
                     <div>
                       <span className="text-slate-400">الحالة:</span>{" "}
@@ -3141,12 +3186,17 @@ export default function CampTasksPage() {
                   <button
                     onClick={() => {
                       const targetDay = prompt(
-                        `انسخ المهمة إلى أي يوم؟ (1-${camp?.duration_days || 7})`,
+                        `انسخ المهمة إلى أي يوم؟ (1-${
+                          camp?.duration_days || 7
+                        })`,
                         String(editingTask.day_number)
                       );
                       if (targetDay) {
                         const dayNum = parseInt(targetDay);
-                        if (dayNum >= 1 && dayNum <= (camp?.duration_days || 7)) {
+                        if (
+                          dayNum >= 1 &&
+                          dayNum <= (camp?.duration_days || 7)
+                        ) {
                           handleCopyTask(editingTask, dayNum);
                         } else {
                           alert("الرجاء إدخال رقم يوم صحيح");

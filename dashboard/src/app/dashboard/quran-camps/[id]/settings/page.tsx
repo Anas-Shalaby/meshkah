@@ -164,6 +164,8 @@ export default function CampSettingsPage() {
     name: "",
     enable_interactions: true,
   });
+  const [previousEnablePublicEnrollment, setPreviousEnablePublicEnrollment] =
+    useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -207,6 +209,19 @@ export default function CampSettingsPage() {
     key: keyof CampSettings,
     value: boolean | string | number | null
   ) => {
+    // Track enable_public_enrollment changes for notification
+    if (key === "enable_public_enrollment") {
+      const oldValue = camp.enable_public_enrollment;
+      const newValue = value as boolean;
+      if (oldValue === false && newValue === true) {
+        // Show notification that emails will be sent
+        toast({
+          title: "تنبيه",
+          description:
+            "سيتم إرسال إشعارات بريدية للمشتركين في القائمة عند فتح المخيم",
+        });
+      }
+    }
     setCamp((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -410,12 +425,24 @@ export default function CampSettingsPage() {
             <ToggleCard
               icon={UserPlus}
               title="التسجيل العام"
-              description="السماح للمستخدمين بالتسجيل في المخيم من تلقاء أنفسهم"
+              description={
+                camp.enable_public_enrollment
+                  ? "التسجيل مفتوح للجميع"
+                  : "التسجيل مغلق - لا يمكن لأحد التسجيل في أي فوج"
+              }
               checked={camp.enable_public_enrollment}
               onChange={(value) =>
                 handleCampSettingChange("enable_public_enrollment", value)
               }
             />
+            {camp.enable_public_enrollment === false && (
+              <div className="rounded-xl border border-yellow-800 bg-yellow-950/40 p-3 text-sm text-yellow-200">
+                <p className="font-medium">المخيم مغلق</p>
+                <p className="mt-1 text-xs text-yellow-300">
+                  لا يمكن لأحد التسجيل في أي فوج حتى يتم فتح المخيم
+                </p>
+              </div>
+            )}
             <ToggleCard
               icon={MessageSquare}
               title="محتوى المجتمع"

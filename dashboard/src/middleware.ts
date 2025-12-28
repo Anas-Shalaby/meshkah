@@ -19,3 +19,6 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: ["/dashboard/:path*", "/login"],
 };
+
+// Force Node.js runtime instead of edge runtime to avoid eval errors in production
+export const runtime = "nodejs";

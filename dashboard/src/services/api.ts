@@ -191,16 +191,55 @@ export const dashboardService = {
   deleteDailyTask: (taskId: string) =>
     api.delete(`/quran-camps/admin/tasks/${taskId}`).then((res) => res.data),
 
-  getCampInteractions: (id: string) =>
-    api.get(`/quran-camps/${id}/interactions`).then((res) => res.data),
+  // Daily Tests
+  getDailyTests: (campId: string) =>
+    api.get(`/quran-camps/admin/${campId}/daily-tests`).then((res) => res.data),
+  getDailyTest: (campId: string, dayNumber: number) =>
+    api
+      .get(`/quran-camps/admin/${campId}/daily-tests/${dayNumber}`)
+      .then((res) => res.data),
+  createDailyTest: (campId: string, testData: any) =>
+    api
+      .post(`/quran-camps/admin/${campId}/daily-tests`, testData)
+      .then((res) => res.data),
+  deleteDailyTest: (campId: string, dayNumber: number) =>
+    api
+      .delete(`/quran-camps/admin/${campId}/daily-tests/${dayNumber}`)
+      .then((res) => res.data),
+  getTestStatistics: (campId: string, dayNumber: number) =>
+    api
+      .get(`/quran-camps/admin/${campId}/daily-tests/${dayNumber}/statistics`)
+      .then((res) => res.data),
+  getUserAttemptDetails: (attemptId: number) =>
+    api
+      .get(`/quran-camps/admin/daily-tests/attempts/${attemptId}`)
+      .then((res) => res.data),
+
+  getCampInteractions: (id: string, cohortNumber?: number) =>
+    api
+      .get(`/quran-camps/${id}/interactions`, {
+        params: cohortNumber ? { cohort_number: cohortNumber } : {},
+      })
+      .then((res) => res.data),
 
   updateCampStatus: (id: string, status: string) =>
     api.put(`/quran-camps/admin/${id}`, { status }).then((res) => res.data),
-  getCampStats: (id: string) => api.get(`/quran-camps/admin/stats`),
-  getCampDailyTasks: (id: string) => api.get(`/quran-camps/${id}/daily-tasks`),
-  getCampParticipants: (id: string) =>
-    api.get(`/quran-camps/${id}/participants`),
-  getCampAnalytics: (id: string) => api.get(`/quran-camps/${id}/analytics`),
+  getCampStats: (id: string, cohortNumber?: number) =>
+    api.get(`/quran-camps/admin/stats`, {
+      params: cohortNumber ? { cohort_number: cohortNumber } : {},
+    }),
+  getCampDailyTasks: (id: string, cohortNumber?: number) =>
+    api.get(`/quran-camps/${id}/daily-tasks`, {
+      params: cohortNumber ? { cohort_number: cohortNumber } : {},
+    }),
+  getCampParticipants: (id: string, cohortNumber?: number) =>
+    api.get(`/quran-camps/${id}/participants`, {
+      params: cohortNumber ? { cohort_number: cohortNumber } : {},
+    }),
+  getCampAnalytics: (id: string, cohortNumber?: number) =>
+    api.get(`/quran-camps/${id}/analytics`, {
+      params: cohortNumber ? { cohort_number: cohortNumber } : {},
+    }),
   updateCampStatusAdmin: (id: string, status: string) =>
     api.put(`/quran-camps/${id}/status`, { status }).then((res) => res.data),
 
@@ -210,6 +249,237 @@ export const dashboardService = {
   ) =>
     api
       .post(`/quran-camps/admin/${id}/cohorts/start`, data || {})
+      .then((res) => res.data),
+
+  // Cohorts Management APIs
+  getCampCohorts: (
+    id: string,
+    params?: { status?: string; page?: number; limit?: number; sort?: string }
+  ) =>
+    api
+      .get(`/quran-camps/admin/${id}/cohorts`, { params })
+      .then((res) => res.data),
+  getCampCohort: (id: string, cohortNumber: number) =>
+    api
+      .get(`/quran-camps/admin/${id}/cohorts/${cohortNumber}`)
+      .then((res) => res.data),
+  createCampCohort: (id: string, data: any) =>
+    api.post(`/quran-camps/admin/${id}/cohorts`, data).then((res) => res.data),
+  updateCampCohort: (id: string, cohortNumber: number, data: any) =>
+    api
+      .put(`/quran-camps/admin/${id}/cohorts/${cohortNumber}`, data)
+      .then((res) => res.data),
+  deleteCampCohort: (
+    id: string,
+    cohortNumber: number,
+    params?: { migrateToCohort?: number; deleteParticipants?: boolean }
+  ) =>
+    api
+      .delete(`/quran-camps/admin/${id}/cohorts/${cohortNumber}`, { params })
+      .then((res) => res.data),
+  startCampCohort: (id: string, cohortNumber: number) =>
+    api
+      .post(`/quran-camps/admin/${id}/cohorts/${cohortNumber}/start`)
+      .then((res) => res.data),
+  completeCampCohort: (id: string, cohortNumber: number) =>
+    api
+      .post(`/quran-camps/admin/${id}/cohorts/${cohortNumber}/complete`)
+      .then((res) => res.data),
+  cancelCampCohort: (id: string, cohortNumber: number) =>
+    api
+      .post(`/quran-camps/admin/${id}/cohorts/${cohortNumber}/cancel`)
+      .then((res) => res.data),
+  openCampCohort: (id: string, cohortNumber: number) =>
+    api
+      .post(`/quran-camps/admin/${id}/cohorts/${cohortNumber}/open`)
+      .then((res) => res.data),
+  closeCampCohort: (id: string, cohortNumber: number) =>
+    api
+      .post(`/quran-camps/admin/${id}/cohorts/${cohortNumber}/close`)
+      .then((res) => res.data),
+  getCohortStats: (id: string, cohortNumber: number) =>
+    api
+      .get(`/quran-camps/admin/${id}/cohorts/${cohortNumber}/stats`)
+      .then((res) => res.data),
+  getCohortsComparison: (id: string) =>
+    api
+      .get(`/quran-camps/admin/${id}/cohorts/comparison`)
+      .then((res) => res.data),
+  getCohortParticipants: (
+    id: string,
+    cohortNumber: number,
+    params?: { page?: number; limit?: number; search?: string; status?: string }
+  ) =>
+    api
+      .get(`/quran-camps/admin/${id}/cohorts/${cohortNumber}/participants`, {
+        params,
+      })
+      .then((res) => res.data),
+  getCohortParticipantsForAdmin: (
+    id: string,
+    cohortNumber: number,
+    params?: { page?: number; limit?: number; search?: string; status?: string }
+  ) =>
+    api
+      .get(
+        `/quran-camps/admin/${id}/cohorts/${cohortNumber}/participants/all`,
+        {
+          params,
+        }
+      )
+      .then((res) => res.data),
+  migrateUserBetweenCohorts: (
+    id: string,
+    cohortNumber: number,
+    data: { user_id: number; target_cohort_number: number }
+  ) =>
+    api
+      .post(
+        `/quran-camps/admin/${id}/cohorts/${cohortNumber}/migrate-user`,
+        data
+      )
+      .then((res) => res.data),
+  bulkMigrateUsersBetweenCohorts: (
+    id: string,
+    cohortNumber: number,
+    data: { user_ids: number[]; target_cohort_number: number }
+  ) =>
+    api
+      .post(
+        `/quran-camps/admin/${id}/cohorts/${cohortNumber}/bulk-migrate`,
+        data
+      )
+      .then((res) => res.data),
+  getScheduledCohorts: (id: string) =>
+    api
+      .get(`/quran-camps/admin/${id}/cohorts/scheduled`)
+      .then((res) => res.data),
+  scheduleCampCohort: (
+    id: string,
+    cohortNumber: number,
+    data: { start_date: string }
+  ) =>
+    api
+      .post(`/quran-camps/admin/${id}/cohorts/${cohortNumber}/schedule`, data)
+      .then((res) => res.data),
+  sendCohortNotification: (id: string, cohortNumber: number) =>
+    api
+      .post(
+        `/quran-camps/admin/${id}/cohorts/${cohortNumber}/send-notification`
+      )
+      .then((res) => res.data),
+  sendCohortAnnouncement: (
+    id: string,
+    cohortNumber: number,
+    announcementMessage?: string
+  ) =>
+    api
+      .post(
+        `/quran-camps/admin/${id}/cohorts/${cohortNumber}/send-announcement`,
+        { announcement_message: announcementMessage }
+      )
+      .then((res) => res.data),
+  sendCohortCompletionNotifications: (id: string, cohortNumber: number) =>
+    api
+      .post(
+        `/admin/quran-camps/${id}/cohorts/${cohortNumber}/send-completion-notification`
+      )
+      .then((res) => res.data),
+
+  // Supervisors Management APIs
+  getCampSupervisors: (id: string, cohortNumber?: number) =>
+    api
+      .get(
+        cohortNumber
+          ? `/quran-camps/${id}/cohorts/${cohortNumber}/supervisors`
+          : `/quran-camps/${id}/supervisors`
+      )
+      .then((res) => res.data),
+
+  addCampSupervisor: (
+    id: string,
+    data: { userId: number; cohortNumber?: number }
+  ) =>
+    api
+      .post(
+        data.cohortNumber
+          ? `/quran-camps/${id}/cohorts/${data.cohortNumber}/supervisors`
+          : `/quran-camps/${id}/supervisors`,
+        { userId: data.userId }
+      )
+      .then((res) => res.data),
+  removeCampSupervisor: (id: string, userId: number, cohortNumber?: number) =>
+    api
+      .delete(
+        cohortNumber
+          ? `/quran-camps/${id}/cohorts/${cohortNumber}/supervisors/${userId}`
+          : `/quran-camps/${id}/supervisors/${userId}`
+      )
+      .then((res) => res.data),
+
+  // Supervisor APIs
+  getSupervisorCohortParticipants: (id: string, cohortNumber: number) =>
+    api
+      .get(`/quran-camps/${id}/supervisor/cohort/${cohortNumber}/participants`)
+      .then((res) => res.data),
+  removeParticipantBySupervisor: (
+    id: string,
+    cohortNumber: number,
+    userId: number
+  ) =>
+    api
+      .delete(
+        `/quran-camps/${id}/supervisor/cohort/${cohortNumber}/participants/${userId}`
+      )
+      .then((res) => res.data),
+  migrateParticipantBySupervisor: (
+    id: string,
+    cohortNumber: number,
+    data: { user_id: number; target_cohort_number: number }
+  ) =>
+    api
+      .post(
+        `/quran-camps/${id}/supervisor/cohort/${cohortNumber}/migrate-participant`,
+        data
+      )
+      .then((res) => res.data),
+  getSupervisorCohortStats: (id: string, cohortNumber: number) =>
+    api
+      .get(`/quran-camps/${id}/supervisor/cohort/${cohortNumber}/stats`)
+      .then((res) => res.data),
+
+  // Camp Notification Subscribers APIs
+  getEmailSubscribers: (params?: {
+    page?: number;
+    limit?: number;
+    is_active?: string;
+    subscription_type?: string;
+  }) =>
+    api
+      .get(`/camp-notifications/admin/subscribers`, { params })
+      .then((res) => res.data),
+  addEmailSubscriber: (data: {
+    email: string;
+    subscription_type?: string;
+    notes?: string;
+  }) =>
+    api
+      .post(`/camp-notifications/admin/subscribers`, data)
+      .then((res) => res.data),
+  removeEmailSubscriber: (id: number) =>
+    api
+      .delete(`/camp-notifications/admin/subscribers/${id}`)
+      .then((res) => res.data),
+  exportEmailSubscribers: (format?: string) =>
+    api
+      .get(`/camp-notifications/admin/subscribers/export`, {
+        params: { format },
+        responseType: "blob",
+      })
+      .then((res) => res.data),
+  getEmailSubscribersStats: () =>
+    api
+      .get(`/camp-notifications/admin/subscribers/stats`)
       .then((res) => res.data),
 
   deleteCamp: (id: string) =>
@@ -233,8 +503,12 @@ export const dashboardService = {
       .then((res) => res.data),
 
   // Camp Resources Management
-  getCampResources: (id: string) =>
-    api.get(`/quran-camps/${id}/resources`).then((res) => res.data),
+  getCampResources: (id: string, cohortNumber?: number) =>
+    api
+      .get(`/quran-camps/${id}/resources`, {
+        params: cohortNumber ? { cohort_number: cohortNumber } : {},
+      })
+      .then((res) => res.data),
   createCampResource: (id: string, data: any) =>
     api
       .post(`/quran-camps/admin/${id}/resources`, data)
@@ -280,8 +554,12 @@ export const dashboardService = {
       .then((res) => res.data),
 
   // Camp Q&A Management
-  getCampQandA: (id: string) =>
-    api.get(`/quran-camps/${id}/qanda`).then((res) => res.data),
+  getCampQandA: (id: string, cohortNumber?: number) =>
+    api
+      .get(`/quran-camps/${id}/qanda`, {
+        params: cohortNumber ? { cohort_number: cohortNumber } : {},
+      })
+      .then((res) => res.data),
   answerCampQuestion: (questionId: string, answer: string) =>
     api
       .post(`/quran-camps/admin/qanda/${questionId}/answer`, { answer })
@@ -341,6 +619,13 @@ export const dashboardService = {
   getAdminStudyHallContent: (id: string, params?: any) =>
     api
       .get(`/quran-camps/admin/${id}/study-hall`, { params })
+      .then((res) => res.data),
+  exportStudyHallFawaid: (id: string, params?: { cohort_number?: number }) =>
+    api
+      .get(`/quran-camps/admin/${id}/study-hall/export`, {
+        params,
+        responseType: "blob",
+      })
       .then((res) => res.data),
   updateStudyHallContent: (progressId: string, data: any) =>
     api

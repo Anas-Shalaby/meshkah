@@ -30,6 +30,7 @@ import Link from "next/link";
 import { dashboardService } from "@/services/api";
 import { ActionToolbar } from "@/components/ui/action-toolbar";
 import { CampNavigation } from "@/components/quran-camps/CampNavigation";
+import { CohortSelector } from "@/components/quran-camps/CohortSelector";
 import { ChipPill } from "@/components/ui/chip-pill";
 import { StatCard } from "@/components/ui/stat-card";
 import {
@@ -112,6 +113,9 @@ export default function CampAnalyticsPage() {
   const [resources, setResources] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCohortNumber, setSelectedCohortNumber] = useState<
+    number | null
+  >(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -124,12 +128,22 @@ export default function CampAnalyticsPage() {
           resourcesResponse,
         ] = await Promise.all([
           dashboardService.getQuranCampDetails(campId),
-          dashboardService.getCampAnalytics(campId),
+          dashboardService.getCampAnalytics(
+            campId,
+            selectedCohortNumber || undefined
+          ),
           dashboardService.getCampQandA(campId).catch(() => ({ data: [] })),
           dashboardService.getCampResources(campId).catch(() => ({ data: [] })),
         ]);
 
-        setCamp(campResponse.data?.data ?? null);
+        const campData = campResponse.data?.data ?? null;
+        setCamp(campData);
+
+        // Set default cohort number
+        if (campData?.current_cohort_number && !selectedCohortNumber) {
+          setSelectedCohortNumber(campData.current_cohort_number);
+        }
+
         setAnalytics(analyticsResponse.data?.data ?? null);
         setQanda(qandaResponse.data || []);
         setResources(resourcesResponse.data || []);
@@ -144,7 +158,7 @@ export default function CampAnalyticsPage() {
     if (campId) {
       fetchData();
     }
-  }, [campId]);
+  }, [campId, selectedCohortNumber]);
 
   const activityRate = useMemo(() => {
     if (!analytics || analytics.totalEnrollments === 0) return 0;
@@ -432,7 +446,9 @@ export default function CampAnalyticsPage() {
                     link.href = url;
                     link.setAttribute(
                       "download",
-                      `camp_analytics_${campId}_${new Date().toISOString().split("T")[0]}.xlsx`
+                      `camp_analytics_${campId}_${
+                        new Date().toISOString().split("T")[0]
+                      }.xlsx`
                     );
                     document.body.appendChild(link);
                     link.click();
@@ -557,8 +573,16 @@ export default function CampAnalyticsPage() {
                         x2="0"
                         y2="1"
                       >
-                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
-                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                        <stop
+                          offset="5%"
+                          stopColor="#8b5cf6"
+                          stopOpacity={0.8}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor="#8b5cf6"
+                          stopOpacity={0}
+                        />
                       </linearGradient>
                       <linearGradient
                         id="colorEnrollments"
@@ -567,8 +591,16 @@ export default function CampAnalyticsPage() {
                         x2="0"
                         y2="1"
                       >
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                        <stop
+                          offset="5%"
+                          stopColor="#10b981"
+                          stopOpacity={0.8}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor="#10b981"
+                          stopOpacity={0}
+                        />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />

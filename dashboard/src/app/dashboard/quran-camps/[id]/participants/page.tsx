@@ -24,6 +24,8 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import { ActionToolbar } from "@/components/ui/action-toolbar";
 import { StatCard } from "@/components/ui/stat-card";
 import { ChipPill } from "@/components/ui/chip-pill";
+import { CampNavigation } from "@/components/quran-camps/CampNavigation";
+import { CohortSelector } from "@/components/quran-camps/CohortSelector";
 import { dashboardService } from "@/services/api";
 
 interface Participant {
@@ -38,6 +40,7 @@ interface Participant {
   total_tasks: number;
   enrollment_date: string;
   hide_identity?: boolean;
+  is_supervisor?: number; // 1 if supervisor, 0 if not
 }
 
 interface CampSummary {
@@ -171,20 +174,43 @@ export default function CampParticipantsPage() {
   const [userBenefits, setUserBenefits] = useState<any[]>([]);
   const [loadingUserDetails, setLoadingUserDetails] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
+  const [selectedCohortNumber, setSelectedCohortNumber] = useState<
+    number | null
+  >(null);
 
   useEffect(() => {
     const fetchData = async () => {
       if (!campId) return;
       try {
-        const [campResponse, participantsResponse] = await Promise.all([
-          dashboardService.getQuranCampDetails(campId),
-          dashboardService.getCampParticipants(campId),
-        ]);
+        const campResponse = await dashboardService.getQuranCampDetails(campId);
+        const campData = campResponse.data?.data ?? null;
+        setCamp(campData);
 
-        setCamp(campResponse.data?.data ?? null);
-        setParticipants(
-          (participantsResponse.data?.data as Participant[]) || []
-        );
+        // Set default cohort number
+        if (campData?.current_cohort_number && !selectedCohortNumber) {
+          setSelectedCohortNumber(campData.current_cohort_number);
+        }
+
+        // Use selected cohort or current cohort
+        const cohortToUse =
+          selectedCohortNumber || campData?.current_cohort_number;
+
+        if (!cohortToUse) {
+          setError(
+            "لا يوجد فوج نشط حالياً. يرجى إنشاء فوج أو تفعيل فوج موجود."
+          );
+          setLoading(false);
+          return;
+        }
+
+        // Fetch participants for the selected cohort (includes supervisors for admin)
+        const participantsResponse =
+          await dashboardService.getCohortParticipantsForAdmin(
+            campId,
+            cohortToUse
+          );
+
+        setParticipants((participantsResponse?.data as Participant[]) || []);
       } catch (err) {
         setError("حدث خطأ أثناء تحميل البيانات");
         console.error("Error fetching data:", err);
@@ -194,7 +220,7 @@ export default function CampParticipantsPage() {
     };
 
     fetchData();
-  }, [campId]);
+  }, [campId, selectedCohortNumber]);
 
   const filteredParticipants = useMemo(() => {
     return participants
@@ -268,7 +294,8 @@ export default function CampParticipantsPage() {
         const participantsResponse = await dashboardService.getCampParticipants(
           campId
         );
-        setParticipants(participantsResponse.data?.data || []);
+        setParticipants(participantsResponse?.data?.data || []);
+
         alert("✅ تم حذف المستخدم من المخيم بنجاح");
       } catch (err) {
         console.error("Error removing user from camp:", err);
@@ -332,6 +359,8 @@ export default function CampParticipantsPage() {
   return (
     <DashboardLayout>
       <div className="space-y-4 sm:space-y-6 lg:space-y-8 p-4 sm:p-6 pb-8 sm:pb-12">
+        <CampNavigation campId={campId as string} />
+
         <ActionToolbar
           title="المشتركين في المخيم"
           subtitle={
@@ -501,6 +530,14 @@ export default function CampParticipantsPage() {
                             </h3>
                             {participant.hide_identity ? (
                               <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-500 flex-shrink-0" />
+                            ) : null}
+                            {participant.is_supervisor === 1 ? (
+                              <ChipPill
+                                variant="neutral"
+                                className="bg-transparent text-xs sm:text-sm border border-amber-500/40 bg-amber-900/30 text-amber-200"
+                              >
+                                مشرف
+                              </ChipPill>
                             ) : null}
                             <ChipPill
                               variant="neutral"

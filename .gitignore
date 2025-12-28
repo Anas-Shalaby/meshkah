@@ -120,4 +120,7 @@ public/uploads/
 
 # API keys and secrets
 secrets.json
-config/secrets.json 
+config/secrets.json
+serviceAccountKey.json
+**/serviceAccountKey.json
+*.serviceAccountKey.json 

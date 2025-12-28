@@ -28,6 +28,8 @@ import {
   HelpCircle,
   Share2,
   Copy,
+  Mail,
+  Plus,
 } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import Link from "next/link";
@@ -37,12 +39,13 @@ import { StatCard } from "@/components/ui/stat-card";
 import { ChipPill } from "@/components/ui/chip-pill";
 import { TimelineStepper } from "@/components/quran-camps/timeline-stepper";
 import { CampNavigation } from "@/components/quran-camps/CampNavigation";
+import { CohortSelector } from "@/components/quran-camps/CohortSelector";
 
-// @ts-ignore
 type CampStatus = "early_registration" | "active" | "completed" | "reopened";
 
 type Camp = {
   id: number;
+  share_link: string;
   name: string;
   status: CampStatus;
   status_ar: string;
@@ -57,12 +60,22 @@ type Camp = {
   tags?: string[];
   current_cohort_number?: number;
   total_cohorts?: number;
+  available_cohorts: Array<{
+    cohort_number: number;
+    start_date: string;
+    end_date: string;
+    status: string;
+    max_participants :number;
+    is_open :boolean;
+    participants_count: number;
+  }>;
 };
 
 type CampStats = {
   total_enrollments: number;
   completed_enrollments: number;
   average_progress: number;
+  supervisors?: number; // Admin only
   top_performers?: Array<{
     username: string;
     rank: number;
@@ -128,6 +141,11 @@ export default function CampDetailsPage() {
   const [showStartDateModal, setShowStartDateModal] = useState(false);
   const [selectedStartDate, setSelectedStartDate] = useState("");
   const [isSticky, setIsSticky] = useState(false);
+  const [supervisors, setSupervisors] = useState<any[]>([]);
+  const [loadingSupervisors, setLoadingSupervisors] = useState(false);
+  const [selectedCohortNumber, setSelectedCohortNumber] = useState<
+    number | null
+  >(null);
 
   const resolveResourceMeta = (resource: CampResource) => {
     const fallback = {
@@ -204,14 +222,24 @@ export default function CampDetailsPage() {
         const [campResponse, statsResponse, resourcesResponse, qandaResponse] =
           await Promise.all([
             dashboardService.getQuranCampDetails(campId),
-            dashboardService.getCampStats(campId),
+            dashboardService.getCampStats(
+              campId,
+              selectedCohortNumber || undefined
+            ),
             dashboardService
               .getCampResources(campId)
               .catch(() => ({ data: [] })),
             dashboardService.getCampQandA(campId).catch(() => ({ data: [] })),
           ]);
 
-        setCamp(campResponse.data?.data ?? null);
+        const campData = campResponse.data?.data ?? null;
+        setCamp(campData);
+
+        // Set default cohort number
+        if (campData?.current_cohort_number && !selectedCohortNumber) {
+          setSelectedCohortNumber(campData.current_cohort_number);
+        }
+
         setStats(statsResponse.data?.data ?? null);
         setResources(resourcesResponse?.data || []);
         setQanda(qandaResponse?.data || []);
@@ -223,14 +251,37 @@ export default function CampDetailsPage() {
         if (!silent) setLoading(false);
       }
     },
-    [campId]
+    [campId, selectedCohortNumber]
   );
 
   useEffect(() => {
     if (campId) {
       loadCampDetails();
+      loadSupervisors();
     }
   }, [campId, loadCampDetails]);
+
+  // Reload data when cohort changes
+  useEffect(() => {
+    if (campId && selectedCohortNumber) {
+      loadCampDetails({ silent: true });
+    }
+  }, [selectedCohortNumber]);
+
+  const loadSupervisors = async () => {
+    if (!campId) return;
+    try {
+      setLoadingSupervisors(true);
+      const response = await dashboardService.getCampSupervisors(campId);
+      if (response.success) {
+        setSupervisors(response.data || []);
+      }
+    } catch (err) {
+      console.error("Error loading supervisors:", err);
+    } finally {
+      setLoadingSupervisors(false);
+    }
+  };
 
   const handleStatusChange = async (newStatus: CampStatus) => {
     if (!campId) return;
@@ -432,7 +483,7 @@ export default function CampDetailsPage() {
   const handleDuplicateCamp = async () => {
     if (!campId) return;
     if (!confirm("هل تريد نسخ هذا المخيم مع جميع المهام والموارد؟")) return;
-    
+
     try {
       const response = await dashboardService.duplicateCamp(campId);
       if (response.success) {
@@ -445,58 +496,9 @@ export default function CampDetailsPage() {
     }
   };
 
-  const primaryAction = camp
-    ? (() => {
-        switch (camp.status) {
-          case "early_registration":
-            return (
-              <button
-                onClick={() => handleStatusChange("active")}
-                disabled={updatingStatus}
-                className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:opacity-60"
-              >
-                <Play className="h-4 w-4" />
-                {updatingStatus ? "جاري التحديث..." : "بدء المخيم"}
-              </button>
-            );
-          case "active":
-            return (
-              <button
-                onClick={() => handleStatusChange("completed")}
-                disabled={updatingStatus}
-                className="inline-flex items-center gap-2 rounded-full bg-slate-800 px-5 py-2 text-sm font-medium text-slate-100 shadow-sm transition hover:bg-slate-700 disabled:opacity-60"
-              >
-                <Pause className="h-4 w-4" />
-                {updatingStatus ? "جاري التحديث..." : "إنهاء المخيم"}
-              </button>
-            );
-          case "completed":
-            return (
-              <button
-                onClick={() => handleStatusChange("reopened")}
-                disabled={updatingStatus}
-                className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-500 disabled:opacity-60"
-              >
-                <Play className="h-4 w-4" />
-                {updatingStatus ? "جاري التحديث..." : "فتح للاشتراك الجديد"}
-              </button>
-            );
-          case "reopened":
-            return (
-              <button
-                onClick={() => handleStatusChange("completed")}
-                disabled={updatingStatus}
-                className="inline-flex items-center gap-2 rounded-full bg-emerald-600/90 px-5 py-2 text-sm font-medium text-emerald-50 shadow-sm transition hover:bg-emerald-500 disabled:opacity-60"
-              >
-                <Pause className="h-4 w-4" />
-                {updatingStatus ? "جاري التحديث..." : "إغلاق التسجيل"}
-              </button>
-            );
-          default:
-            return null;
-        }
-      })()
-    : null;
+  // تم إزالة جميع أزرار تغيير حالة المخيم لأن النظام الآن يعمل بالأفواج فقط
+  // التحكم في حالة المخيم يتم من خلال الأفواج فقط
+  const primaryAction = null;
 
   const secondaryActions = camp ? (
     <div className="flex flex-wrap items-center gap-2">
@@ -596,6 +598,20 @@ export default function CampDetailsPage() {
     );
   }
 
+  const getTotalEnrollementOfTheActiveCohort = ()=>{
+    if(camp.available_cohorts.length === 0){
+      return 0;
+    }
+    const activeCohort = camp.available_cohorts.find((cohort)=> cohort.status === "active");
+    if(!activeCohort){
+      return 0;
+    }
+    return activeCohort.participants_count;
+  }
+
+
+  console.log(camp)
+
   return (
     <DashboardLayout>
       {/* Sticky Action Bar */}
@@ -607,7 +623,10 @@ export default function CampDetailsPage() {
                 <h2 className="text-sm font-semibold text-slate-100 truncate">
                   {camp.name}
                 </h2>
-                <ChipPill variant={statusVariant} className="text-xs flex-shrink-0">
+                <ChipPill
+                  variant={statusVariant}
+                  className="text-xs flex-shrink-0"
+                >
                   {statusMeta?.title || camp.status_ar}
                 </ChipPill>
               </div>
@@ -659,6 +678,114 @@ export default function CampDetailsPage() {
           }
         />
 
+        {/* قسم إدارة الأفواج - جديد! */}
+        <section className="rounded-3xl border-2 border-purple-500/30 bg-gradient-to-br from-purple-900/20 via-slate-900 to-slate-950 p-6 shadow-xl">
+          <div className="flex items-start justify-between flex-wrap gap-4 mb-6">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <Users className="h-6 w-6 text-purple-400" />
+                <h2 className="text-xl font-semibold text-slate-100">
+                  إدارة الأفواج
+                </h2>
+              </div>
+              <p className="text-sm text-slate-400 max-w-2xl">
+                هذا المخيم يحتوي على {camp.available_cohorts?.length || 0} فوج. 
+                كل فوج له تاريخ بدء منفصل ومجموعة خاصة من المشتركين. المهام مشتركة بين جميع الأفواج.
+              </p>
+            </div>
+            <button
+              onClick={handleStartNewCohort}
+              disabled={startingCohort}
+              className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-purple-500/30 transition hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Plus className="h-4 w-4" />
+              بدء فوج جديد
+            </button>
+          </div>
+
+          {/* Cohort Selector Component */}
+          <CohortSelector
+            campId={campId}
+            selectedCohortNumber={selectedCohortNumber}
+            onSelectCohort={setSelectedCohortNumber}
+            compact={false}
+            showLabel={false}
+          />
+
+          {/* معلومات الفوج النشط */}
+          {camp.available_cohorts && camp.available_cohorts.length > 0 && (
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {(() => {
+                const activeCohort = camp.available_cohorts.find(
+                  (c) => c.status === "active"
+                );
+                if (!activeCohort) return null;
+
+                return (
+                  <>
+                    <div className="rounded-2xl border border-emerald-500/30 bg-emerald-900/20 p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="rounded-full bg-emerald-500/20 p-2">
+                          <CheckCircle className="h-4 w-4 text-emerald-400" />
+                        </div>
+                        <span className="text-xs font-medium text-emerald-300">
+                          الفوج النشط
+                        </span>
+                      </div>
+                      <p className="text-2xl font-bold text-emerald-100">
+                        الفوج {activeCohort.cohort_number}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Calendar className="h-4 w-4 text-purple-400" />
+                        <span className="text-xs font-medium text-slate-400">
+                          تاريخ البدء
+                        </span>
+                      </div>
+                      <p className="text-lg font-semibold text-slate-100">
+                        {formatDate(activeCohort.start_date)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Users className="h-4 w-4 text-purple-400" />
+                        <span className="text-xs font-medium text-slate-400">
+                          المشتركين
+                        </span>
+                      </div>
+                      <p className="text-lg font-semibold text-slate-100">
+                        {activeCohort.participants_count.toLocaleString(
+                          "ar-EG"
+                        )}
+                        {activeCohort.max_participants &&
+                          ` / ${activeCohort.max_participants}`}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Clock className="h-4 w-4 text-purple-400" />
+                        <span className="text-xs font-medium text-slate-400">
+                          الحالة
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                        <span className="text-sm font-medium text-emerald-300">
+                          نشط الآن
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
+        </section>
+
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-6">
             {camp.banner_image ? (
@@ -671,9 +798,7 @@ export default function CampDetailsPage() {
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
                 <div className="absolute bottom-4 left-4 space-y-1 text-slate-100">
                   <h2 className="text-2xl font-semibold">{camp.name}</h2>
-                  <p className="text-sm text-slate-300">
-                    يبدأ {formatDate(camp.start_date)}
-                  </p>
+                
                 </div>
               </div>
             ) : (
@@ -911,7 +1036,7 @@ export default function CampDetailsPage() {
                 <div className="flex items-center justify-between">
                   <span>المسجلين</span>
                   <span>
-                    {stats?.total_enrollments?.toLocaleString("ar-EG") || 0}
+                    { getTotalEnrollementOfTheActiveCohort().toLocaleString("ar-EG") || 0}
                   </span>
                 </div>
               </div>
@@ -976,6 +1101,15 @@ export default function CampDetailsPage() {
                     الرسائل اليومية
                   </Link>
                 </li>
+                <li>
+                  <Link
+                    className="inline-flex border border-slate-700 hover:border-primary/40 hover:bg-primary/10 bg-slate-900/30 px-4 py-2 rounded-full items-center gap-2 text-primary-100 transition hover:text-primary-50"
+                    href={`/dashboard/quran-camps/${campId}/email-subscribers`}
+                  >
+                    <Mail className="h-4 w-4" />
+                    القائمة البريدية
+                  </Link>
+                </li>
               </ul>
             </div>
           </aside>
@@ -984,7 +1118,7 @@ export default function CampDetailsPage() {
         <CampNavigation campId={campId} />
 
         {stats && stats.total_enrollments !== undefined ? (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-lg">
               <h3 className="text-lg font-semibold text-slate-100">
                 نظرة عامة على التقدم
@@ -1006,7 +1140,7 @@ export default function CampDetailsPage() {
                   <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-300">
                     <p>إجمالي المشاركات</p>
                     <p className="mt-2 text-2xl font-semibold text-slate-100">
-                      {stats.total_enrollments}
+                      {getTotalEnrollementOfTheActiveCohort().toLocaleString("ar-EG") || 0}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-300">
@@ -1189,6 +1323,99 @@ export default function CampDetailsPage() {
                     )}
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+
+          {/* Supervisors Section */}
+          <div className="rounded-3xl border border-slate-800 bg-slate-950/60 p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-100">
+                  المشرفون
+                </h3>
+                <p className="text-sm text-slate-400">
+                  إدارة المشرفين على المخيم (مخفيين عن المستخدمين)
+                </p>
+              </div>
+              <Link
+                href={`/dashboard/quran-camps/${campId}/supervisors`}
+                className="text-sm text-primary-100 transition hover:text-primary-50"
+              >
+                إدارة المشرفين
+              </Link>
+            </div>
+            {loadingSupervisors ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              </div>
+            ) : supervisors.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-sm text-slate-400">
+                <Users className="mx-auto mb-2 h-8 w-8 text-slate-600" />
+                <p>لا يوجد مشرفين حالياً</p>
+                <p className="mt-1 text-xs">
+                  المشرفون لديهم صلاحيات كاملة في إدارة المخيم
+                </p>
+                <Link
+                  href={`/dashboard/quran-camps/${campId}/supervisors`}
+                  className="mt-4 inline-block text-sm text-primary-100 hover:text-primary-50"
+                >
+                  إضافة مشرف جديد
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {supervisors.slice(0, 5).map((supervisor: any) => (
+                  <div
+                    key={`${supervisor.user_id}-${
+                      supervisor.cohort_number || "general"
+                    }`}
+                    className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-900/50 p-3"
+                  >
+                    <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center border border-primary/40">
+                      {supervisor.avatar_url ? (
+                        <img
+                          src={supervisor.avatar_url}
+                          alt={supervisor.username}
+                          className="h-10 w-10 rounded-full"
+                        />
+                      ) : (
+                        <Users className="h-5 w-5 text-primary-100" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-slate-100 truncate">
+                        {supervisor.username}
+                      </p>
+                      <p className="text-xs text-slate-400 truncate">
+                        {supervisor.email}
+                      </p>
+                    </div>
+                    {supervisor.cohort_number ? (
+                      <ChipPill
+                        variant="default"
+                        className="text-xs border-purple-500/40 bg-purple-900/30 text-purple-200"
+                      >
+                        فوج {supervisor.cohort_number}
+                      </ChipPill>
+                    ) : (
+                      <ChipPill
+                        variant="default"
+                        className="text-xs border-blue-500/40 bg-blue-900/30 text-blue-200"
+                      >
+                        عام
+                      </ChipPill>
+                    )}
+                  </div>
+                ))}
+                {supervisors.length > 5 && (
+                  <Link
+                    href={`/dashboard/quran-camps/${campId}/supervisors`}
+                    className="block text-center text-sm text-primary-100 hover:text-primary-50 py-2"
+                  >
+                    عرض جميع المشرفين ({supervisors.length})
+                  </Link>
+                )}
               </div>
             )}
           </div>

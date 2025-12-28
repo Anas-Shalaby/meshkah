@@ -2,6 +2,7 @@
 
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { CampNavigation } from "@/components/quran-camps/CampNavigation";
+import { CohortSelector } from "@/components/quran-camps/CohortSelector";
 import ActionToolbar from "@/components/ui/action-toolbar";
 import { Button } from "@/components/ui/button";
 import FilterDrawer from "@/components/ui/filter-drawer";
@@ -56,6 +57,9 @@ export default function CampInteractionsPage() {
     DayInteractions[]
   >([]);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCohortNumber, setSelectedCohortNumber] = useState<
+    number | null
+  >(null);
 
   useEffect(() => {
     if (campId) {
@@ -67,16 +71,35 @@ export default function CampInteractionsPage() {
   const getCamp = async () => {
     try {
       const response = await dashboardService.getQuranCampDetails(campId!);
-      setCamp(response.data?.data ?? null);
+      const campData = response.data?.data ?? null;
+      setCamp(campData);
+
+      // Set default cohort number
+      if (campData?.current_cohort_number && !selectedCohortNumber) {
+        setSelectedCohortNumber(campData.current_cohort_number);
+      }
+
+      // Load interactions after confirming active cohort exists
+      if (selectedCohortNumber || campData?.current_cohort_number) {
+        getInteractions();
+      } else {
+        setError("لا يوجد فوج نشط حالياً. يرجى إنشاء فوج أو تفعيل فوج موجود.");
+        setLoading(false);
+      }
     } catch (error) {
       console.error("Error fetching camp:", error);
+      setError("حدث خطأ أثناء تحميل بيانات المخيم");
+      setLoading(false);
     }
   };
 
   const getInteractions = async () => {
     try {
       setLoading(true);
-      const response = await dashboardService.getCampInteractions(campId!);
+      const response = await dashboardService.getCampInteractions(
+        campId!,
+        selectedCohortNumber || undefined
+      );
       // response is already res.data from axios, so response.data is the array
       setInteractions(response.data ?? []);
       setFilteredInteractions(response.data ?? []);

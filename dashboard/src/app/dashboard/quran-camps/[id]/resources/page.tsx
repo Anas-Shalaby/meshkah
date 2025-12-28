@@ -29,6 +29,7 @@ import { dashboardService } from "@/services/api";
 import { ActionToolbar } from "@/components/ui/action-toolbar";
 import { ChipPill } from "@/components/ui/chip-pill";
 import { CampNavigation } from "@/components/quran-camps/CampNavigation";
+import { CohortSelector } from "@/components/quran-camps/CohortSelector";
 import { cn } from "@/lib/utils";
 import { StatCard } from "@/components/ui/stat-card";
 
@@ -218,6 +219,9 @@ export default function CampResourcesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCohortNumber, setSelectedCohortNumber] = useState<
+    number | null
+  >(null);
 
   const [showAddCategoryForm, setShowAddCategoryForm] = useState(false);
   const [showAddResourceForm, setShowAddResourceForm] = useState(false);
@@ -245,12 +249,22 @@ export default function CampResourcesPage() {
         const [campResponse, resourcesResponse, categoriesResponse] =
           await Promise.all([
             dashboardService.getQuranCampDetails(campId),
-            dashboardService.getCampResources(campId),
+            dashboardService.getCampResources(
+              campId,
+              selectedCohortNumber || undefined
+            ),
             dashboardService
               .getCampResourceCategories(campId)
               .catch(() => ({ data: [] })),
           ]);
-        setCamp(campResponse.data?.data ?? null);
+        const campData = campResponse.data?.data ?? null;
+        setCamp(campData);
+
+        // Set default cohort number
+        if (campData?.current_cohort_number && !selectedCohortNumber) {
+          setSelectedCohortNumber(campData.current_cohort_number);
+        }
+
         setCategories(resourcesResponse?.data || []);
         setCategoriesList(categoriesResponse?.data || []);
       } catch (err) {
@@ -264,13 +278,16 @@ export default function CampResourcesPage() {
     if (campId) {
       fetchData();
     }
-  }, [campId]);
+  }, [campId, selectedCohortNumber]);
 
   const refreshData = async () => {
     if (!campId) return;
     try {
       const [resourcesResponse, categoriesResponse] = await Promise.all([
-        dashboardService.getCampResources(campId),
+        dashboardService.getCampResources(
+          campId,
+          selectedCohortNumber || undefined
+        ),
         dashboardService
           .getCampResourceCategories(campId)
           .catch(() => ({ data: [] })),

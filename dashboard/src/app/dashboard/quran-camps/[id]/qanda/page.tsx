@@ -22,6 +22,8 @@ import { dashboardService } from "@/services/api";
 import { ActionToolbar } from "@/components/ui/action-toolbar";
 import { ChipPill } from "@/components/ui/chip-pill";
 import { StatCard } from "@/components/ui/stat-card";
+import { CampNavigation } from "@/components/quran-camps/CampNavigation";
+import { CohortSelector } from "@/components/quran-camps/CohortSelector";
 
 interface QandAItem {
   id: number;
@@ -140,6 +142,9 @@ export default function CampQandAPage() {
   );
   const [answerText, setAnswerText] = useState("");
   const [showAnswerModal, setShowAnswerModal] = useState(false);
+  const [selectedCohortNumber, setSelectedCohortNumber] = useState<
+    number | null
+  >(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -147,10 +152,20 @@ export default function CampQandAPage() {
       try {
         const [campResponse, qandaResponse] = await Promise.all([
           dashboardService.getQuranCampDetails(campId),
-          dashboardService.getCampQandA(campId),
+          dashboardService.getCampQandA(
+            campId,
+            selectedCohortNumber || undefined
+          ),
         ]);
 
-        setCamp(campResponse.data?.data ?? null);
+        const campData = campResponse.data?.data ?? null;
+        setCamp(campData);
+
+        // Set default cohort number
+        if (campData?.current_cohort_number && !selectedCohortNumber) {
+          setSelectedCohortNumber(campData.current_cohort_number);
+        }
+
         setQanda(qandaResponse.data || []);
       } catch (err) {
         setError("حدث خطأ أثناء تحميل البيانات");
@@ -163,7 +178,7 @@ export default function CampQandAPage() {
     if (campId) {
       fetchData();
     }
-  }, [campId]);
+  }, [campId, selectedCohortNumber]);
 
   const handleAnswerQuestion = async (questionId: number) => {
     if (!campId || !answerText.trim()) {
@@ -176,7 +191,10 @@ export default function CampQandAPage() {
 
       await dashboardService.answerCampQuestion(String(questionId), answerText);
 
-      const qandaResponse = await dashboardService.getCampQandA(campId);
+      const qandaResponse = await dashboardService.getCampQandA(
+        campId,
+        selectedCohortNumber || undefined
+      );
       setQanda(qandaResponse.data || []);
 
       setAnswerText("");
@@ -197,7 +215,10 @@ export default function CampQandAPage() {
       setSaving(true);
       setError(null);
       await dashboardService.deleteCampQuestion(String(questionId));
-      const qandaResponse = await dashboardService.getCampQandA(campId);
+      const qandaResponse = await dashboardService.getCampQandA(
+        campId,
+        selectedCohortNumber || undefined
+      );
       setQanda(qandaResponse.data || []);
     } catch (err) {
       console.error("Error deleting question:", err);

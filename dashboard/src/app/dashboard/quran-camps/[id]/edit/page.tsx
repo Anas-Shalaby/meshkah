@@ -3,7 +3,14 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Save, Calendar, BookOpen, Clock, FileText } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  Calendar,
+  BookOpen,
+  Clock,
+  FileText,
+} from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import Link from "next/link";
 import { dashboardService } from "@/services/api";
@@ -27,7 +34,6 @@ export default function EditQuranCampPage() {
     start_date: "",
     duration_days: 7,
     banner_image: "",
-    status: "early_registration",
   });
 
   useEffect(() => {
@@ -50,7 +56,6 @@ export default function EditQuranCampPage() {
             start_date: camp.start_date || "",
             duration_days: camp.duration_days || 7,
             banner_image: camp.banner_image || "",
-            status: camp.status || "early_registration",
           });
         }
       } catch (err) {
@@ -229,22 +234,6 @@ export default function EditQuranCampPage() {
                 className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-slate-100 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
             </label>
-
-            <label className="block space-y-2">
-              <span className="text-sm font-medium text-slate-300">
-                حالة المخيم <span className="text-rose-400">*</span>
-              </span>
-              <select
-                value={campData.status}
-                onChange={(e) => handleCampDataChange("status", e.target.value)}
-                className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-slate-100 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-              >
-                <option value="early_registration">تسجيل مبكر</option>
-                <option value="active">نشط</option>
-                <option value="completed">منتهي</option>
-              </select>
-            </label>
-
             <label className="block space-y-2">
               <span className="text-sm font-medium text-slate-300">
                 رابط صورة البانر
