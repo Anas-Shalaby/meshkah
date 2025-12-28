@@ -252,9 +252,10 @@ router.post(
 // Get User Profile Route (Protected)
 router.get("/profile", authMiddleware, async (req, res) => {
   try {
-    const [users] = await db.query("SELECT * FROM users WHERE id = ?", [
-      req.user.id,
-    ]);
+    const [users] = await db.query(
+      "SELECT id, username, email, avatar_url , created_at FROM users WHERE id = ?",
+      [req.user.id]
+    );
 
     if (users.length === 0) {
       return sendError(res, 404, "User not found", "لا يوجد مستخدم");

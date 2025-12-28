@@ -108,11 +108,9 @@ app.use("/api", notificationRoutes);
 app.use("/api/notifications", require("./routes/notifications"));
 app.use("/api", require("./routes/hadithProxy"));
 app.use("/api/ai", aiProxyRoutes);
-app.use("/api/sunnah", require("./routes/sunnah"));
 app.use("/api/islamic-library", require("./routes/islamicLibrary")); // إضافة المكتبة الإسلامية
 app.use("/api/auth/profile", require("./routes/profile"));
 app.use("/api/support", require("./routes/support")); // إضافة نظام الدعم
-app.use("/api/recommendations", require("./routes/recommendations")); // إضافة نظام التوصيات الذكية
 app.use("/api/hadith-verification", require("./routes/hadithVerification")); // إضافة نظام التحقق من الحديث
 app.use("/api/quran-camps", require("./routes/quranCamps")); // إضافة نظام المخيمات القرآنية
 app.use("/api/camp-notifications", require("./routes/campNotifications")); // إضافة إشعارات المخيمات
@@ -139,7 +137,6 @@ app.post("/send-welcome-email", async (req, res) => {
 
 // Initialize schedulers
 setupTaskReminders();
-// recommendationScheduler.start();
 
 // Initialize camp notification scheduler
 const campNotificationScheduler = new CampNotificationScheduler();
