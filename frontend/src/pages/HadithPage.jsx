@@ -54,7 +54,6 @@ import {
 import { useHadithCategories } from "../hooks/useHadithCategories";
 import { Dialog } from "@headlessui/react";
 import BookmarkModal from "../components/BookmarkModal";
-import SunnahPlannerModal from "../components/SunnahPlannerModal";
 import Joyride, { STATUS } from "react-joyride";
 import { useAuth } from "../context/AuthContext";
 import { useHadithTracking } from "../hooks/useHadithTracking";
@@ -479,7 +478,6 @@ const HadithPage = () => {
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
   const [isBookmarkModalOpen, setIsBookmarkModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [isSunnahModalOpen, setIsSunnahModalOpen] = useState(false);
   const [remainingQuestions, setRemainingQuestions] = useState(null);
   const [runTour, setRunTour] = useState(false);
   const [aiExample, setAiExample] = useState("");
@@ -1466,12 +1464,6 @@ const HadithPage = () => {
           isOpen={isShareModalOpen}
           onClose={() => setIsShareModalOpen(false)}
           hadithDetails={hadithDetails}
-        />
-        <SunnahPlannerModal
-          isOpen={isSunnahModalOpen}
-          onClose={() => setIsSunnahModalOpen(false)}
-          hadith={hadithDetails}
-          className="sunnah-planner-modal"
         />
       </div>
       {showLoginModal && (

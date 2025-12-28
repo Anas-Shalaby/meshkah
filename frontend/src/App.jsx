@@ -46,7 +46,6 @@ const CreateCardPage = lazy(() => import("./pages/CreateCardPage"));
 
 // Islamic Library Pages - Lazy loaded
 const Anas = lazy(() => import("./pages/Anas"));
-const GoogleSuccess = lazy(() => import("./pages/GoogleSuccess"));
 const IslamicLibraryPage = lazy(() => import("./pages/IslamicLibraryPage"));
 const IslamicBookPage = lazy(() => import("./pages/IslamicBookPage"));
 const IslamicChapterPage = lazy(() => import("./pages/IslamicChapterPage"));
@@ -56,9 +55,7 @@ const SmallBookPage = lazy(() => import("./pages/SmallBookPage"));
 const LocalBookPage = lazy(() => import("./pages/LocalBookPage"));
 const IslamicBookmarksPage = lazy(() => import("./pages/IslamicBookmarksPage"));
 const HelpSupportPage = lazy(() => import("./pages/HelpSupportPage"));
-// const SmartRecommendationsPage = lazy(() =>
-//   import("./pages/SmartRecommendationsPage")
-// );
+
 const HadithVerificationPage = lazy(() =>
   import("./pages/HadithVerificationPage")
 );
@@ -162,8 +159,6 @@ function App() {
                     <Route path="/contact" element={<Contact />} />
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
-                    <Route path="/google-success" element={<GoogleSuccess />} />
-
                     {/* Protected Routes */}
                     <Route
                       path="/profile"
@@ -173,11 +168,8 @@ function App() {
                         </PrivateRoute>
                       }
                     />
-
                     <Route path="/daily-hadith" element={<DailyHadith />} />
-
                     <Route path="/hadiths" element={<HadithCategories />} />
-
                     <Route
                       path="/hadiths/hadith/:hadithId"
                       element={<HadithPage />}
@@ -204,9 +196,7 @@ function App() {
                       element={<SharedCard />}
                     />
                     <Route path="/create-card" element={<CreateCardPage />} />
-
                     <Route path="/anas" element={<Anas />} />
-
                     {/* Islamic Library Routes */}
                     <Route
                       path="/islamic-library"
@@ -228,7 +218,6 @@ function App() {
                       path="/islamic-library/hadith/:hadithId"
                       element={<IslamicHadithPage />}
                     />
-
                     {/* Small Books Routes */}
                     <Route
                       path="/islamic-library/small-books"
@@ -242,7 +231,6 @@ function App() {
                       path="/islamic-library/small-books/:bookSlug/hadiths/:hadithId"
                       element={<IslamicHadithPage />}
                     />
-
                     {/* Local Books Routes */}
                     <Route
                       path="/islamic-library/local-books/:bookSlug"
@@ -264,48 +252,33 @@ function App() {
                         </PrivateRoute>
                       }
                     />
-
                     {/* Islamic Bookmarks Routes */}
                     <Route
                       path="/islamic-bookmarks"
                       element={<IslamicBookmarksPage />}
                     />
-
                     {/* Help and Support Routes */}
                     <Route
                       path="/islamic-library/help-support"
                       element={<HelpSupportPage />}
                     />
-
-                    {/* Smart Recommendations Routes */}
-                    {/* <Route
-                      path="/recommendations"
-                      element={
-                        <PrivateRoute>
-                          <SmartRecommendationsPage />
-                        </PrivateRoute>
-                      }
                     /> */}
-
                     {/* Hadith Verification Routes */}
                     <Route
                       path="/hadith-verification"
                       element={<HadithVerificationPage />}
                     />
-
                     {/* Quran Camps Routes */}
                     <Route path="/quran-camps" element={<QuranCampsPage />} />
                     <Route
                       path="/quran-camps/:id"
                       element={<QuranCampDetailsPage />}
                     />
-
                     {/* Shared Reflection - Public Route */}
                     <Route
                       path="/shared-reflection/:shareLink"
                       element={<SharedReflectionPage />}
                     />
-
                     <Route
                       path="/camp-summary/:id"
                       element={
@@ -334,9 +307,7 @@ function App() {
                         </PrivateRoute>
                       }
                     />
-
                     <Route path="/privacy-policy" element={<Anas />} />
-
                     <Route path="*" element={<NotFoundPage />} />
                   </Routes>
                 </div>
