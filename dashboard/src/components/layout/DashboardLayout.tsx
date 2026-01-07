@@ -16,6 +16,7 @@ import {
   X,
   BookOpen,
   Bell,
+  Palette,
   GraduationCap,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -46,6 +47,11 @@ const menuItems = [
     label: "المخيمات القرآنية",
     icon: GraduationCap,
     href: "/dashboard/quran-camps",
+  },
+  {
+    label: "الثيم الرمضاني",
+    icon: Palette,
+    href: "/dashboard/theme",
   },
   {
     label: "الإشعارات",

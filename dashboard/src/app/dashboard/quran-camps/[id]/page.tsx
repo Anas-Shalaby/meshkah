@@ -30,6 +30,7 @@ import {
   Copy,
   Mail,
   Plus,
+  Search,
 } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import Link from "next/link";
@@ -65,8 +66,8 @@ type Camp = {
     start_date: string;
     end_date: string;
     status: string;
-    max_participants :number;
-    is_open :boolean;
+    max_participants: number;
+    is_open: boolean;
     participants_count: number;
   }>;
 };
@@ -598,19 +599,24 @@ export default function CampDetailsPage() {
     );
   }
 
-  const getTotalEnrollementOfTheActiveCohort = ()=>{
-    if(camp.available_cohorts.length === 0){
+  const getTotalEnrollementOfTheActiveCohort = () => {
+    if (
+      !camp.available_cohorts ||
+      !Array.isArray(camp.available_cohorts) ||
+      camp.available_cohorts.length === 0
+    ) {
       return 0;
     }
-    const activeCohort = camp.available_cohorts.find((cohort)=> cohort.status === "active");
-    if(!activeCohort){
+    const activeCohort = camp.available_cohorts.find(
+      (cohort) => cohort.status === "active"
+    );
+    if (!activeCohort) {
       return 0;
     }
-    return activeCohort.participants_count;
-  }
+    return activeCohort.participants_count || 0;
+  };
 
-
-  console.log(camp)
+  console.log(camp);
 
   return (
     <DashboardLayout>
@@ -689,8 +695,9 @@ export default function CampDetailsPage() {
                 </h2>
               </div>
               <p className="text-sm text-slate-400 max-w-2xl">
-                هذا المخيم يحتوي على {camp.available_cohorts?.length || 0} فوج. 
-                كل فوج له تاريخ بدء منفصل ومجموعة خاصة من المشتركين. المهام مشتركة بين جميع الأفواج.
+                هذا المخيم يحتوي على {camp.available_cohorts?.length || 0} فوج.
+                كل فوج له تاريخ بدء منفصل ومجموعة خاصة من المشتركين. المهام
+                مشتركة بين جميع الأفواج.
               </p>
             </div>
             <button
@@ -798,7 +805,6 @@ export default function CampDetailsPage() {
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
                 <div className="absolute bottom-4 left-4 space-y-1 text-slate-100">
                   <h2 className="text-2xl font-semibold">{camp.name}</h2>
-                
                 </div>
               </div>
             ) : (
@@ -1036,7 +1042,9 @@ export default function CampDetailsPage() {
                 <div className="flex items-center justify-between">
                   <span>المسجلين</span>
                   <span>
-                    { getTotalEnrollementOfTheActiveCohort().toLocaleString("ar-EG") || 0}
+                    {getTotalEnrollementOfTheActiveCohort().toLocaleString(
+                      "ar-EG"
+                    ) || 0}
                   </span>
                 </div>
               </div>
@@ -1140,7 +1148,9 @@ export default function CampDetailsPage() {
                   <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-300">
                     <p>إجمالي المشاركات</p>
                     <p className="mt-2 text-2xl font-semibold text-slate-100">
-                      {getTotalEnrollementOfTheActiveCohort().toLocaleString("ar-EG") || 0}
+                      {getTotalEnrollementOfTheActiveCohort().toLocaleString(
+                        "ar-EG"
+                      ) || 0}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-300">
@@ -1327,98 +1337,7 @@ export default function CampDetailsPage() {
             )}
           </div>
 
-          {/* Supervisors Section */}
-          <div className="rounded-3xl border border-slate-800 bg-slate-950/60 p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-100">
-                  المشرفون
-                </h3>
-                <p className="text-sm text-slate-400">
-                  إدارة المشرفين على المخيم (مخفيين عن المستخدمين)
-                </p>
-              </div>
-              <Link
-                href={`/dashboard/quran-camps/${campId}/supervisors`}
-                className="text-sm text-primary-100 transition hover:text-primary-50"
-              >
-                إدارة المشرفين
-              </Link>
-            </div>
-            {loadingSupervisors ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-              </div>
-            ) : supervisors.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-sm text-slate-400">
-                <Users className="mx-auto mb-2 h-8 w-8 text-slate-600" />
-                <p>لا يوجد مشرفين حالياً</p>
-                <p className="mt-1 text-xs">
-                  المشرفون لديهم صلاحيات كاملة في إدارة المخيم
-                </p>
-                <Link
-                  href={`/dashboard/quran-camps/${campId}/supervisors`}
-                  className="mt-4 inline-block text-sm text-primary-100 hover:text-primary-50"
-                >
-                  إضافة مشرف جديد
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {supervisors.slice(0, 5).map((supervisor: any) => (
-                  <div
-                    key={`${supervisor.user_id}-${
-                      supervisor.cohort_number || "general"
-                    }`}
-                    className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-900/50 p-3"
-                  >
-                    <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center border border-primary/40">
-                      {supervisor.avatar_url ? (
-                        <img
-                          src={supervisor.avatar_url}
-                          alt={supervisor.username}
-                          className="h-10 w-10 rounded-full"
-                        />
-                      ) : (
-                        <Users className="h-5 w-5 text-primary-100" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-slate-100 truncate">
-                        {supervisor.username}
-                      </p>
-                      <p className="text-xs text-slate-400 truncate">
-                        {supervisor.email}
-                      </p>
-                    </div>
-                    {supervisor.cohort_number ? (
-                      <ChipPill
-                        variant="default"
-                        className="text-xs border-purple-500/40 bg-purple-900/30 text-purple-200"
-                      >
-                        فوج {supervisor.cohort_number}
-                      </ChipPill>
-                    ) : (
-                      <ChipPill
-                        variant="default"
-                        className="text-xs border-blue-500/40 bg-blue-900/30 text-blue-200"
-                      >
-                        عام
-                      </ChipPill>
-                    )}
-                  </div>
-                ))}
-                {supervisors.length > 5 && (
-                  <Link
-                    href={`/dashboard/quran-camps/${campId}/supervisors`}
-                    className="block text-center text-sm text-primary-100 hover:text-primary-50 py-2"
-                  >
-                    عرض جميع المشرفين ({supervisors.length})
-                  </Link>
-                )}
-              </div>
-            )}
-          </div>
+      
         </div>
       </div>
 

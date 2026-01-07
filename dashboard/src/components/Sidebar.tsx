@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -6,34 +8,47 @@ import {
   Users,
   Book,
   Printer,
+  Palette,
   ChevronLeft,
   ChevronRight,
+  LucideIcon,
 } from "lucide-react";
+
+interface MenuItem {
+  title: string;
+  icon: LucideIcon;
+  path: string;
+}
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
 
-  const menuItems = [
+  const menuItems: MenuItem[] = [
     {
       title: "لوحة التحكم",
-      icon: <LayoutDashboard className="w-5 h-5" />,
+      icon: LayoutDashboard,
       path: "/dashboard",
     },
     {
       title: "المستخدمين",
-      icon: <Users className="w-5 h-5" />,
+      icon: Users,
       path: "/dashboard/users",
     },
     {
       title: "خطط الحفظ",
-      icon: <Book className="w-5 h-5" />,
+      icon: Book,
       path: "/dashboard/memorization",
     },
     {
       title: "طلبات الطباعة",
-      icon: <Printer className="w-5 h-5" />,
+      icon: Printer,
       path: "/dashboard/print-requests",
+    },
+    {
+      title: "الثيم الرمضاني",
+      icon: Palette,
+      path: "/dashboard/theme",
     },
   ];
 
@@ -63,20 +78,23 @@ export default function Sidebar() {
         </div>
 
         <nav className="flex-1 px-2 py-4 space-y-1">
-          {menuItems.map((item) => (
-            <Link
-              key={item.path}
-              href={item.path}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                pathname === item.path
-                  ? "bg-[#7440E9] text-white"
-                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-              }`}
-            >
-              {item.icon}
-              {!collapsed && <span>{item.title}</span>}
-            </Link>
-          ))}
+          {menuItems.map((item) => {
+            const IconComponent = item.icon;
+            return (
+              <Link
+                key={item.path}
+                href={item.path}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                  pathname === item.path
+                    ? "bg-[#7440E9] text-white"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                <IconComponent className="w-5 h-5" />
+                {!collapsed && <span>{item.title}</span>}
+              </Link>
+            );
+          })}
         </nav>
       </div>
     </div>

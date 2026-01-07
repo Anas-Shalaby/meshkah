@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import {
   Save,
   X,
@@ -43,6 +42,11 @@ export default function EditDailyTestPage() {
   });
 
   const [questions, setQuestions] = useState<any[]>([]);
+  const [showQuestionModal, setShowQuestionModal] = useState(false);
+  const [editingQuestionIndex, setEditingQuestionIndex] = useState<
+    number | null
+  >(null);
+  const [currentQuestion, setCurrentQuestion] = useState<any>(null);
 
   useEffect(() => {
     if (!isNew && dayNum) {
@@ -176,24 +180,55 @@ export default function EditDailyTestPage() {
   };
 
   const addQuestion = () => {
-    setQuestions([
-      ...questions,
-      {
-        question_text: "",
-        question_type: "multiple_choice",
-        points: 1,
-        answers: [
-          { answer_text: "", is_correct: false, explanation: "" },
-          { answer_text: "", is_correct: false, explanation: "" },
-        ],
-      },
-    ]);
+    setCurrentQuestion({
+      question_text: "",
+      question_type: "multiple_choice",
+      points: 1,
+      answers: [
+        { answer_text: "", is_correct: false, explanation: "" },
+        { answer_text: "", is_correct: false, explanation: "" },
+      ],
+    });
+    setEditingQuestionIndex(null);
+    setShowQuestionModal(true);
   };
 
-  const updateQuestion = (index: number, field: string, value: any) => {
-    const updated = [...questions];
-    updated[index] = { ...updated[index], [field]: value };
-    setQuestions(updated);
+  const editQuestion = (index: number) => {
+    setCurrentQuestion({ ...questions[index] });
+    setEditingQuestionIndex(index);
+    setShowQuestionModal(true);
+  };
+
+  const saveQuestion = () => {
+    if (!currentQuestion.question_text.trim()) {
+      setError("يجب ملء نص السؤال");
+      return;
+    }
+    if (currentQuestion.answers.length < 2) {
+      setError("يجب إضافة خيارين على الأقل لكل سؤال");
+      return;
+    }
+    const hasCorrect = currentQuestion.answers.some((a: any) => a.is_correct);
+    if (!hasCorrect) {
+      setError("يجب تحديد إجابة صحيحة واحدة على الأقل لكل سؤال");
+      return;
+    }
+
+    if (editingQuestionIndex !== null) {
+      const updated = [...questions];
+      updated[editingQuestionIndex] = currentQuestion;
+      setQuestions(updated);
+    } else {
+      setQuestions([...questions, currentQuestion]);
+    }
+    setShowQuestionModal(false);
+    setCurrentQuestion(null);
+    setEditingQuestionIndex(null);
+    setError(null);
+  };
+
+  const updateCurrentQuestion = (field: string, value: any) => {
+    setCurrentQuestion({ ...currentQuestion, [field]: value });
   };
 
   const deleteQuestion = (index: number) => {
@@ -202,36 +237,38 @@ export default function EditDailyTestPage() {
     }
   };
 
-  const addAnswer = (questionIndex: number) => {
-    const updated = [...questions];
-    updated[questionIndex].answers.push({
-      answer_text: "",
-      is_correct: false,
-      explanation: "",
+  const addAnswer = () => {
+    setCurrentQuestion({
+      ...currentQuestion,
+      answers: [
+        ...currentQuestion.answers,
+        { answer_text: "", is_correct: false, explanation: "" },
+      ],
     });
-    setQuestions(updated);
   };
 
-  const updateAnswer = (
-    questionIndex: number,
-    answerIndex: number,
-    field: string,
-    value: any
-  ) => {
-    const updated = [...questions];
-    updated[questionIndex].answers[answerIndex] = {
-      ...updated[questionIndex].answers[answerIndex],
-      [field]: value,
-    };
-    setQuestions(updated);
+  const updateAnswer = (answerIndex: number, field: string, value: any) => {
+    const updated = [...currentQuestion.answers];
+    updated[answerIndex] = { ...updated[answerIndex], [field]: value };
+    setCurrentQuestion({ ...currentQuestion, answers: updated });
   };
 
-  const deleteAnswer = (questionIndex: number, answerIndex: number) => {
-    const updated = [...questions];
-    updated[questionIndex].answers = updated[questionIndex].answers.filter(
-      (_, i) => i !== answerIndex
-    );
-    setQuestions(updated);
+  const deleteAnswer = (answerIndex: number) => {
+    if (currentQuestion.answers.length <= 2) {
+      setError("يجب وجود خيارين على الأقل");
+      return;
+    }
+    const updated = currentQuestion.answers.filter((_, i) => i !== answerIndex);
+    setCurrentQuestion({ ...currentQuestion, answers: updated });
+    setError(null);
+  };
+
+  const setCorrectAnswer = (answerIndex: number) => {
+    const updated = currentQuestion.answers.map((a: any, i: number) => ({
+      ...a,
+      is_correct: i === answerIndex,
+    }));
+    setCurrentQuestion({ ...currentQuestion, answers: updated });
   };
 
   if (loading) {
@@ -374,7 +411,9 @@ export default function EditDailyTestPage() {
           {/* Questions */}
           <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-6 mb-6 shadow-lg">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-slate-100">الأسئلة</h2>
+              <h2 className="text-xl font-semibold text-slate-100">
+                الأسئلة ({questions.length})
+              </h2>
               <button
                 onClick={addQuestion}
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
@@ -384,128 +423,165 @@ export default function EditDailyTestPage() {
               </button>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-3">
               {questions.map((question, qIndex) => (
-                <motion.div
+                <div
                   key={qIndex}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="border border-slate-700 rounded-xl p-6 bg-slate-800/50"
+                  className="flex items-center justify-between p-4 bg-slate-800/50 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors"
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-slate-100">
-                      السؤال {qIndex + 1}
-                    </h3>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium text-slate-400">
+                        {qIndex + 1}
+                      </span>
+                      <p className="text-slate-200 flex-1 line-clamp-2">
+                        {question.question_text || "سؤال بدون نص"}
+                      </p>
+                      <span className="text-xs px-2 py-1 bg-slate-700 text-slate-300 rounded">
+                        {question.points} نقاط
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => editQuestion(qIndex)}
+                      className="p-2 text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
+                    >
+                      تعديل
+                    </button>
                     <button
                       onClick={() => deleteQuestion(qIndex)}
-                      className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors border border-red-500/20 hover:border-red-500/40"
+                      className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                     >
-                      <Trash2 className="w-5 h-5" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
+                </div>
+              ))}
+            </div>
 
-                  <div className="space-y-4">
+            {questions.length === 0 && (
+              <div className="text-center py-12 text-slate-400">
+                <p>لا توجد أسئلة. اضغط "إضافة سؤال" لبدء الإضافة</p>
+              </div>
+            )}
+          </div>
+
+          {/* Question Modal */}
+          {showQuestionModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                onClick={() => {
+                  setShowQuestionModal(false);
+                  setCurrentQuestion(null);
+                  setEditingQuestionIndex(null);
+                  setError(null);
+                }}
+              />
+              <div className="relative bg-slate-900 rounded-xl border border-slate-800 p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-semibold text-slate-100">
+                    {editingQuestionIndex !== null
+                      ? "تعديل السؤال"
+                      : "إضافة سؤال جديد"}
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setShowQuestionModal(false);
+                      setCurrentQuestion(null);
+                      setEditingQuestionIndex(null);
+                      setError(null);
+                    }}
+                    className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      نص السؤال *
+                    </label>
+                    <textarea
+                      value={currentQuestion?.question_text || ""}
+                      onChange={(e) =>
+                        updateCurrentQuestion("question_text", e.target.value)
+                      }
+                      rows={3}
+                      className="w-full px-4 py-2 bg-slate-800 border border-slate-700 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors placeholder:text-slate-500 resize-none"
+                      placeholder="اكتب السؤال هنا..."
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">
-                        نص السؤال *
+                        نوع السؤال *
                       </label>
-                      <textarea
-                        value={question.question_text}
+                      <select
+                        value={
+                          currentQuestion?.question_type || "multiple_choice"
+                        }
                         onChange={(e) =>
-                          updateQuestion(
-                            qIndex,
-                            "question_text",
-                            e.target.value
+                          updateCurrentQuestion("question_type", e.target.value)
+                        }
+                        className="w-full px-4 py-2 bg-slate-800 border border-slate-700 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                      >
+                        <option value="multiple_choice">اختيار من متعدد</option>
+                        <option value="true_false">صحيح/خطأ</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        النقاط
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={currentQuestion?.points || 1}
+                        onChange={(e) =>
+                          updateCurrentQuestion(
+                            "points",
+                            parseInt(e.target.value) || 1
                           )
                         }
-                        rows={2}
-                        className="w-full px-4 py-2 bg-slate-900 border border-slate-700 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors placeholder:text-slate-500 resize-none"
-                        placeholder="اكتب السؤال هنا..."
+                        className="w-full px-4 py-2 bg-slate-800 border border-slate-700 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                       />
                     </div>
+                  </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">
-                          نوع السؤال *
-                        </label>
-                        <select
-                          value={question.question_type}
-                          onChange={(e) =>
-                            updateQuestion(
-                              qIndex,
-                              "question_type",
-                              e.target.value as "multiple_choice" | "true_false"
-                            )
-                          }
-                          className="w-full px-4 py-2 bg-slate-900 border border-slate-700 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-                        >
-                          <option value="multiple_choice">
-                            اختيار من متعدد
-                          </option>
-                          <option value="true_false">صحيح/خطأ</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">
-                          النقاط
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={question.points}
-                          onChange={(e) =>
-                            updateQuestion(
-                              qIndex,
-                              "points",
-                              parseInt(e.target.value) || 1
-                            )
-                          }
-                          className="w-full px-4 py-2 bg-slate-900 border border-slate-700 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-                        />
-                      </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="block text-sm font-medium text-slate-300">
+                        خيارات الإجابة *
+                      </label>
+                      <button
+                        onClick={addAnswer}
+                        className="text-sm text-primary hover:text-primary/80 transition-colors"
+                      >
+                        + إضافة خيار
+                      </button>
                     </div>
-
-                    {/* Answers */}
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <label className="block text-sm font-medium text-slate-300">
-                          خيارات الإجابة *
-                        </label>
-                        <button
-                          onClick={() => addAnswer(qIndex)}
-                          className="text-sm text-primary hover:text-primary/80 transition-colors"
-                        >
-                          + إضافة خيار
-                        </button>
-                      </div>
-                      <div className="space-y-3">
-                        {question.answers.map((answer, aIndex) => (
+                    <div className="space-y-3">
+                      {currentQuestion?.answers.map(
+                        (answer: any, aIndex: number) => (
                           <div
                             key={aIndex}
                             className={`rounded-lg p-4 border ${
                               answer.is_correct
                                 ? "bg-emerald-500/10 border-emerald-500/30"
-                                : "bg-slate-900 border-slate-700"
+                                : "bg-slate-800 border-slate-700"
                             }`}
                           >
-                            <div className="flex items-start gap-3 mb-3">
+                            <div className="flex items-start gap-3">
                               <input
                                 type="radio"
-                                name={`correct-${qIndex}`}
+                                name="correct-answer"
                                 checked={answer.is_correct}
-                                onChange={() => {
-                                  // Set all answers to false first
-                                  const updated = [...questions];
-                                  updated[qIndex].answers = updated[
-                                    qIndex
-                                  ].answers.map((a, i) => ({
-                                    ...a,
-                                    is_correct: i === aIndex,
-                                  }));
-                                  setQuestions(updated);
-                                }}
-                                className="mt-1 w-5 h-5 text-primary focus:ring-primary bg-slate-800 border-slate-700"
+                                onChange={() => setCorrectAnswer(aIndex)}
+                                className="mt-1 w-5 h-5 text-primary focus:ring-primary bg-slate-700 border-slate-600"
                               />
                               <div className="flex-1">
                                 <input
@@ -513,36 +589,34 @@ export default function EditDailyTestPage() {
                                   value={answer.answer_text}
                                   onChange={(e) =>
                                     updateAnswer(
-                                      qIndex,
                                       aIndex,
                                       "answer_text",
                                       e.target.value
                                     )
                                   }
                                   placeholder="نص الإجابة..."
-                                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors mb-2 placeholder:text-slate-500"
+                                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 text-slate-100 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors mb-2 placeholder:text-slate-500"
                                 />
                                 {answer.is_correct && (
                                   <textarea
-                                    value={answer.explanation}
+                                    value={answer.explanation || ""}
                                     onChange={(e) =>
                                       updateAnswer(
-                                        qIndex,
                                         aIndex,
                                         "explanation",
                                         e.target.value
                                       )
                                     }
-                                    placeholder="تفسير الإجابة الصحيحة (من المدير)..."
+                                    placeholder="تفسير الإجابة الصحيحة..."
                                     rows={2}
                                     className="w-full px-3 py-2 border border-primary/30 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-primary/10 text-slate-100 placeholder:text-slate-400 resize-none"
                                   />
                                 )}
                               </div>
-                              {question.answers.length > 2 && (
+                              {currentQuestion.answers.length > 2 && (
                                 <button
-                                  onClick={() => deleteAnswer(qIndex, aIndex)}
-                                  className="p-1 text-red-400 hover:bg-red-500/10 rounded transition-colors border border-red-500/20 hover:border-red-500/40"
+                                  onClick={() => deleteAnswer(aIndex)}
+                                  className="p-1 text-red-400 hover:bg-red-500/10 rounded transition-colors"
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </button>
@@ -555,20 +629,35 @@ export default function EditDailyTestPage() {
                               </div>
                             )}
                           </div>
-                        ))}
-                      </div>
+                        )
+                      )}
                     </div>
                   </div>
-                </motion.div>
-              ))}
-            </div>
+                </div>
 
-            {questions.length === 0 && (
-              <div className="text-center py-12 text-slate-400">
-                <p>لا توجد أسئلة. اضغط "إضافة سؤال" لبدء الإضافة</p>
+                <div className="flex items-center justify-end gap-3 mt-6 pt-6 border-t border-slate-700">
+                  <button
+                    onClick={() => {
+                      setShowQuestionModal(false);
+                      setCurrentQuestion(null);
+                      setEditingQuestionIndex(null);
+                      setError(null);
+                    }}
+                    className="px-4 py-2 border border-slate-700 text-slate-300 rounded-lg hover:bg-slate-800 transition-colors"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    onClick={saveQuestion}
+                    className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    حفظ السؤال
+                  </button>
+                </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-4">

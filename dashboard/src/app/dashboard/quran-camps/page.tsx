@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Plus,
   Calendar,
@@ -21,6 +22,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  UserPlus,
+  X,
 } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import Link from "next/link";
@@ -109,6 +112,7 @@ export default function QuranCampsPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [selectedCamps, setSelectedCamps] = useState<number[]>([]);
+  const [showAddSupervisorModal, setShowAddSupervisorModal] = useState(false);
 
   // Calculate max enrollment for initial filter range
   const maxEnrollment = useMemo(() => {
@@ -474,14 +478,24 @@ export default function QuranCampsPage() {
             </Link>
           }
           secondaryActions={
-            <button
-              type="button"
-              onClick={() => setFiltersOpen(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
-            >
-              <Filter className="h-4 w-4" />
-              تصفية
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setShowAddSupervisorModal(true)}
+                className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/20 px-4 py-2 text-sm font-medium text-primary-100 transition hover:bg-primary/30 hover:border-primary/60"
+              >
+                <UserPlus className="h-4 w-4" />
+                إضافة مشرف
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(true)}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
+              >
+                <Filter className="h-4 w-4" />
+                تصفية
+              </button>
+            </>
           }
           endSlot={
             <div className="flex items-center gap-2">
@@ -1064,6 +1078,279 @@ export default function QuranCampsPage() {
           </div>
         </div>
       </FilterDrawer>
+
+      {/* Add Supervisor Modal */}
+      {showAddSupervisorModal &&
+        createPortal(
+          <AddSupervisorModal
+            onClose={() => setShowAddSupervisorModal(false)}
+            onSuccess={() => {
+              setShowAddSupervisorModal(false);
+              // Reload camps to reflect any changes
+              if (camps.length > 0) {
+                // Refresh if needed
+              }
+            }}
+            camps={camps}
+          />,
+          document.body
+        )}
     </DashboardLayout>
+  );
+}
+
+// Add Supervisor Modal Component
+type AddSupervisorModalProps = {
+  onClose: () => void;
+  onSuccess: () => void;
+  camps: Camp[];
+};
+
+function AddSupervisorModal({
+  onClose,
+  onSuccess,
+  camps,
+}: AddSupervisorModalProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [adding, setAdding] = useState(false);
+  const [existingSupervisors, setExistingSupervisors] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (camps.length > 0) {
+      loadExistingSupervisors();
+    }
+  }, [camps]);
+
+  const loadExistingSupervisors = async () => {
+    try {
+      // Get all supervisors from all camps
+      const allSupervisors: any[] = [];
+      for (const camp of camps) {
+        try {
+          const response = await dashboardService.getCampSupervisors(
+            camp.id.toString()
+          );
+          if (response.success && response.data) {
+            allSupervisors.push(...response.data);
+          }
+        } catch (err) {
+          console.error(`Error loading supervisors for camp ${camp.id}:`, err);
+        }
+      }
+      setExistingSupervisors(allSupervisors);
+    } catch (err) {
+      console.error("Error loading existing supervisors:", err);
+    }
+  };
+
+  const searchUsers = async () => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      setSearching(true);
+      // Fetch more users to ensure we find the searched user
+      // You can increase the limit or fetch multiple pages
+      const response = await dashboardService.getUsers(1, 500); // زيادة العدد لـ 500
+
+      if (response?.data?.users) {
+        const existingUserIds = new Set(
+          existingSupervisors.map((s) => s.user_id)
+        );
+        const query = searchQuery.toLowerCase();
+        const filtered = response.data.users.filter(
+          (user: any) =>
+            !existingUserIds.has(user.id) &&
+            (user.username?.toLowerCase().includes(query) ||
+              user.email?.toLowerCase().includes(query))
+        );
+        setSearchResults(filtered.slice(0, 50)); // عرض أول 50 نتيجة
+      } else {
+        setSearchResults([]);
+      }
+    } catch (err) {
+      console.error("Error searching users:", err);
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      const timeoutId = setTimeout(() => {
+        searchUsers();
+      }, 300);
+
+      return () => clearTimeout(timeoutId);
+    } else {
+      setSearchResults([]);
+    }
+  }, [searchQuery]);
+
+  const handleAdd = async () => {
+    if (!selectedUser || camps.length === 0) return;
+    try {
+      setAdding(true);
+      // Use first camp ID - backend will add supervisor to all camps
+      await dashboardService.addCampSupervisor(camps[0].id.toString(), {
+        userId: selectedUser.id,
+        cohortNumber: undefined, // General supervisor
+      });
+      onSuccess();
+      alert("تم إضافة المشرف بنجاح! سيتم إضافته لجميع المخيمات.");
+    } catch (err: any) {
+      alert(err?.response?.data?.message || "حدث خطأ في إضافة المشرف");
+      console.error("Error adding supervisor:", err);
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div
+        className="relative w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-100">
+              إضافة مشرف عام
+            </h2>
+            <p className="text-sm text-slate-400 mt-1">
+              ابحث عن مستخدم وأضفه كمشرف عام على جميع المخيمات
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-full border border-slate-700 p-2 text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+          {/* Info */}
+          <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-4">
+            <p className="text-sm text-blue-200">
+              💡 سيتم إضافة المشرف تلقائياً لجميع المخيمات كمشرف عام، وسيحصل على
+              إشعارات عند إنشاء أي فوج جديد في أي مخيم.
+            </p>
+          </div>
+
+          {/* Search */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              البحث عن مستخدم
+            </label>
+            <div className="relative">
+              <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="ابحث بالاسم أو البريد الإلكتروني..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 pr-10 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+          </div>
+
+          {/* Search Results */}
+          {searching && (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            </div>
+          )}
+
+          {!searching && searchQuery && searchResults.length === 0 && (
+            <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-8 text-center text-slate-400">
+              <Users className="mx-auto mb-2 h-8 w-8 text-slate-600" />
+              <p>لا توجد نتائج</p>
+            </div>
+          )}
+
+          {!searching && searchResults.length > 0 && (
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                اختر مستخدم:
+              </label>
+              {searchResults.map((user) => (
+                <div
+                  key={user.id}
+                  onClick={() => setSelectedUser(user)}
+                  className={`rounded-lg border p-3 cursor-pointer transition ${
+                    selectedUser?.id === user.id
+                      ? "border-primary/60 bg-primary/20"
+                      : "border-slate-700 bg-slate-800/50 hover:bg-slate-800"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center border border-primary/40">
+                      {user.avatar_url ? (
+                        <img
+                          src={user.avatar_url}
+                          alt={user.username}
+                          className="h-10 w-10 rounded-full"
+                        />
+                      ) : (
+                        <Users className="h-5 w-5 text-primary-100" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-slate-100">
+                        {user.username}
+                      </p>
+                      <p className="text-sm text-slate-400">{user.email}</p>
+                    </div>
+                    {selectedUser?.id === user.id && (
+                      <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center">
+                        <div className="h-2 w-2 rounded-full bg-white"></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="mt-6 flex items-center justify-end gap-3 pt-6 border-t border-slate-700">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-slate-700 text-slate-300 rounded-lg hover:bg-slate-800 transition-colors"
+          >
+            إلغاء
+          </button>
+          <button
+            onClick={handleAdd}
+            disabled={!selectedUser || camps.length === 0 || adding}
+            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {adding ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                جاري الإضافة...
+              </>
+            ) : (
+              <>
+                <UserPlus className="h-4 w-4" />
+                إضافة مشرف
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
