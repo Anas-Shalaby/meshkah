@@ -22,6 +22,7 @@ const AddReflectionModal = ({
   fetchStudyHallContent,
   studyHallSelectedDay,
   studyHallSort,
+  camp, // إضافة camp للحصول على cohort_number
 }) => {
   if (!isOpen) return null;
 
@@ -54,7 +55,7 @@ const AddReflectionModal = ({
         setReflectionText("");
         setReflectionJson(null);
         setProposedStep("");
-        setShareInStudyHall(false);
+        setShareInStudyHall(true); // Default: مشاركة في قاعة التدارس
         onClose();
 
         // إشعار النجاح
@@ -146,6 +147,7 @@ const AddReflectionModal = ({
                   onJSONChange={(jsonContent) => setReflectionJson(jsonContent)}
                   placeholder="ابدأ كتابة تدبرك هنا..."
                   taskId={selectedTask?.id}
+                  cohortNumber={camp?.current_cohort_number}
                 />
               </div>
 

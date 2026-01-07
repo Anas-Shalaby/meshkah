@@ -138,7 +138,7 @@ const ProgressOverview = ({
   ];
 
   return (
-    <div className="mb-4 sm:mb-6 lg:mb-8 space-y-4">
+    <div className="mb-4 font-almarai sm:mb-6 lg:mb-8 space-y-4">
       {/* Stats Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
         {stats.map((stat, index) => (

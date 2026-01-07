@@ -1,0 +1,224 @@
+/* Ramadan Theme Variables */
+:root.ramadan-theme {
+  /* Primary Colors - Purple with Gold */
+  --ramadan-primary: #7440e9;
+  --ramadan-primary-dark: #5a2bb8;
+  --ramadan-secondary: #6366f1;
+  --ramadan-gold: #d4af37;
+  --ramadan-gold-light: #f4d47f;
+  --ramadan-gold-dark: #b8941f;
+  --ramadan-accent: #fbbf24;
+
+  /* Text Colors */
+  --ramadan-text: #1f2937;
+  --ramadan-text-muted: #6b7280;
+  --ramadan-green: #10b981;
+  --ramadan-green-text: #065f46;
+
+  /* Background Gradients */
+  --ramadan-bg-start: #f7f6fb;
+  --ramadan-bg-middle: #f3edff;
+  --ramadan-bg-end: #e9e4f5;
+
+  /* Surface Colors */
+  --ramadan-surface: rgba(255, 255, 255, 0.9);
+  --ramadan-border: rgba(116, 64, 233, 0.2);
+
+  /* Gold Accents */
+  --ramadan-accent-1: rgba(212, 175, 55, 0.15);
+  --ramadan-accent-2: rgba(212, 175, 55, 0.25);
+
+  /* Shadows with gold tint */
+  --ramadan-shadow: 0 10px 40px -10px rgba(116, 64, 233, 0.2),
+    0 0 20px rgba(212, 175, 55, 0.1);
+
+  /* Hover Shadow */
+  --ramadan-hover-shadow: 0 15px 50px -15px rgba(116, 64, 233, 0.3),
+    0 5px 30px rgba(212, 175, 55, 0.2);
+}
+
+/* Main Backgrounds */
+:root.ramadan-theme .bg-ramadan-bg-start {
+  background-color: var(--ramadan-bg-start);
+}
+
+:root.ramadan-theme .ramadan-active {
+  background: linear-gradient(
+    135deg,
+    var(--ramadan-bg-start) 0%,
+    var(--ramadan-bg-middle) 50%,
+    var(--ramadan-bg-end) 100%
+  );
+}
+
+/* Card Styles */
+.ramadan-card-style {
+  position: relative;
+  background: linear-gradient(
+    135deg,
+    var(--ramadan-bg-start) 0%,
+    var(--ramadan-bg-middle) 50%,
+    var(--ramadan-bg-end) 100%
+  );
+  border: 1px solid var(--ramadan-accent-1);
+  box-shadow: var(--ramadan-shadow);
+  transition: all 0.3s ease;
+}
+
+.ramadan-card-style:hover {
+  box-shadow: var(--ramadan-hover-shadow);
+  transform: translateY(-4px);
+}
+
+.ramadan-card-style::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 100px;
+  height: 100px;
+  background: radial-gradient(circle, var(--ramadan-gold) 0%, transparent 70%);
+  opacity: 0.1;
+  pointer-events: none;
+}
+
+/* Button Styles */
+.ramadan-button {
+  background: linear-gradient(
+    135deg,
+    var(--ramadan-primary) 0%,
+    var(--ramadan-primary-dark) 100%
+  );
+  box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+  transition: all 0.3s ease;
+}
+
+.ramadan-button:hover {
+  box-shadow: 0 6px 25px rgba(212, 175, 55, 0.5);
+  transform: translateY(-2px);
+}
+
+/* Hero Section Styles */
+.ramadan-hero-bg {
+  background: linear-gradient(
+    135deg,
+    rgba(116, 64, 233, 0.95) 0%,
+    rgba(90, 43, 184, 0.95) 100%
+  );
+}
+
+.ramadan-gradient-overlay {
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.95) 0%,
+    rgba(116, 64, 233, 0.6) 50%,
+    rgba(116, 64, 233, 0.3) 100%
+  );
+}
+
+.ramadan-pattern-overlay {
+  background: radial-gradient(
+    circle at 20% 30%,
+    rgba(212, 175, 55, 0.1) 0%,
+    transparent 50%
+  );
+}
+
+/* Status Badge */
+.ramadan-status-badge {
+  background: linear-gradient(
+    135deg,
+    rgba(212, 175, 55, 0.2) 0%,
+    rgba(116, 64, 233, 0.2) 100%
+  );
+  border-color: rgba(212, 175, 55, 0.5);
+}
+
+/* Gold Accent Border */
+.ramadan-border-gold {
+  border-color: var(--ramadan-gold-light);
+}
+
+/* Background with gold tint */
+.ramadan-bg-gradient {
+  background: linear-gradient(
+    135deg,
+    var(--ramadan-bg-start) 0%,
+    var(--ramadan-bg-middle) 50%,
+    var(--ramadan-bg-end) 100%
+  );
+}
+
+/* Text with gold gradient */
+.ramadan-text-gold {
+  background: linear-gradient(
+    135deg,
+    var(--ramadan-gold) 0%,
+    var(--ramadan-gold-light) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Gold glow effect */
+.ramadan-glow-gold {
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.3), 0 0 40px rgba(212, 175, 55, 0.1);
+}
+
+/* Animated spin-slow for decorations */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 20s linear infinite;
+}
+
+/* Main Backgrounds - Higher Specificity */
+.ramadan-bg-gradient {
+  background: linear-gradient(
+    135deg,
+    #f7f6fb 0%,
+    #f3edff 50%,
+    #e9e4f5 100%
+  ) !important;
+}
+
+.ramadan-hero-section {
+  position: relative;
+  background: linear-gradient(
+    135deg,
+    rgba(116, 64, 233, 0.05) 0%,
+    rgba(212, 175, 55, 0.05) 100%
+  ) !important;
+}
+
+.ramadan-hero-section::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("/assets/islamic-patterns/arabesque-light.svg");
+  background-size: 400px 400px;
+  background-repeat: repeat;
+  opacity: 0.12;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ramadan-hero-section > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Smooth transitions for theme switching */
+* {
+  transition-property: background-color, border-color, box-shadow;
+  transition-duration: 0.3s;
+  transition-timing-function: ease;
+}

@@ -97,3 +97,15 @@ export const getDailyDashboard = async (campId) => {
   );
   return response.json();
 };
+
+// ==================== COHORTS ====================
+
+export const getAvailableCohorts = async (campId) => {
+  const response = await fetch(
+    `${API_BASE_URL}/quran-camps/${campId}/cohorts/available`,
+    {
+      headers: getAuthHeaders(),
+    }
+  );
+  return response.json();
+};

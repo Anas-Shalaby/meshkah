@@ -18,6 +18,9 @@ import LanguageSelector from "../components/LanguageSelector";
 import BookInsights from "../components/BookInsights";
 import ChapterNavigation from "../components/ChapterNavigation";
 import SEO from "../components/SEO";
+import { useRamadanTheme } from "../context/RamadanThemeContext";
+import RamadanCountdown from "../components/ramadan/RamadanCountdown";
+import RamadanFloatingElements from "../components/ramadan/RamadanFloatingElements";
 import {
   getTranslation,
   getBookTranslation,
@@ -26,6 +29,7 @@ import {
 
 const IslamicBookPage = () => {
   const { bookSlug } = useParams();
+  const { isRamadanThemeActive } = useRamadanTheme();
   const [book, setBook] = useState(null);
   const [chapters, setChapters] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -130,7 +134,15 @@ const IslamicBookPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 p-4 sm:p-8">
+      <div
+        className={`min-h-screen ${
+          isRamadanThemeActive
+            ? "ramadan-bg-gradient"
+            : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"
+        } p-4 sm:p-8`}
+      >
+        {isRamadanThemeActive && <RamadanCountdown />}
+        {isRamadanThemeActive && <RamadanFloatingElements />}
         <div className="max-w-7xl mx-auto">
           <div className="text-center py-20">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
@@ -145,7 +157,15 @@ const IslamicBookPage = () => {
 
   if (!book) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 p-4 sm:p-8">
+      <div
+        className={`min-h-screen ${
+          isRamadanThemeActive
+            ? "ramadan-bg-gradient"
+            : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"
+        } p-4 sm:p-8`}
+      >
+        {isRamadanThemeActive && <RamadanCountdown />}
+        {isRamadanThemeActive && <RamadanFloatingElements />}
         <div className="max-w-7xl mx-auto">
           <div className="text-center py-20">
             <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -209,7 +229,7 @@ const IslamicBookPage = () => {
     alternateLanguages: [
       {
         hrefLang: "ar",
-        href: `${window.location.origin}/islamic-library/books/${bookSlug}?lang=ar`,
+        href: `${window.location.origin}/islamic-library/books/${bookSlug}`,
       },
       {
         hrefLang: "en",
@@ -257,7 +277,9 @@ const IslamicBookPage = () => {
       numberOfPages: book?.chapters_count,
       publisher: {
         "@type": "Organization",
-        name: "Meshkah",
+        name: "مشكاة الأحاديث",
+        alternateName: "Meshkah",
+        url: "https://hadith-shareef.com",
       },
     },
   };
@@ -265,12 +287,20 @@ const IslamicBookPage = () => {
   return (
     <>
       <SEO {...seoData} />
+      {isRamadanThemeActive && <RamadanCountdown />}
+      {isRamadanThemeActive && <RamadanFloatingElements />}
       <div
-        className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"
+        className={`min-h-screen ${
+          isRamadanThemeActive
+            ? "ramadan-bg-gradient"
+            : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"
+        }`}
         style={{ direction: language === "ar" ? "rtl" : "ltr" }}
       >
         {/* Enhanced Header with Glass Effect */}
-        <div className="bg-white/90 backdrop-blur-xl border-b border-purple-200/50 sticky top-0 z-10  shadow-lg">
+        <div className={`bg-white/90 backdrop-blur-xl border-b border-purple-200/50 sticky z-10 shadow-lg ${
+            isRamadanThemeActive ? "top-[140px] md:top-[130px]" : "top-0"
+          }`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 ">
             <div className="flex flex-col flex-wrap items-start justify-between gap-y-4">
               <div className="flex flex-wrap flex-row-reverse justify-between w-[100%]  lg:gap-6 flex-1 min-w-0">

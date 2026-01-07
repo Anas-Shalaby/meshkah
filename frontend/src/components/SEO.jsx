@@ -1,5 +1,6 @@
 import React from "react";
 import { Helmet } from "react-helmet-async";
+import { normalizeCanonicalUrl } from "../utils/seoHelpers";
 
 const SEO = ({
   title,
@@ -41,6 +42,7 @@ const SEO = ({
 
         {/* Open Graph / Facebook */}
         <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="مشكاة الأحاديث" />
         <meta property="og:title" content={title} />
         <meta property="og:description" content={description} />
         {ogImage && <meta property="og:image" content={ogImage} />}
@@ -51,8 +53,10 @@ const SEO = ({
         <meta name="twitter:description" content={description} />
         {ogImage && <meta name="twitter:image" content={ogImage} />}
 
-        {/* Canonical URL */}
-        {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
+        {/* Canonical URL - Remove query parameters to avoid duplicates */}
+        {canonicalUrl && (
+          <link rel="canonical" href={normalizeCanonicalUrl(canonicalUrl)} />
+        )}
       </Helmet>
 
       {/* Structured Data */}

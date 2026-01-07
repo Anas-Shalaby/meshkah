@@ -54,13 +54,21 @@ const InteractionButtons = ({
     }
   };
 
+  // Ensure pledgedSteps is a Set
+  const pledgedStepsSet = React.useMemo(() => {
+    if (!pledgedSteps) return new Set();
+    if (pledgedSteps instanceof Set) return pledgedSteps;
+    if (Array.isArray(pledgedSteps)) return new Set(pledgedSteps);
+    return new Set();
+  }, [pledgedSteps]);
+
   const handlePledge = (e) => {
     e.stopPropagation();
     if (
       !isReadOnly &&
       !isCampNotStarted &&
       pledgingProgressId !== item.progress_id &&
-      !pledgedSteps.has(item.progress_id) &&
+      !pledgedStepsSet.has(item.progress_id) &&
       !item.is_pledged_by_user &&
       onPledge
     ) {
@@ -69,7 +77,7 @@ const InteractionButtons = ({
   };
 
   const isPledged =
-    pledgedSteps.has(item.progress_id) || item.is_pledged_by_user === 1;
+    pledgedStepsSet.has(item.progress_id) || item.is_pledged_by_user === 1;
   const isPledging = pledgingProgressId === item.progress_id;
 
   return (

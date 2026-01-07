@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fetchHadithsByBook, fetchMainCategories } from "../services/api";
 import HadithCard from "../components/HadithCard";
-import { Helmet } from "react-helmet-async";
+import SEO from "../components/SEO";
 import {
   ArrowLeft,
   Search,
@@ -126,9 +126,12 @@ const HadithCategoryPage = () => {
       className="min-h-screen bg-gradient-to-br from-gray-900 to-black py-12 px-4 sm:px-6 lg:px-8"
       dir="rtl"
     >
-      <Helmet>
-        <title>{`${subcategoryTitle} | مشكاة`}</title>
-      </Helmet>
+      <SEO
+        title={`${subcategoryTitle} - مشكاة الأحاديث`}
+        description={`تصفح أحاديث ${subcategoryTitle} في مشكاة`}
+        keywords={`${subcategoryTitle}, أحاديث نبوية, مشكاة, حديث نبوي`}
+        canonicalUrl={`${window.location.origin}${window.location.pathname}`}
+      />
 
       <div className="max-w-6xl mx-auto">
         {/* Back Button and Subcategory Title */}

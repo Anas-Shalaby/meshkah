@@ -21,6 +21,9 @@ import {
   getWriterTranslation,
 } from "../utils/translations";
 import toast from "react-hot-toast";
+import { useRamadanTheme } from "../context/RamadanThemeContext";
+import RamadanCountdown from "../components/ramadan/RamadanCountdown";
+import RamadanFloatingElements from "../components/ramadan/RamadanFloatingElements";
 import {
   getUserCollections,
   checkIslamicBookmark,
@@ -30,6 +33,7 @@ import BookmarkModal from "../components/BookmarkModal";
 const LocalBookPage = () => {
   const { bookSlug } = useParams();
   const navigate = useNavigate();
+  const { isRamadanThemeActive } = useRamadanTheme();
   const [book, setBook] = useState(null);
   const [hadiths, setHadiths] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -372,7 +376,15 @@ const LocalBookPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 p-4 sm:p-8">
+      <div
+        className={`min-h-screen ${
+          isRamadanThemeActive
+            ? "ramadan-bg-gradient"
+            : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"
+        } p-4 sm:p-8`}
+      >
+        {isRamadanThemeActive && <RamadanCountdown />}
+        {isRamadanThemeActive && <RamadanFloatingElements />}
         <div className="max-w-7xl mx-auto">
           <div className="text-center py-20">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
@@ -387,7 +399,15 @@ const LocalBookPage = () => {
 
   if (!book) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 p-4 sm:p-8">
+      <div
+        className={`min-h-screen ${
+          isRamadanThemeActive
+            ? "ramadan-bg-gradient"
+            : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"
+        } p-4 sm:p-8`}
+      >
+        {isRamadanThemeActive && <RamadanCountdown />}
+        {isRamadanThemeActive && <RamadanFloatingElements />}
         <div className="max-w-7xl mx-auto">
           <div className="text-center py-20">
             <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -401,9 +421,21 @@ const LocalBookPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50">
+    <div
+      className={`min-h-screen ${
+        isRamadanThemeActive
+          ? "ramadan-bg-gradient"
+          : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"
+      }`}
+    >
+      {isRamadanThemeActive && <RamadanCountdown />}
+      {isRamadanThemeActive && <RamadanFloatingElements />}
       {/* Header */}
-      <div className="bg-white/90 backdrop-blur-xl border-b border-purple-200/50 sticky top-0 z-10 shadow-lg">
+      <div
+        className={`bg-white/90 backdrop-blur-xl border-b border-purple-200/50 sticky z-10 shadow-lg ${
+          isRamadanThemeActive ? "top-[140px] md:top-[130px]" : "top-0"
+        }`}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-6 space-x-reverse">

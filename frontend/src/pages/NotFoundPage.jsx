@@ -3,6 +3,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { Button } from "antd";
 import { HomeOutlined } from "@ant-design/icons";
+import SEO from "../components/SEO";
 
 const NotFoundPage = () => {
   return (
@@ -10,6 +11,12 @@ const NotFoundPage = () => {
       className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#f7f6fb] via-[#f3edff] to-[#e9e4f5] text-gray-900 px-4 text-right transition-colors duration-300 relative overflow-hidden"
       dir="rtl"
     >
+      <SEO
+        title="الصفحة غير موجودة - 404 - مشكاة الأحاديث"
+        description="الصفحة التي تبحث عنها غير موجودة"
+        canonicalUrl={`${window.location.origin}${window.location.pathname}`}
+        noindex={true}
+      />
       {/* زخرفة SVG */}
       <svg
         className="absolute top-0 right-0 opacity-10 z-0"

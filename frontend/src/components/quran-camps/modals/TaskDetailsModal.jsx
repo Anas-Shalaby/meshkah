@@ -91,7 +91,7 @@ const TaskDetailsModal = ({
           <div className="bg-gradient-to-r from-[#7440E9] to-[#8B5CF6] p-3 sm:p-5 text-white">
             {/* Mobile Handle */}
             <div className="w-12 h-1 bg-white/30 rounded-full mx-auto mb-3 sm:hidden" />
-            
+
             <div className="flex items-start justify-between gap-2 sm:gap-3">
               <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
@@ -114,9 +114,7 @@ const TaskDetailsModal = ({
                     )}
                     <span
                       className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs ${
-                        task.is_optional
-                          ? "bg-orange-400/30"
-                          : "bg-white/20"
+                        task.is_optional ? "bg-orange-400/30" : "bg-white/20"
                       }`}
                     >
                       {task.is_optional ? "اختياري" : "مطلوب"}
@@ -164,7 +162,11 @@ const TaskDetailsModal = ({
                         )}
                         <span className="hidden sm:inline">{step.label}</span>
                         <span className="sm:hidden text-[10px]">
-                          {step.id === 1 ? "قراءة" : step.id === 2 ? "كتابة" : "إرسال"}
+                          {step.id === 1
+                            ? "قراءة"
+                            : step.id === 2
+                            ? "كتابة"
+                            : "إرسال"}
                         </span>
                       </button>
                       {index < steps.length - 1 && (
@@ -180,7 +182,9 @@ const TaskDetailsModal = ({
             {isCompleted && (
               <div className="mt-4 flex items-center justify-center gap-2 bg-green-500/20 rounded-xl py-2">
                 <CheckCircle2 className="w-5 h-5 text-green-300" />
-                <span className="text-green-100 font-medium">تم إكمال هذه المهمة</span>
+                <span className="text-green-100 font-medium">
+                  تم إكمال هذه المهمة
+                </span>
               </div>
             )}
           </div>
@@ -287,9 +291,12 @@ const TaskDetailsModal = ({
                   <div className="flex items-start gap-3">
                     <Sparkles className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-semibold text-amber-800">نصائح للكتابة</p>
+                      <p className="font-semibold text-amber-800">
+                        نصائح للكتابة
+                      </p>
                       <p className="text-sm text-amber-700 mt-1 leading-relaxed">
-                        اكتب ما تعلمته وكيف ستطبقه في حياتك. شارك لحظات التأثر والتأمل.
+                        اكتب ما تعلمته وكيف ستطبقه في حياتك. شارك لحظات التأثر
+                        والتأمل.
                       </p>
                     </div>
                   </div>
@@ -302,18 +309,24 @@ const TaskDetailsModal = ({
                   </label>
                   <p className="text-xs text-gray-600 mb-3 leading-relaxed">
                     للحصول على اقتراحات الأحاديث، اكتب{" "}
-                    <span className="font-bold text-purple-600">/حديث</span>{" "}
-                    ثم كلمة البحث (مثال:{" "}
-                    <span className="font-bold text-purple-600">/حديث الصبر</span>)
+                    <span className="font-bold text-purple-600">/حديث</span> ثم
+                    كلمة البحث (مثال:{" "}
+                    <span className="font-bold text-purple-600">
+                      /حديث الصبر
+                    </span>
+                    )
                   </p>
-                  
+
                   {RichTadabburEditor ? (
                     <RichTadabburEditor
                       initialContent={reflectionText}
                       onChange={(htmlContent) => setReflectionText(htmlContent)}
-                      onJSONChange={(jsonContent) => setReflectionJson?.(jsonContent)}
+                      onJSONChange={(jsonContent) =>
+                        setReflectionJson?.(jsonContent)
+                      }
                       placeholder="ابدأ كتابة الفوائد هنا..."
                       taskId={task?.id}
+                      cohortNumber={camp?.current_cohort_number}
                     />
                   ) : (
                     <textarea
@@ -382,8 +395,8 @@ const TaskDetailsModal = ({
                   </div>
 
                   {reflectionText ? (
-                    <div 
-                      dangerouslySetInnerHTML={{ __html: reflectionText }} 
+                    <div
+                      dangerouslySetInnerHTML={{ __html: reflectionText }}
                       className="text-gray-800 leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none"
                     />
                   ) : (
@@ -435,13 +448,19 @@ const TaskDetailsModal = ({
                   onComplete?.({
                     reflectionText,
                     proposedStep,
-                    shareInStudyHall
+                    shareInStudyHall,
                   });
                 }
               }}
-              disabled={!canProceed || isSubmitting || (isReadOnly && currentStep === totalSteps)}
+              disabled={
+                !canProceed ||
+                isSubmitting ||
+                (isReadOnly && currentStep === totalSteps)
+              }
               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-base transition-all ${
-                canProceed && !isSubmitting && !(isReadOnly && currentStep === totalSteps)
+                canProceed &&
+                !isSubmitting &&
+                !(isReadOnly && currentStep === totalSteps)
                   ? currentStep === totalSteps
                     ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg hover:shadow-xl active:scale-[0.98]"
                     : "bg-gradient-to-r from-[#7440E9] to-[#8B5CF6] text-white shadow-lg hover:shadow-xl active:scale-[0.98]"

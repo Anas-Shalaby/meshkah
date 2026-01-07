@@ -16,17 +16,7 @@ import {
   Eye,
 } from "lucide-react";
 
-const formatDate = (dateString) => {
-  try {
-    return new Date(dateString).toLocaleDateString("ar-SA", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  } catch {
-    return "";
-  }
-};
+import { formatDate } from "../utils/campUtils";
 
 const formatCountdown = (dateString) => {
   try {

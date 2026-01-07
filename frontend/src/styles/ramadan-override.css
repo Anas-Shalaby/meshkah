@@ -1,0 +1,103 @@
+/* Ramadan Theme Overrides - High Priority */
+
+/* Force Ramadan Background on main containers */
+.ramadan-bg-gradient,
+html.ramadan-theme .ramadan-bg-gradient,
+html.ramadan-theme div.ramadan-bg-gradient {
+  background: linear-gradient(
+    135deg,
+    #f7f6fb 0%,
+    #f3edff 50%,
+    #e9e4f5 100%
+  ) !important;
+}
+
+/* Hero Section with Pattern */
+html.ramadan-theme .ramadan-hero-section {
+  background: linear-gradient(
+    135deg,
+    rgba(116, 64, 233, 0.05) 0%,
+    rgba(212, 175, 55, 0.05) 100%
+  ) !important;
+}
+
+/* Remove default Tailwind backgrounds when Ramadan theme is active */
+html.ramadan-theme .ramadan-bg-gradient.bg-gradient-to-br {
+  background: linear-gradient(
+    135deg,
+    #f7f6fb 0%,
+    #f3edff 50%,
+    #e9e4f5 100%
+  ) !important;
+}
+
+/* Override inline gradients in Hero - BUT keep camp banners visible */
+html.ramadan-theme
+  .ramadan-hero-section
+  .absolute.inset-0:not(.camp-banner-image):not([class*="banner"]):not(
+    [class*="bg-gradient-to-t"]
+  ) {
+  opacity: 0.3 !important;
+}
+
+/* Keep camp banner images fully visible */
+html.ramadan-theme .camp-banner-image,
+html.ramadan-theme img.camp-banner-image,
+html.ramadan-theme .absolute.inset-0 > img {
+  opacity: 1 !important;
+  z-index: 1;
+}
+
+/* Ramadan overlay on top of camp banner (subtle) */
+html.ramadan-theme
+  .ramadan-hero-section.min-h-screen
+  > .absolute.inset-0:first-child {
+  opacity: 1 !important;
+}
+
+/* Make pattern visible */
+html.ramadan-theme .ramadan-hero-section::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("/assets/islamic-patterns/geometric-star.svg");
+  background-size: 300px 300px;
+  background-repeat: repeat;
+  background-position: center;
+  opacity: 0.4;
+  pointer-events: none;
+  z-index: 1;
+  animation: pattern-float 30s ease-in-out infinite;
+}
+
+@keyframes pattern-float {
+  0%,
+  100% {
+    transform: translate(0, 0);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translate(20px, 20px);
+    opacity: 0.3;
+  }
+}
+
+/* Ensure content is above pattern */
+html.ramadan-theme .ramadan-hero-section > div,
+html.ramadan-theme .ramadan-hero-section > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Gold accents for cards */
+html.ramadan-theme .ramadan-card-style {
+  border: 2px solid rgba(212, 175, 55, 0.2) !important;
+  box-shadow: 0 10px 40px -10px rgba(116, 64, 233, 0.3),
+    0 0 20px rgba(212, 175, 55, 0.15) !important;
+}
+
+html.ramadan-theme .ramadan-card-style:hover {
+  box-shadow: 0 15px 50px -15px rgba(116, 64, 233, 0.4),
+    0 5px 30px rgba(212, 175, 55, 0.25) !important;
+  transform: translateY(-4px);
+}

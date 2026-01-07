@@ -274,12 +274,13 @@ const ReflectionModal = ({
                         </div>
                         <div className="flex-1 min-w-0">
                           <h4 className="text-sm xs:text-base font-bold text-blue-900 mb-1">
-                            ⏳ المخيم لم يبدأ بعد
+                            🔒 المخيم لم يفتح بعد
                           </h4>
                           <p className="text-xs xs:text-sm text-blue-800 leading-relaxed">
-                            عذراً، المخيم في حالة التسجيل المبكر. لا يمكنك إكمال
-                            هذه المهمة أو حفظ الفوائد حتى يبدأ الادمن المخيم.
-                            سيتم إشعارك عند بدء المخيم.
+                            {camp?.status === "scheduled" 
+                              ? "المخيم مُجدول ولم يفتح بعد. لا يمكنك إكمال المهام أو حفظ الفوائد حتى يبدأ المشرف المخيم رسمياً."
+                              : "المخيم في حالة التسجيل المبكر. لا يمكنك إكمال هذه المهمة أو حفظ الفوائد حتى يبدأ المشرف المخيم."
+                            }
                           </p>
                         </div>
                       </div>
@@ -414,12 +415,13 @@ const ReflectionModal = ({
                         </div>
                         <div className="flex-1 min-w-0">
                           <h4 className="text-sm xs:text-base font-bold text-blue-900 mb-1">
-                            ⏳ المخيم لم يبدأ بعد
+                            🔒 المخيم لم يفتح بعد
                           </h4>
                           <p className="text-xs xs:text-sm text-blue-800 leading-relaxed">
-                            عذراً، المخيم في حالة التسجيل المبكر. لا يمكنك إكمال
-                            هذه المهمة أو حفظ الفوائد حتى يبدأ الادمن المخيم.
-                            سيتم إشعارك عند بدء المخيم.
+                            {camp?.status === "scheduled" 
+                              ? "المخيم مُجدول ولم يفتح بعد. لا يمكنك إكمال المهام أو حفظ الفوائد حتى يبدأ المشرف المخيم رسمياً."
+                              : "المخيم في حالة التسجيل المبكر. لا يمكنك إكمال هذه المهمة أو حفظ الفوائد حتى يبدأ المشرف المخيم."
+                            }
                           </p>
                         </div>
                       </div>
@@ -493,6 +495,8 @@ const ReflectionModal = ({
                           ? "ابدأ بقراءة 'تفاصيل المهمة' (في التاب الأول) واستخدم التايمر. ثم عُد إلى هنا لتدوين أهم فائدة لمست قلبك."
                           : "ابدأ كتابة الفوائد هنا..."
                       }
+                      taskId={selectedTask?.id}
+                      cohortNumber={camp?.current_cohort_number}
                     />
                   </div>
                   {/* ----- نهاية قسم الكتابة الموحد ----- */}
@@ -657,7 +661,7 @@ const ReflectionModal = ({
                         setReflectionText("");
                         setReflectionJson(null);
                         setProposedStep("");
-                        setShareInStudyHall(false);
+                        setShareInStudyHall(true); // Default: مشاركة في قاعة التدارس
                       }}
                       className="w-full px-4 sm:px-6 py-3 sm:py-3.5 bg-gray-200 text-gray-700 rounded-xl sm:rounded-2xl hover:bg-gray-300 transition-colors text-sm sm:text-base font-semibold touch-manipulation"
                     >

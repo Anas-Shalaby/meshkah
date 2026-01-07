@@ -590,6 +590,7 @@ const RichTadabburEditor = ({
   placeholder,
   onJSONChange,
   taskId, // معرف المهمة للحفظ التلقائي
+  cohortNumber, // رقم الفوج للتمييز بين التدبرات في أفواج مختلفة
 }) => {
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [linkEditData, setLinkEditData] = useState({
@@ -609,7 +610,9 @@ const RichTadabburEditor = ({
   // دالة للحصول على مفتاح localStorage
   const getStorageKey = () => {
     if (!taskId) return null;
-    return `tadabbur_draft_${taskId}`;
+    // إضافة cohortNumber للتمييز بين التدبرات في أفواج مختلفة
+    const cohortSuffix = cohortNumber ? `_cohort_${cohortNumber}` : '';
+    return `tadabbur_draft_${taskId}${cohortSuffix}`;
   };
 
   // حفظ تلقائي في localStorage

@@ -80,6 +80,7 @@ export default {
           "sans-serif",
         ],
         cairo: ["Cairo", "Noto Sans Arabic", "Tajawal", "sans-serif"],
+        almarai: ["Almarai", "Cairo", "Noto Sans Arabic", "sans-serif"],
         // Global font stack for better cross-platform support
         global: [
           "-apple-system",

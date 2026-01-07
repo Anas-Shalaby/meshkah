@@ -1,71 +1,114 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { motion } from "framer-motion";
+import MilestoneIndicator from "./MilestoneIndicator";
 
 /**
  * Progress Bar Component for Journey Map
- * Shows overall progress with percentage
+ * Shows overall progress with percentage and milestones
  */
-const ProgressBar = ({ completed, total, streak = 0, points = 0 }) => {
-  const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+const ProgressBar = ({
+  completed,
+  total,
+  streak = 0,
+  points = 0,
+  completedTasks = 0,
+  totalTasks = 0,
+  campDays = 0,
+}) => {
+  // Calculate percentage based on tasks if provided, otherwise use days
+  const percentage = useMemo(() => {
+    if (totalTasks > 0) {
+      return Math.round((completedTasks / totalTasks) * 100);
+    }
+    return total > 0 ? Math.round((completed / total) * 100) : 0;
+  }, [completedTasks, totalTasks, completed, total]);
+
+  // Calculate milestone achievements
+  const milestones = useMemo(() => {
+    const totalDays = campDays || total;
+    if (!totalDays || totalDays < 4) return [];
+
+    const quarter = Math.floor(totalDays * 0.25);
+    const half = Math.floor(totalDays * 0.5);
+    const threeQuarters = Math.floor(totalDays * 0.75);
+
+    const completedDaysCount = completed || 0;
+
+    return [
+      {
+        type: "quarter",
+        day: quarter,
+        achieved: completedDaysCount >= quarter,
+      },
+      {
+        type: "half",
+        day: half,
+        achieved: completedDaysCount >= half,
+      },
+      {
+        type: "three-quarters",
+        day: threeQuarters,
+        achieved: completedDaysCount >= threeQuarters,
+      },
+      {
+        type: "complete",
+        day: totalDays,
+        achieved: completedDaysCount >= totalDays,
+      },
+    ];
+  }, [campDays, total, completed]);
+
+  // Use tasks count if available, otherwise use days
+  const displayCompleted = totalTasks > 0 ? completedTasks : completed;
+  const displayTotal = totalTasks > 0 ? totalTasks : total;
+  const displayLabel = totalTasks > 0 ? "مهمة مكتملة" : "يوماً مكتملة";
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-xl font-bold text-gray-800">التقدم الإجمالي</h3>
-          <p className="text-sm text-gray-500">
-            {completed} من {total} يوماً مكتملة
-          </p>
-        </div>
-        <div className="text-4xl font-bold text-[#7440E9]">{percentage}%</div>
+    <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-3 sm:p-4 shadow-sm border border-gray-100 mb-6">
+      {/* Header with percentage */}
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs sm:text-sm font-semibold text-gray-700">
+          تقدمك في المخيم
+        </span>
+        <span className="text-xs sm:text-sm font-bold text-[#7440E9]">
+          {percentage}%
+        </span>
       </div>
 
       {/* Progress Bar */}
-      <div className="relative h-4 bg-gray-200 rounded-full overflow-hidden mb-4">
+      <div className="h-2.5 sm:h-3 bg-gray-100 rounded-full overflow-hidden">
         <motion.div
-          className="absolute top-0 right-0 h-full bg-gradient-to-l from-[#7440E9] to-[#B794F6] rounded-full"
+          className="h-full bg-gradient-to-r from-[#7440E9] to-[#B794F6] rounded-full"
           initial={{ width: 0 }}
           animate={{ width: `${percentage}%` }}
           transition={{ duration: 1, ease: "easeOut" }}
         />
-        
-        {/* Milestone Markers */}
-        {[25, 50, 75].map((milestone) => (
-          <div
-            key={milestone}
-            className="absolute top-0 bottom-0 w-1 bg-white/50"
-            style={{ right: `${100 - milestone}%` }}
-          >
-            <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-gray-400 whitespace-nowrap">
-              {milestone}%
-            </div>
-          </div>
-        ))}
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-3 gap-4">
-        {/* Days Completed */}
-        <div className="text-center p-3 bg-green-50 rounded-xl border border-green-200">
-          <div className="text-2xl font-bold text-green-600">{completed}</div>
-          <div className="text-xs text-green-700 font-medium">أيام مكتملة</div>
-        </div>
-
-        {/* Current Streak */}
-        <div className="text-center p-3 bg-orange-50 rounded-xl border border-orange-200">
-          <div className="text-2xl font-bold text-orange-600 flex items-center justify-center gap-1">
-            🔥 {streak}
-          </div>
-          <div className="text-xs text-orange-700 font-medium">أيام متتالية</div>
-        </div>
-
-        {/* Total Points */}
-        <div className="text-center p-3 bg-purple-50 rounded-xl border border-purple-200">
-          <div className="text-2xl font-bold text-purple-600">⭐ {points}</div>
-          <div className="text-xs text-purple-700 font-medium">نقاطك</div>
-        </div>
+      {/* Completion Stats */}
+      <div className="flex justify-between mt-1.5 text-[10px] sm:text-xs text-gray-500">
+        <span>
+          {displayCompleted} {displayLabel}
+        </span>
+        <span>من أصل {displayTotal}</span>
       </div>
+
+      {/* Milestones */}
+      {milestones.length > 0 && (
+        <div className="mt-4 pt-3 border-t border-gray-100">
+          <div className="flex items-center justify-around gap-2">
+            {milestones.map((milestone) => (
+              <MilestoneIndicator
+                key={milestone.type}
+                type={milestone.type}
+                achieved={milestone.achieved}
+                dayNumber={milestone.day}
+                campDays={campDays || total}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

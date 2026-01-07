@@ -28,6 +28,8 @@ const AboutPage = () => {
             publisher: {
               "@type": "Organization",
               name: "مشكاة الأحاديث",
+              alternateName: "Meshkah",
+              url: "https://hadith-shareef.com",
               logo: {
                 "@type": "ImageObject",
                 url: "https://hadith-shareef.com/favicon.png",

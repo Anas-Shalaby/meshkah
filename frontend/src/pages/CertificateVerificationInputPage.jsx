@@ -28,8 +28,9 @@ const CertificateVerificationInputPage = () => {
   return (
     <>
       <SEO
-        title="التحقق من الشهادة - منصة مِشكاة"
+        title="التحقق من الشهادة - مشكاة الأحاديث"
         description="تحقق من صحة الشهادة الرقمية باستخدام كود التحقق"
+        canonicalUrl={`${window.location.origin}/verify-certificate`}
       />
 
       <div className="min-h-screen bg-gradient-to-br from-[#F7F6FB] via-[#F3EDFF] to-[#E9E4F5] flex items-center justify-center p-4">

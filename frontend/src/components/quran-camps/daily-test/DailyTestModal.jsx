@@ -43,7 +43,26 @@ const DailyTestModal = ({
 
         // Check if test is already submitted
         if (testData.has_attempted) {
-          setError("تم حل هذا الاختبار مسبقاً. يمكنك مراجعته من صفحة اليوم.");
+          // If test is already completed, fetch results and close modal
+          try {
+            const resultsResponse = await axios.get(
+              `${
+                import.meta.env.VITE_API_URL
+              }/quran-camps/${campId}/daily-tests/${dayNumber}/results`,
+              {
+                headers: { "x-auth-token": token },
+              }
+            );
+            if (resultsResponse.data.success) {
+              // Close modal and pass results to parent
+              onClose(false, resultsResponse.data.data);
+              return;
+            }
+          } catch (resultsErr) {
+            console.error("Error fetching test results:", resultsErr);
+          }
+          // If fetching results failed, just close the modal
+          onClose(false);
           return;
         }
 

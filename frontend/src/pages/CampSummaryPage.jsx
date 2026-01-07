@@ -80,6 +80,11 @@ const CampSummaryPage = () => {
   const summaryCardRef = useRef(null);
   const [confettiKey, setConfettiKey] = useState(0);
 
+  // Certificate state
+  const [certificate, setCertificate] = useState(null);
+  const [certificateLoading, setCertificateLoading] = useState(false);
+  const [requestingCertificate, setRequestingCertificate] = useState(false);
+
   // --- Counter Animations (must always run to keep hooks order stable) ---
   const countersReady = !!summaryData && !loading && !error;
   const pointsTarget = summaryData?.totalPoints ?? 0;
@@ -182,6 +187,41 @@ const CampSummaryPage = () => {
     }
   }, [campId]);
 
+  // جلب الشهادة من النظام القديم
+  useEffect(() => {
+    const fetchCertificate = async () => {
+      if (!campId || !summaryData) return;
+
+      setCertificateLoading(true);
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        // استخدام الـ cohort_number إذا كان موجود
+        const cohortNumber = summaryData.cohortNumber || 1;
+
+        const response = await fetch(
+          `${
+            import.meta.env.VITE_API_URL
+          }/certificates/my/${campId}/${cohortNumber}`,
+          {
+            headers: { "x-auth-token": token },
+          }
+        );
+        const data = await response.json();
+        if (data.success && data.certificate) {
+          setCertificate(data.certificate);
+        }
+      } catch (error) {
+        console.error("Error fetching certificate:", error);
+      } finally {
+        setCertificateLoading(false);
+      }
+    };
+
+    fetchCertificate();
+  }, [campId, summaryData]);
+
   // تشغيل confetti عند تحميل الصفحة بنجاح
   useEffect(() => {
     if (summaryData && !loading && !error) {
@@ -214,6 +254,102 @@ const CampSummaryPage = () => {
       setShowConfetti(false);
     }, 3000);
   };
+
+  // طلب الشهادة باستخدام النظام القديم
+  const handleRequestCertificate = async () => {
+    setRequestingCertificate(true);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("يجب تسجيل الدخول أولاً");
+        return;
+      }
+
+      // استخدام الـ cohort_number إذا كان موجود
+      const cohortNumber = summaryData?.cohortNumber || 1;
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_API_URL
+        }/certificates/generate/${campId}/${cohortNumber}`,
+        {
+          method: "POST",
+          headers: {
+            "x-auth-token": token,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const data = await response.json();
+      if (data.success) {
+        setCertificate(data.certificate);
+        alert("تم إصدار الشهادة بنجاح! 🎉");
+      } else {
+        alert(data.message || "فشل في إصدار الشهادة");
+      }
+    } catch (error) {
+      console.error("Error requesting certificate:", error);
+      alert("حدث خطأ أثناء طلب الشهادة");
+    } finally {
+      setRequestingCertificate(false);
+    }
+  };
+
+  // تحميل الشهادة PDF من الـ backend
+  const handleDownloadCertificate = () => {
+    if (!certificate || !certificate.id) {
+      alert("الشهادة غير متوفرة");
+      return;
+    }
+
+    // فتح رابط التحميل في تبويب جديد
+    const token = localStorage.getItem("token");
+    const downloadUrl = `${
+      import.meta.env.VITE_API_URL
+    }/certificates/download/${certificate.id}`;
+
+    // إنشاء رابط مؤقت للتحميل
+    fetch(downloadUrl, {
+      headers: { "x-auth-token": token },
+    })
+      .then((response) => response.blob())
+      .then((blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `certificate-${
+          certificate.certificate_number || "meshkah"
+        }.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      })
+      .catch((error) => {
+        console.error("Error downloading certificate:", error);
+        alert("حدث خطأ أثناء تحميل الشهادة");
+      });
+  };
+
+  // عرض الشهادة في تبويب جديد
+  // const handleViewCertificate = async () => {
+  //   if (!certificate || !certificate.id) {
+  //     alert("الشهادة غير متوفرة");
+  //     return;
+  //   }
+  //   const response = await fetch(
+  //     `${import.meta.env.VITE_API_URL}/certificates/view/${
+  //       certificate.certificate_number
+  //     }`
+  //   );
+  //   const data = await response.json();
+  //   if (data.success) {
+  //     window.open(data.url, "_blank");
+  //   } else {
+  //     alert(data.message);
+  //   }
+  //   console.log(data);
+  // };
 
   if (loading) {
     return (
@@ -417,8 +553,10 @@ const CampSummaryPage = () => {
   return (
     <>
       <SEO
-        title={`ملخص ${summaryData.campName}`}
+        title={`ملخص ${summaryData.campName} - مشكاة الأحاديث`}
         description="حصاد رحلتك في المخيم القرآني."
+        canonicalUrl={`${window.location.origin}/camp-summary/${campId}`}
+        noindex={true}
       />
 
       {/* Confetti Effect */}
@@ -1042,6 +1180,176 @@ const CampSummaryPage = () => {
 
           {/* --- نظام الإنجازات --- */}
           <CampAchievements summaryData={summaryData} />
+
+          {/* --- قسم الشهادات --- */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.2 }}
+            className="bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-2xl shadow-2xl p-8 mb-8 relative overflow-hidden"
+          >
+            {/* Background Decorations */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32"></div>
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24"></div>
+
+            {/* Corner Stars */}
+            <div className="absolute top-4 left-4">
+              <Star className="w-8 h-8 text-yellow-300/30" />
+            </div>
+            <div className="absolute bottom-4 right-4">
+              <Star className="w-6 h-6 text-yellow-300/20" />
+            </div>
+
+            <div className="relative z-10">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+                    <Award className="w-8 h-8 text-yellow-300" />
+                  </div>
+                  <div>
+                    <h3 className="text-3xl font-bold mb-1">
+                      شهادة إتمام المخيم
+                    </h3>
+                    <p className="text-white/80 text-sm">
+                      احصل على شهادتك الرسمية من مشكاة الأحاديث
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {certificateLoading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-white mx-auto mb-4"></div>
+                  <p className="text-white/80">جاري التحقق من الشهادة...</p>
+                </div>
+              ) : certificate ? (
+                <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="flex items-start gap-4 flex-1">
+                      <div className="p-4 bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl">
+                        <CheckCircle className="w-10 h-10 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-2xl font-bold mb-2">
+                          تم إصدار شهادتك بنجاح! 🎉
+                        </h4>
+                        <p className="text-white/80 text-sm mb-3">
+                          تم إصدار الشهادة في:{" "}
+                          {new Date(certificate.issue_date).toLocaleDateString(
+                            "ar-EG",
+                            {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            }
+                          )}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div className="bg-white/20 px-3 py-1.5 rounded-lg">
+                            <span className="text-xs text-white/70">
+                              رقم الشهادة:
+                            </span>
+                            <span className="text-sm font-mono ml-2 font-bold">
+                              {certificate.certificate_number}
+                            </span>
+                          </div>
+                          <div className="bg-white/20 px-3 py-1.5 rounded-lg">
+                            <span className="text-xs text-white/70">
+                              كود التحقق:
+                            </span>
+                            <span className="text-sm font-mono ml-2 font-bold">
+                              {certificate.verification_code}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={handleDownloadCertificate}
+                        className="group flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold text-base shadow-xl hover:shadow-2xl transition-all duration-300"
+                      >
+                        <Download className="w-5 h-5 group-hover:animate-bounce" />
+                        <span>تحميل الشهادة</span>
+                      </motion.button>
+                    </div>
+                  </div>
+
+                  {/* Certificate Stats */}
+                  {certificate.certificate_data && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-white/20">
+                      <div className="text-center">
+                        <p className="text-3xl font-bold mb-1">
+                          {certificate.certificate_data.days_completed || 0}
+                        </p>
+                        <p className="text-white/70 text-sm">يوم مكتمل</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-3xl font-bold mb-1">
+                          {certificate.certificate_data.total_points || 0}
+                        </p>
+                        <p className="text-white/70 text-sm">نقطة</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-3xl font-bold mb-1">
+                          {certificate.certificate_data.longest_streak || 0}
+                        </p>
+                        <p className="text-white/70 text-sm">أطول سلسلة</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-3xl font-bold mb-1">
+                          {certificate.certificate_data.completion_percentage ||
+                            0}
+                          %
+                        </p>
+                        <p className="text-white/70 text-sm">نسبة الإتمام</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20 text-center">
+                  <div className="w-20 h-20 mx-auto mb-4 bg-white/10 rounded-full flex items-center justify-center">
+                    <Medal className="w-10 h-10 text-yellow-300" />
+                  </div>
+                  <h4 className="text-2xl font-bold mb-3">اطلب شهادتك الآن!</h4>
+                  <p className="text-white/80 text-lg mb-6 max-w-2xl mx-auto leading-relaxed">
+                    مبروك على إتمامك للمخيم! أصبحت مؤهلاً للحصول على شهادة رسمية
+                    من مشكاة الأحاديث تثبت إنجازك في هذه الرحلة القرآنية
+                    المباركة.
+                  </p>
+
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleRequestCertificate}
+                    disabled={requestingCertificate}
+                    className="group inline-flex items-center gap-3 px-10 py-4 bg-gradient-to-r from-yellow-400 to-amber-500 text-gray-900 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {requestingCertificate ? (
+                      <>
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+                        <span>جاري الإصدار...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Award className="w-6 h-6 group-hover:rotate-12 transition-transform duration-300" />
+                        <span>إصدار الشهادة</span>
+                      </>
+                    )}
+                  </motion.button>
+
+                  <p className="text-white/60 text-sm mt-4">
+                    ستحصل على نسخة PDF يمكنك تحميلها ومشاركتها
+                  </p>
+                </div>
+              )}
+            </div>
+          </motion.div>
 
           {/* --- بطاقة المشاركة --- */}
           <InviteFriendsCard

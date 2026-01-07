@@ -213,8 +213,11 @@ const SelectCohortPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50">
-      <SEO
-        title={`اختيار الفوج - ${camp?.name || "المخيم"}`}
+        <SEO
+          title={`اختيار الفوج - ${camp?.name || "المخيم"} - مشكاة الأحاديث`}
+          description={`اختر الفوج المناسب لك في مخيم ${camp?.name || "المخيم"} القرآني`}
+          canonicalUrl={`${window.location.origin}/select-cohort/${campId}`}
+          noindex={true}
         description="اختر الفوج الذي تريد الانضمام إليه"
       />
 

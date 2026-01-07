@@ -25,6 +25,9 @@ import {
   HandThumbDownIcon,
 } from "@heroicons/react/24/outline";
 import { useBookmarks } from "../context/BookmarkContext";
+import { useRamadanTheme } from "../context/RamadanThemeContext";
+import RamadanCountdown from "../components/ramadan/RamadanCountdown";
+import RamadanFloatingElements from "../components/ramadan/RamadanFloatingElements";
 import {
   BookA,
   Bookmark,
@@ -56,7 +59,7 @@ import { Dialog } from "@headlessui/react";
 import BookmarkModal from "../components/BookmarkModal";
 import Joyride, { STATUS } from "react-joyride";
 import { useAuth } from "../context/AuthContext";
-import { useHadithTracking } from "../hooks/useHadithTracking";
+import FullPageLoadingScreen from "../components/FullPageLoadingScreen";
 
 const ShareModal = ({ isOpen, onClose, hadithDetails }) => {
   const url = window.location.href;
@@ -464,8 +467,8 @@ const HadithPage = () => {
   const { isAuthenticated } = useAuth();
   const { addBookmark, removeBookmark, bookmarks } = useBookmarks();
   const { categories } = useHadithCategories();
-  const { trackHadithView, trackHadithRead, startReading } =
-    useHadithTracking();
+
+  const { isRamadanThemeActive } = useRamadanTheme();
 
   // Performance optimizations with useMemo and useCallback
   const [hadithDetails, setHadithDetails] = useState(null);
@@ -533,13 +536,6 @@ const HadithPage = () => {
         `https://hadeethenc.com/api/v1/hadeeths/one/?language=ar&id=${hadithId}`
       );
       setHadithDetails(response.data);
-
-      // تتبع مشاهدة الحديث
-      if (response.data && isAuthenticated) {
-        await trackHadithView(hadithId);
-        // بدء تتبع وقت القراءة
-        startReading(hadithId);
-      }
 
       // Preload similar hadiths after we have the hadith details
       if (response.data) {
@@ -700,13 +696,13 @@ const HadithPage = () => {
             className="w-full flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4 rounded-lg sm:rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 text-right cursor-pointer transition-all duration-300 shadow-inner hover:from-purple-100 hover:to-indigo-100"
           >
             <div className="flex items-center gap-2 sm:gap-3">
-              <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
-              <span className="font-bold text-purple-600 text-sm sm:text-base">
+              <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-[#7440E9]" />
+              <span className="font-bold text-[#7440E9] text-sm sm:text-base">
                 {title}
               </span>
             </div>
             <ChevronDownIcon
-              className={`w-4 h-4 sm:w-5 sm:h-5 text-purple-600 transition-transform duration-300 ${
+              className={`w-4 h-4 sm:w-5 sm:h-5 text-[#7440E9] transition-transform duration-300 ${
                 isOpen ? "transform rotate-180" : ""
               }`}
             />
@@ -752,7 +748,7 @@ const HadithPage = () => {
 
           {/* Header with icon */}
           <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4 relative z-10">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-md">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#7440E9] to-[#8B5CF6] rounded-lg sm:rounded-xl flex items-center justify-center shadow-md">
               <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
             <div className="flex-1">
@@ -760,7 +756,7 @@ const HadithPage = () => {
                 حديث مشابه
               </h4>
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-purple-500 rounded-full"></div>
+                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-[#7440E9] rounded-full"></div>
                 <span className="text-xs text-gray-500">ذات صلة</span>
               </div>
             </div>
@@ -795,7 +791,7 @@ const HadithPage = () => {
               <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
               <span className="text-xs">انقر للقراءة</span>
             </div>
-            <div className="w-5 h-5 sm:w-6 sm:h-6 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+            <div className="w-5 h-5 sm:w-6 sm:h-6 bg-gradient-to-r from-[#7440E9] to-[#8B5CF6] rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
               <ArrowRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
             </div>
           </div>
@@ -961,34 +957,7 @@ const HadithPage = () => {
 
   // Enhanced loading state
   if (isLoading || !hadithDetails) {
-    return (
-      <LazyMotion features={domAnimation}>
-        <div className="min-h-screen bg-gradient-to-br from-[#f7f6fb] via-[#f3edff] to-[#e9e4f5] flex flex-col justify-center items-center">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-            className="text-center"
-          >
-            <div className="relative">
-              <div className="w-20 h-20 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
-              <div
-                className="absolute inset-0 w-20 h-20 border-4 border-transparent border-t-purple-400 rounded-full animate-spin"
-                style={{ animationDelay: "0.5s" }}
-              ></div>
-            </div>
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="mt-6 text-lg text-purple-700 font-medium"
-            >
-              جاري تحميل الحديث...
-            </motion.p>
-          </motion.div>
-        </div>
-      </LazyMotion>
-    );
+    return <FullPageLoadingScreen message="جاري تحميل الحديث..." />;
   }
 
   return (
@@ -1014,502 +983,504 @@ const HadithPage = () => {
         }}
       />
 
-      <div className="min-h-screen relative bg-gradient-to-br from-[#f7f6fb] via-[#f3edff] to-[#e9e4f5] overflow-x-hidden">
-        <SEO
-          title={`شرح حديث ${hadithDetails.title?.substring(0, 50)}...`}
-          description={hadithDetails.explanation}
-          keywords={`${hadithDetails.grade}, ${getCategoryNames().join(", ")}`}
-        />
+      <div
+        className={`min-h-screen  overflow-x-hidden ${
+          isRamadanThemeActive
+            ? "ramadan-bg-gradient ramadan-pattern-overlay"
+            : "bg-gradient-to-br from-[#f7f6fb] via-[#f3edff] to-[#e9e4f5]"
+        }`}
+      >
+        {/* Ramadan Theme Elements */}
+        {isRamadanThemeActive && <RamadanCountdown />}
+        {isRamadanThemeActive && <RamadanFloatingElements />}
 
-        {/* Enhanced AI Assistant Button - Mobile Friendly */}
-        <motion.div
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="fixed bottom-4 sm:bottom-8 right-4 sm:right-8 z-50 flex flex-col items-center gap-2 sm:gap-3"
-        >
-          {isAuthenticated && remainingQuestions !== null && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="px-3 sm:px-4 py-2 sm:py-3 bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-2xl border border-purple-200/50 text-xs sm:text-sm text-purple-800 text-center max-w-[280px] sm:max-w-xs"
-            >
-              <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
-                <Zap className="w-3 h-3 sm:w-4 sm:h-4 text-purple-600" />
-                <p className="font-bold text-xs sm:text-sm">
-                  أنا سراج، مساعدك الذكي
-                </p>
-              </div>
-              <p className="text-xs">
-                {remainingQuestions === -1
-                  ? "عدد غير محدود من الأسئلة لأنك مستخدم مميز 😉❤️"
-                  : `لديك ${remainingQuestions} محاولات متبقية اليوم`}
-              </p>
-            </motion.div>
-          )}
+        {/* Add padding when countdown is fixed */}
+        <div className={isRamadanThemeActive ? "pt-28 md:pt-20" : ""}>
+          <SEO
+            title={`شرح حديث ${hadithDetails.title?.substring(0, 50)}...`}
+            description={hadithDetails.explanation}
+            keywords={`${hadithDetails.grade}, ${getCategoryNames().join(
+              ", "
+            )}`}
+            canonicalUrl={`${window.location.origin}${window.location.pathname}`}
+          />
 
-          <motion.button
-            whileHover={{ scale: 1.05, y: -2 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              if (!isAuthenticated) {
-                handleAuthRedirect();
-                return;
-              }
-              setIsAIChatOpen(true);
-            }}
-            className="flex items-center gap-2 sm:gap-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 shadow-2xl shadow-purple-500/50 hover:shadow-3xl transition-all duration-300"
-            title="الدردشة مع مساعد الذكاء الاصطناعي"
-          >
-            <SparklesIcon className="w-5 h-5 sm:w-6 sm:h-6" />
-            <span className="text-sm sm:text-lg font-bold">إسأل سراج</span>
-          </motion.button>
-        </motion.div>
-
-        {/* Enhanced Main Content - Mobile Friendly */}
-        <div className="relative z-10 max-w-5xl mx-auto sm:px-6 lg:px-8  sm:py-8">
+          {/* Enhanced AI Assistant Button - Mobile Friendly */}
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="w-full bg-white/80 backdrop-blur-xl border-2 border-purple-200/50 rounded-2xl sm:rounded-3xl shadow-2xl p-4 sm:p-6 md:p-8 flex flex-col text-center transition-all duration-300 overflow-hidden"
+            transition={{ delay: 0.5 }}
+            className="fixed bottom-4 sm:bottom-8 right-4 sm:right-8 z-50 flex flex-col items-center gap-2 sm:gap-3"
           >
-            {/* Enhanced Header - Mobile Friendly */}
-            <div className="flex flex-col sm:flex-row items-center justify-between w-full mb-6 sm:mb-8 gap-3 sm:gap-4">
-              <motion.button
-                onClick={returnToPre}
-                whileHover={{ scale: 1.1, x: 5 }}
-                whileTap={{ scale: 0.9 }}
-                className="flex items-center gap-2 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl shadow-xl bg-white/90 hover:bg-white transition-all duration-300"
+            {isAuthenticated && remainingQuestions !== null && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="px-3 sm:px-4 py-2 sm:py-3 bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-2xl border border-purple-200/50 text-xs sm:text-sm text-purple-800 text-center max-w-[280px] sm:max-w-xs"
               >
-                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
-                <span className="text-xs sm:text-sm font-medium text-purple-700">
-                  رجوع
-                </span>
-              </motion.button>
-
-              <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-center">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  title="تحليل سريع"
-                  onClick={handleQuickAnalysisClick}
-                  className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 transition-all shadow-lg"
-                >
-                  <Zap className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="hidden sm:inline">تحليل سريع</span>
-                  <span className="sm:hidden">تحليل</span>
-                </motion.button>
-
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  onClick={copyToClipboard}
-                  className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-white/90 hover:bg-white transition-all duration-300 shadow-lg"
-                  title="نسخ"
-                >
-                  <Copy className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
-                </motion.button>
-
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  onClick={() => setIsShareModalOpen(true)}
-                  className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-white/90 hover:bg-white transition-all duration-300 shadow-lg"
-                  title="مشاركة"
-                >
-                  <ShareIcon className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
-                </motion.button>
-
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  onClick={handleBookmarkToggle}
-                  className={`p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-300 shadow-lg ${
-                    isBookmarked
-                      ? "bg-gradient-to-r from-yellow-400 to-orange-400 text-white"
-                      : "bg-white/90 hover:bg-white"
-                  }`}
-                  title="حفظ"
-                >
-                  <Bookmark
-                    className={`w-4 h-4 sm:w-5 sm:h-5 ${
-                      isBookmarked ? "fill-current" : "text-purple-600"
-                    }`}
-                  />
-                </motion.button>
-
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  onClick={async () => {
-                    if (!isAuthenticated) {
-                      handleAuthRedirect();
-                      return;
-                    }
-                    await trackHadithRead(hadithId);
-                    toast.success("تم تسجيل قراءة الحديث بنجاح! 📖");
-                  }}
-                  className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-white/90 hover:bg-white transition-all duration-300 shadow-lg"
-                  title="تمت القراءة"
-                >
-                  <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
-                </motion.button>
-              </div>
-            </div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="w-full bg-gradient-to-br from-white/80 to-purple-50/80 rounded-2xl sm:rounded-3xl p-2 sm:p-6 md:p-8 mb-6 sm:mb-8 shadow-inner border border-purple-200/50"
-            >
-              <div className="relative">
-                <p
-                  style={{ lineHeight: "2.5" }}
-                  className="prose max-w-none text-lg sm:text-xl md:text-2xl text-gray-800 leading-loose amiri-regular text-right relative z-10"
-                >
-                  {hadithDetails?.hadeeth}
+                <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+                  <Zap className="w-3 h-3 sm:w-4 sm:h-4 text-purple-600" />
+                  <p className="font-bold text-xs sm:text-sm">
+                    أنا سراج، مساعدك الذكي
+                  </p>
+                </div>
+                <p className="text-xs">
+                  {remainingQuestions === -1
+                    ? "عدد غير محدود من الأسئلة لأنك مستخدم مميز 😉❤️"
+                    : `لديك ${remainingQuestions} محاولات متبقية اليوم`}
                 </p>
+              </motion.div>
+            )}
 
-                {hadithDetails?.attribution && (
-                  <motion.p
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.5 }}
-                    className="text-right text-xs sm:text-sm text-gray-500 mt-4 sm:mt-6 font-sans flex items-center gap-1.5 sm:gap-2 justify-end"
+            <motion.button
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  handleAuthRedirect();
+                  return;
+                }
+                setIsAIChatOpen(true);
+              }}
+              className="flex items-center gap-2 sm:gap-3 bg-gradient-to-r from-[#7440E9] to-[#8B5CF6] text-white rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 shadow-2xl shadow-purple-500/50 hover:shadow-3xl transition-all duration-300"
+              title="الدردشة مع مساعد الذكاء الاصطناعي"
+            >
+              <SparklesIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+              <span className="text-sm sm:text-lg font-bold">إسأل سراج</span>
+            </motion.button>
+          </motion.div>
+
+          {/* Enhanced Main Content - Mobile Friendly */}
+          <div className="relative z-20 max-w-5xl mx-auto sm:px-6 lg:px-8  sm:py-8">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="w-full bg-white/80 backdrop-blur-xl border-2 border-purple-200/50 rounded-2xl sm:rounded-3xl shadow-2xl p-4 sm:p-6 md:p-8 flex flex-col text-center transition-all duration-300 overflow-hidden"
+            >
+              {/* Enhanced Header - Mobile Friendly */}
+              <div className="flex flex-col sm:flex-row items-center justify-between w-full mb-6 sm:mb-8 gap-3 sm:gap-4">
+                <motion.button
+                  onClick={returnToPre}
+                  whileHover={{ scale: 1.1, x: 5 }}
+                  whileTap={{ scale: 0.9 }}
+                  className="flex items-center gap-2 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl shadow-xl bg-white/90 hover:bg-white transition-all duration-300"
+                >
+                  <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
+                  <span className="text-xs sm:text-sm font-medium text-purple-700">
+                    رجوع
+                  </span>
+                </motion.button>
+
+                <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-center">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    title="تحليل سريع"
+                    onClick={handleQuickAnalysisClick}
+                    className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-[#7440E9] to-[#8B5CF6] hover:shadow-lg transition-all duration-200"
                   >
-                    <Users className="w-3 h-3 sm:w-4 sm:h-4" />
-                    المحدث - {hadithDetails.attribution}
-                  </motion.p>
-                )}
+                    <Zap className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span className="hidden sm:inline">تحليل سريع</span>
+                    <span className="sm:hidden">تحليل</span>
+                  </motion.button>
 
-                {hadithDetails?.grade && (
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    onClick={copyToClipboard}
+                    className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-white/90 hover:bg-white transition-all duration-300 shadow-lg"
+                    title="نسخ"
+                  >
+                    <Copy className="w-4 h-4 sm:w-5 sm:h-5 text-[#7440E9]" />
+                  </motion.button>
+
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    onClick={() => setIsShareModalOpen(true)}
+                    className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-white/90 hover:bg-white transition-all duration-300 shadow-lg"
+                    title="مشاركة"
+                  >
+                    <ShareIcon className="w-4 h-4 sm:w-5 sm:h-5 text-[#7440E9]" />
+                  </motion.button>
+
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    onClick={handleBookmarkToggle}
+                    className={`p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-300 shadow-lg ${
+                      isBookmarked
+                        ? "bg-gradient-to-r from-yellow-400 to-orange-400 text-white"
+                        : "bg-white/90 hover:bg-white"
+                    }`}
+                    title="حفظ"
+                  >
+                    <Bookmark
+                      className={`w-4 h-4 sm:w-5 sm:h-5 ${
+                        isBookmarked ? "fill-current" : "text-[#7440E9]"
+                      }`}
+                    />
+                  </motion.button>
+                </div>
+              </div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="w-full bg-gradient-to-br from-white/80 to-purple-50/80 rounded-2xl sm:rounded-3xl p-2 sm:p-6 md:p-8 mb-6 sm:mb-8 shadow-inner border border-purple-200/50"
+              >
+                <div className="relative">
+                  <p
+                    style={{ lineHeight: "2.5" }}
+                    className="prose max-w-none text-lg sm:text-xl md:text-2xl text-gray-800 leading-loose amiri-regular text-right relative z-10"
+                  >
+                    {hadithDetails?.hadeeth}
+                  </p>
+
+                  {hadithDetails?.attribution && (
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.5 }}
+                      className="text-right text-xs sm:text-sm text-gray-500 mt-4 sm:mt-6 font-sans flex items-center gap-1.5 sm:gap-2 justify-end"
+                    >
+                      <Users className="w-3 h-3 sm:w-4 sm:h-4" />
+                      المحدث - {hadithDetails.attribution}
+                    </motion.p>
+                  )}
+
+                  {hadithDetails?.grade && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.7 }}
+                      className="text-right mt-4 sm:mt-6"
+                    >
+                      <span className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-xl sm:rounded-2xl bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 font-semibold border border-green-200 shadow-sm">
+                        <Shield className="w-3 h-3 sm:w-4 sm:h-4 inline ml-1.5 sm:ml-2" />
+                        حكم الحديث : {hadithDetails.grade}
+                      </span>
+                    </motion.div>
+                  )}
+                </div>
+              </motion.div>
+
+              {/* Enhanced Collapsible sections container - Mobile Friendly */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="w-full space-y-4 sm:space-y-6"
+              >
+                {hadithDetails.explanation && (
+                  <CollapsibleSection
+                    title="شرح الحديث"
+                    icon={LightBulbIcon}
+                    defaultOpen={false}
+                  >
+                    {hadithDetails.explanation}
+                  </CollapsibleSection>
+                )}
+                {hadithDetails.hints && hadithDetails.hints.length > 0 && (
+                  <CollapsibleSection title="نقاط مهمة وفوائد" icon={StarIcon}>
+                    <ul>
+                      {hadithDetails.hints.map((h, i) => (
+                        <li className="mb-2" key={i}>
+                          {h}
+                        </li>
+                      ))}
+                    </ul>
+                  </CollapsibleSection>
+                )}
+                {hadithDetails.words_meanings &&
+                  hadithDetails.words_meanings.length > 0 && (
+                    <CollapsibleSection
+                      title="معاني الكلمات"
+                      icon={TranslationOutlined}
+                    >
+                      {hadithDetails.words_meanings.map(({ word, meaning }) => (
+                        <p key={word}>
+                          <strong className="text-purple-700">{word}:</strong>{" "}
+                          {meaning}
+                        </p>
+                      ))}
+                    </CollapsibleSection>
+                  )}
+                {getCategoryNames().length > 0 && (
+                  <CollapsibleSection title="التصنيفات" icon={BookOpenIcon}>
+                    <div className="flex flex-wrap gap-2 p-2 justify-center">
+                      {getCategoryNames().map((categoryName, index) => (
+                        <Link
+                          key={index}
+                          to={`/hadiths/${hadithDetails.categories[index]}/page/1`}
+                          className="px-3 py-1 text-sm rounded-full bg-indigo-100 text-indigo-800 hover:bg-indigo-200 transition"
+                        >
+                          {categoryName}
+                        </Link>
+                      ))}
+                    </div>
+                  </CollapsibleSection>
+                )}
+              </motion.div>
+            </motion.div>
+
+            {/* Enhanced Similar Hadiths Section */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.6 }}
+              className="mt-12 w-full max-w-5xl mx-auto mb-12"
+            >
+              {/* Enhanced Header - Mobile Friendly */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8 }}
+                className="text-center mb-6 sm:mb-8 px-4"
+              >
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-4">
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-[#7440E9] to-[#8B5CF6] rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-xl">
+                    <BookA className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                  </div>
+                  <div className="text-center sm:text-right">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-[#7440E9]">
+                      أحاديث مشابهة
+                    </h2>
+                    <p className="text-gray-500 text-xs sm:text-sm mt-1">
+                      اكتشف أحاديث ذات صلة وثيقة
+                    </p>
+                  </div>
+                </div>
+
+                {similarHadiths.length > 0 && (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.7 }}
-                    className="text-right mt-4 sm:mt-6"
+                    transition={{ delay: 1 }}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-full border border-purple-200/50"
                   >
-                    <span className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-xl sm:rounded-2xl bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 font-semibold border border-green-200 shadow-sm">
-                      <Shield className="w-3 h-3 sm:w-4 sm:h-4 inline ml-1.5 sm:ml-2" />
-                      حكم الحديث : {hadithDetails.grade}
+                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-[#7440E9] rounded-full animate-pulse"></div>
+                    <span className="text-xs sm:text-sm font-medium text-[#7440E9]">
+                      {similarHadiths.length} حديث مشابه
                     </span>
                   </motion.div>
                 )}
-              </div>
-            </motion.div>
+              </motion.div>
 
-            {/* Enhanced Collapsible sections container - Mobile Friendly */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="w-full space-y-4 sm:space-y-6"
-            >
-              {hadithDetails.explanation && (
-                <CollapsibleSection
-                  title="شرح الحديث"
-                  icon={LightBulbIcon}
-                  defaultOpen={false}
+              {/* Enhanced Loading State - Mobile Friendly */}
+              {isLoadingSimilar ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 px-4 sm:px-0">
+                  {[...Array(6)].map((_, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: index * 0.1 }}
+                      className="bg-white/80 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-purple-200/50 shadow-lg h-40 sm:h-48"
+                    >
+                      <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-200 rounded-full animate-pulse"></div>
+                        <div className="flex-1">
+                          <div className="h-3 sm:h-4 bg-gray-200 rounded mb-1 sm:mb-2 animate-pulse"></div>
+                          <div className="h-2 sm:h-3 bg-gray-200 rounded w-2/3 animate-pulse"></div>
+                        </div>
+                      </div>
+                      <div className="space-y-2 sm:space-y-3">
+                        <div className="h-2 sm:h-3 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="h-2 sm:h-3 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="h-2 sm:h-3 bg-gray-200 rounded w-4/5 animate-pulse"></div>
+                        <div className="h-2 sm:h-3 bg-gray-200 rounded w-3/5 animate-pulse"></div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : similarHadiths.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 px-4 sm:px-0">
+                  {similarHadiths.map((hadith, index) => (
+                    <motion.div
+                      key={hadith.id}
+                      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{
+                        duration: 0.6,
+                        delay: index * 0.1,
+                        ease: [0.4, 0, 0.2, 1],
+                      }}
+                      whileHover={{
+                        y: -4,
+                        scale: 1.01,
+                        transition: { duration: 0.3 },
+                      }}
+                      whileTap={{
+                        scale: 0.98,
+                        transition: { duration: 0.1 },
+                      }}
+                    >
+                      <EnhancedSimilarHadithCard hadith={hadith} />
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="text-center py-12 sm:py-16 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl sm:rounded-3xl border border-purple-200/50 mx-4 sm:mx-0"
                 >
-                  {hadithDetails.explanation}
-                </CollapsibleSection>
-              )}
-              {hadithDetails.hints && hadithDetails.hints.length > 0 && (
-                <CollapsibleSection title="نقاط مهمة وفوائد" icon={StarIcon}>
-                  <ul>
-                    {hadithDetails.hints.map((h, i) => (
-                      <li className="mb-2" key={i}>
-                        {h}
-                      </li>
-                    ))}
-                  </ul>
-                </CollapsibleSection>
-              )}
-              {hadithDetails.words_meanings &&
-                hadithDetails.words_meanings.length > 0 && (
-                  <CollapsibleSection
-                    title="معاني الكلمات"
-                    icon={TranslationOutlined}
-                  >
-                    {hadithDetails.words_meanings.map(({ word, meaning }) => (
-                      <p key={word}>
-                        <strong className="text-purple-700">{word}:</strong>{" "}
-                        {meaning}
-                      </p>
-                    ))}
-                  </CollapsibleSection>
-                )}
-              {getCategoryNames().length > 0 && (
-                <CollapsibleSection title="التصنيفات" icon={BookOpenIcon}>
-                  <div className="flex flex-wrap gap-2 p-2 justify-center">
-                    {getCategoryNames().map((categoryName, index) => (
-                      <Link
-                        key={index}
-                        to={`/hadiths/${hadithDetails.categories[index]}/page/1`}
-                        className="px-3 py-1 text-sm rounded-full bg-indigo-100 text-indigo-800 hover:bg-indigo-200 transition"
-                      >
-                        {categoryName}
-                      </Link>
-                    ))}
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
+                    <BookA className="w-10 h-10 sm:w-12 sm:h-12 text-[#7440E9]" />
                   </div>
-                </CollapsibleSection>
-              )}
-            </motion.div>
-          </motion.div>
-
-          {/* Enhanced Similar Hadiths Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.6 }}
-            className="mt-12 w-full max-w-5xl mx-auto mb-12"
-          >
-            {/* Enhanced Header - Mobile Friendly */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8 }}
-              className="text-center mb-6 sm:mb-8 px-4"
-            >
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-4">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-xl">
-                  <BookA className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-                </div>
-                <div className="text-center sm:text-right">
-                  <h2 className="text-2xl sm:text-3xl font-bold text-purple-700">
-                    أحاديث مشابهة
-                  </h2>
-                  <p className="text-gray-500 text-xs sm:text-sm mt-1">
-                    اكتشف أحاديث ذات صلة وثيقة
+                  <h4 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2 sm:mb-3">
+                    لا توجد أحاديث مشابهة
+                  </h4>
+                  <p className="text-gray-500 text-xs sm:text-sm max-w-md mx-auto mb-4 sm:mb-6 px-4">
+                    جرب البحث عن أحاديث أخرى أو استكشف الفئات المختلفة للعثور
+                    على محتوى مشابه
                   </p>
-                </div>
-              </div>
+                  <Link
+                    to="/hadiths"
+                    className="inline-flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-[#7440E9] to-[#8B5CF6] text-white rounded-xl sm:rounded-2xl font-medium shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 text-sm sm:text-base"
+                  >
+                    <span>استكشف جميع الأحاديث</span>
+                    <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
+                  </Link>
+                </motion.div>
+              )}
 
+              {/* View All Button - Mobile Friendly */}
               {similarHadiths.length > 0 && (
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 1 }}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-full border border-purple-200/50"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.5, delay: 1.2 }}
+                  className="text-center pt-6 sm:pt-8 px-4 sm:px-0"
                 >
-                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-purple-500 rounded-full animate-pulse"></div>
-                  <span className="text-xs sm:text-sm font-medium text-purple-700">
-                    {similarHadiths.length} حديث مشابه
-                  </span>
+                  <Link
+                    to="/hadiths"
+                    className="inline-flex items-center gap-2 sm:gap-3 px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-[#7440E9] to-[#8B5CF6] text-white rounded-xl sm:rounded-2xl font-medium shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group text-sm sm:text-base"
+                  >
+                    <span>عرض جميع الأحاديث</span>
+                    <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
+                  </Link>
                 </motion.div>
               )}
             </motion.div>
+          </div>
 
-            {/* Enhanced Loading State - Mobile Friendly */}
-            {isLoadingSimilar ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 px-4 sm:px-0">
-                {[...Array(6)].map((_, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: index * 0.1 }}
-                    className="bg-white/80 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-purple-200/50 shadow-lg h-40 sm:h-48"
-                  >
-                    <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-200 rounded-full animate-pulse"></div>
-                      <div className="flex-1">
-                        <div className="h-3 sm:h-4 bg-gray-200 rounded mb-1 sm:mb-2 animate-pulse"></div>
-                        <div className="h-2 sm:h-3 bg-gray-200 rounded w-2/3 animate-pulse"></div>
+          <AnimatePresence>
+            {isAnalysisModalOpen && (
+              <Dialog
+                open={isAnalysisModalOpen}
+                onClose={() => setIsAnalysisModalOpen(false)}
+                className="fixed inset-0 z-[9999] font-cairo flex items-center justify-center p-4"
+              >
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="fixed inset-0 bg-black/10 backdrop-blur-sm"
+                  aria-hidden="true"
+                />
+                <Dialog.Panel
+                  as={motion.div}
+                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                  className="relative z-10 w-full max-w-2xl bg-white/90 rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-purple-200/50"
+                >
+                  <div className="flex items-center justify-between p-4 border-b border-purple-200/30">
+                    <h3 className="font-bold text-lg text-purple-800 flex items-center gap-2">
+                      <SparklesIcon className="w-6 h-6 text-purple-500" />
+                      <span>تحليل سريع للحديث</span>
+                    </h3>
+                    <button
+                      onClick={() => setIsAnalysisModalOpen(false)}
+                      className="p-2 rounded-full text-gray-500 hover:bg-black/10 transition-colors"
+                    >
+                      <XMarkIcon className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="p-6 text-right text-sm md:text-base  leading-loose text-gray-700 max-h-[60vh] overflow-y-auto">
+                    {isAnalysisLoading ? (
+                      <div className="flex justify-center items-center h-24">
+                        <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
                       </div>
-                    </div>
-                    <div className="space-y-2 sm:space-y-3">
-                      <div className="h-2 sm:h-3 bg-gray-200 rounded animate-pulse"></div>
-                      <div className="h-2 sm:h-3 bg-gray-200 rounded animate-pulse"></div>
-                      <div className="h-2 sm:h-3 bg-gray-200 rounded w-4/5 animate-pulse"></div>
-                      <div className="h-2 sm:h-3 bg-gray-200 rounded w-3/5 animate-pulse"></div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            ) : similarHadiths.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 px-4 sm:px-0">
-                {similarHadiths.map((hadith, index) => (
-                  <motion.div
-                    key={hadith.id}
-                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{
-                      duration: 0.6,
-                      delay: index * 0.1,
-                      ease: [0.4, 0, 0.2, 1],
-                    }}
-                    whileHover={{
-                      y: -4,
-                      scale: 1.01,
-                      transition: { duration: 0.3 },
-                    }}
-                    whileTap={{
-                      scale: 0.98,
-                      transition: { duration: 0.1 },
-                    }}
-                  >
-                    <EnhancedSimilarHadithCard hadith={hadith} />
-                  </motion.div>
-                ))}
-              </div>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="text-center py-12 sm:py-16 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl sm:rounded-3xl border border-purple-200/50 mx-4 sm:mx-0"
-              >
-                <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
-                  <BookA className="w-10 h-10 sm:w-12 sm:h-12 text-purple-600" />
-                </div>
-                <h4 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2 sm:mb-3">
-                  لا توجد أحاديث مشابهة
-                </h4>
-                <p className="text-gray-500 text-xs sm:text-sm max-w-md mx-auto mb-4 sm:mb-6 px-4">
-                  جرب البحث عن أحاديث أخرى أو استكشف الفئات المختلفة للعثور على
-                  محتوى مشابه
-                </p>
-                <Link
-                  to="/hadiths"
-                  className="inline-flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl sm:rounded-2xl font-medium shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 text-sm sm:text-base"
-                >
-                  <span>استكشف جميع الأحاديث</span>
-                  <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
-                </Link>
-              </motion.div>
+                    ) : (
+                      analysisShort
+                    )}
+                  </div>
+                </Dialog.Panel>
+              </Dialog>
             )}
+          </AnimatePresence>
 
-            {/* View All Button - Mobile Friendly */}
-            {similarHadiths.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.5, delay: 1.2 }}
-                className="text-center pt-6 sm:pt-8 px-4 sm:px-0"
-              >
-                <Link
-                  to="/hadiths"
-                  className="inline-flex items-center gap-2 sm:gap-3 px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl sm:rounded-2xl font-medium shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group text-sm sm:text-base"
-                >
-                  <span>عرض جميع الأحاديث</span>
-                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </motion.div>
-            )}
-          </motion.div>
-        </div>
-
-        <AnimatePresence>
-          {isAnalysisModalOpen && (
-            <Dialog
-              open={isAnalysisModalOpen}
-              onClose={() => setIsAnalysisModalOpen(false)}
-              className="fixed inset-0 z-[9999] font-cairo flex items-center justify-center p-4"
-            >
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="fixed inset-0 bg-black/10 backdrop-blur-sm"
-                aria-hidden="true"
+          <AnimatePresence>
+            {isAIChatOpen && (
+              <AIAssistant
+                hadith={hadithDetails}
+                isOpen={isAIChatOpen}
+                onClose={() => setIsAIChatOpen(false)}
               />
-              <Dialog.Panel
-                as={motion.div}
-                transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                className="relative z-10 w-full max-w-2xl bg-white/90 rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-purple-200/50"
-              >
-                <div className="flex items-center justify-between p-4 border-b border-purple-200/30">
-                  <h3 className="font-bold text-lg text-purple-800 flex items-center gap-2">
-                    <SparklesIcon className="w-6 h-6 text-purple-500" />
-                    <span>تحليل سريع للحديث</span>
-                  </h3>
-                  <button
-                    onClick={() => setIsAnalysisModalOpen(false)}
-                    className="p-2 rounded-full text-gray-500 hover:bg-black/10 transition-colors"
-                  >
-                    <XMarkIcon className="w-5 h-5" />
-                  </button>
-                </div>
-                <div className="p-6 text-right text-sm md:text-base  leading-loose text-gray-700 max-h-[60vh] overflow-y-auto">
-                  {isAnalysisLoading ? (
-                    <div className="flex justify-center items-center h-24">
-                      <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-                    </div>
-                  ) : (
-                    analysisShort
-                  )}
-                </div>
-              </Dialog.Panel>
-            </Dialog>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {isAIChatOpen && (
-            <AIAssistant
-              hadith={hadithDetails}
-              isOpen={isAIChatOpen}
-              onClose={() => setIsAIChatOpen(false)}
-            />
-          )}
-        </AnimatePresence>
-        <BookmarkModal
-          isOpen={isBookmarkModalOpen}
-          onClose={() => setIsBookmarkModalOpen(false)}
-          existingCollections={[...new Set(bookmarks.map((b) => b.collection))]}
-          onSubmit={({ collection, notes }) => {
-            addBookmark(hadithDetails.id, collection, notes);
-            setIsBookmarkModalOpen(false);
-          }}
-        />
-        <ShareModal
-          isOpen={isShareModalOpen}
-          onClose={() => setIsShareModalOpen(false)}
-          hadithDetails={hadithDetails}
-        />
-      </div>
-      {showLoginModal && (
-        <Dialog
-          open={showLoginModal}
-          onClose={() => setShowLoginModal(false)}
-          className="fixed inset-0 z-[4000000] font-cairo flex items-center justify-center p-4"
-        >
-          <Dialog.Panel
-            as={motion.div}
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.95, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            style={{
-              maxWidth: 400,
-              width: "100%",
-              padding: 24,
-              background: "#fff",
-              borderRadius: 18,
-              boxShadow: "0 4px 32px #e3d8fa",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
+            )}
+          </AnimatePresence>
+          <BookmarkModal
+            isOpen={isBookmarkModalOpen}
+            onClose={() => setIsBookmarkModalOpen(false)}
+            existingCollections={[
+              ...new Set(bookmarks.map((b) => b.collection)),
+            ]}
+            onSubmit={({ collection, notes }) => {
+              addBookmark(hadithDetails.id, collection, notes);
+              setIsBookmarkModalOpen(false);
             }}
-            onClick={(e) => e.stopPropagation()}
+          />
+          <ShareModal
+            isOpen={isShareModalOpen}
+            onClose={() => setIsShareModalOpen(false)}
+            hadithDetails={hadithDetails}
+          />
+        </div>
+        {showLoginModal && (
+          <Dialog
+            open={showLoginModal}
+            onClose={() => setShowLoginModal(false)}
+            className="fixed inset-0 z-[4000000] font-cairo flex items-center justify-center p-4"
           >
-            <h3 className="font-bold text-lg text-purple-800 mb-4">
-              تسجيل الدخول مطلوب
-            </h3>
-            <p className="text-gray-700 mb-6 text-center">
-              يجب تسجيل الدخول لاستخدام ميزة التحليل السريع للأحاديث.
-            </p>
-            <button
-              onClick={() => {
-                setShowLoginModal(false);
-                localStorage.setItem("redirectPath", location.pathname);
-                navigate("/login");
+            <Dialog.Panel
+              as={motion.div}
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              style={{
+                maxWidth: 400,
+                width: "100%",
+                padding: 24,
+                background: "#fff",
+                borderRadius: 18,
+                boxShadow: "0 4px 32px #e3d8fa",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
               }}
-              className="px-6 py-2 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-bold shadow hover:from-purple-600 hover:to-indigo-600 transition"
+              onClick={(e) => e.stopPropagation()}
             >
-              تسجيل الدخول
-            </button>
-          </Dialog.Panel>
-        </Dialog>
-      )}
+              <h3 className="font-bold text-lg text-purple-800 mb-4">
+                تسجيل الدخول مطلوب
+              </h3>
+              <p className="text-gray-700 mb-6 text-center">
+                يجب تسجيل الدخول لاستخدام ميزة التحليل السريع للأحاديث.
+              </p>
+              <button
+                onClick={() => {
+                  setShowLoginModal(false);
+                  localStorage.setItem("redirectPath", location.pathname);
+                  navigate("/login");
+                }}
+                className="px-6 py-2 rounded-full bg-gradient-to-r from-[#7440E9] to-[#8B5CF6] text-white font-bold shadow hover:shadow-lg transition-all duration-200"
+              >
+                تسجيل الدخول
+              </button>
+            </Dialog.Panel>
+          </Dialog>
+        )}
+      </div>
     </LazyMotion>
   );
 };

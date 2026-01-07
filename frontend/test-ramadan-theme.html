@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="ramadan-theme">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>اختبار الثيم الرمضاني</title>
+    <style>
+      /* Ramadan Theme Variables */
+      :root.ramadan-theme {
+        --ramadan-primary: #7440e9;
+        --ramadan-gold: #d4af37;
+        --ramadan-bg-start: #f7f6fb;
+      }
+
+      body {
+        font-family: Arial, sans-serif;
+        padding: 40px;
+        background: var(--ramadan-bg-start);
+      }
+
+      .test-card {
+        background: white;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        max-width: 600px;
+        margin: 0 auto;
+      }
+
+      .ramadan-pattern-overlay {
+        position: relative;
+        overflow: hidden;
+        padding: 40px;
+        background: linear-gradient(135deg, #7440e9 0%, #5a2bb8 100%);
+        border-radius: 12px;
+        margin-top: 20px;
+      }
+
+      .ramadan-pattern-overlay::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image: url("/assets/islamic-patterns/arabesque-light.svg");
+        background-size: 400px 400px;
+        background-repeat: repeat;
+        opacity: 0.08;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      .ramadan-pattern-overlay h2 {
+        position: relative;
+        z-index: 2;
+        color: white;
+        text-align: center;
+        font-size: 32px;
+        margin: 0;
+      }
+
+      .status {
+        padding: 15px;
+        border-radius: 8px;
+        margin-top: 20px;
+      }
+
+      .success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+
+      .info {
+        background: #d1ecf1;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="test-card">
+      <h1 style="color: var(--ramadan-primary); text-align: center">
+        🌙 اختبار الثيم الرمضاني
+      </h1>
+
+      <div class="status success">
+        <strong>✅ CSS Variables:</strong>
+        <div>
+          Primary: <span style="color: var(--ramadan-primary)">●</span> #7440e9
+        </div>
+        <div>
+          Gold: <span style="color: var(--ramadan-gold)">●</span> #d4af37
+        </div>
+      </div>
+
+      <div class="status info">
+        <strong>ℹ️ HTML Class:</strong> <code id="html-class"></code>
+      </div>
+
+      <div class="ramadan-pattern-overlay">
+        <h2>الزخارف الإسلامية</h2>
+      </div>
+
+      <div style="text-align: center; margin-top: 30px">
+        <button
+          onclick="location.reload()"
+          style="
+            padding: 12px 30px;
+            background: var(--ramadan-primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+          "
+        >
+          🔄 إعادة تحميل
+        </button>
+      </div>
+    </div>
+
+    <script>
+      document.getElementById("html-class").textContent =
+        document.documentElement.className || "(فارغ)";
+
+      console.log("🌙 HTML classes:", document.documentElement.className);
+      console.log(
+        "🌙 CSS Variable --ramadan-primary:",
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--ramadan-primary"
+        )
+      );
+    </script>
+  </body>
+</html>

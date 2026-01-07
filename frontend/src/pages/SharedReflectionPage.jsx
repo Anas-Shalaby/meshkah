@@ -109,8 +109,10 @@ const SharedReflectionPage = () => {
 
   return (
     <>
-      <SEO
-        title={`${reflection.task.title} - ${reflection.camp.name}`}
+        <SEO
+          title={`${reflection.task.title} - ${reflection.camp.name} - مشكاة الأحاديث`}
+          description={`تدبر مشارك من ${reflection.camp.name}: ${reflection.task.title}`}
+          canonicalUrl={`${window.location.origin}/shared-reflection/${shareLink}`}
         description={`تدبر قرآني من مخيم ${reflection.camp.name}`}
         keywords="تدبر, قرآن, مخيمات قرآنية, تفسير, فوائد قرآنية"
       />

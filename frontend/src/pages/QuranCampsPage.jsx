@@ -31,9 +31,15 @@ import {
   CampCardSkeleton,
   StatsCardSkeleton,
 } from "../components/CampSkeletons";
+import { useRamadanTheme } from "../context/RamadanThemeContext";
+import RamadanCountdown from "../components/ramadan/RamadanCountdown";
+import RamadanFloatingElements from "../components/ramadan/RamadanFloatingElements";
 import "../styles/quran-camps.css";
+import FullPageLoadingScreen from "../components/FullPageLoadingScreen";
 
 const QuranCampsPage = () => {
+  const { isRamadanThemeActive, loading: themeLoading } = useRamadanTheme();
+
   const [camps, setCamps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -423,59 +429,7 @@ const QuranCampsPage = () => {
   }, [camps]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50">
-        <SEO
-          title="المخيمات القرآنية - مشكاة الأحاديث"
-          description="انضم إلى مخيماتنا القرآنية المكثفة للتعمق في سور القرآن الكريم مع منهج متكامل من القراءة والحفظ والتفسير"
-        />
-
-        {/* Hero Section Skeleton */}
-        <div className="relative py-12 sm:py-16 md:py-20 lg:py-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-100/30 via-blue-100/20 to-indigo-100/30"></div>
-
-          <div className="max-w-7xl mx-auto relative">
-            <div className="text-center">
-              {/* Title Skeleton */}
-              <div className="h-12 sm:h-16 md:h-20 bg-white/70 rounded-2xl animate-pulse mb-6 max-w-2xl mx-auto" />
-
-              {/* Description Skeleton */}
-              <div className="space-y-2 max-w-3xl mx-auto mb-8">
-                <div className="h-4 bg-white/70 rounded-lg animate-pulse w-3/4 mx-auto" />
-                <div className="h-4 bg-white/70 rounded-lg animate-pulse w-2/3 mx-auto" />
-              </div>
-
-              {/* Stats Skeleton */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-4xl mx-auto mb-8 sm:mb-12 px-4">
-                {[0, 1, 2].map((i) => (
-                  <StatsCardSkeleton key={i} index={i} />
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Search Bar Skeleton */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8 sm:mb-12">
-          <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-4 sm:p-6 lg:p-8 shadow-2xl border border-gray-100">
-            <div className="h-12 w-full bg-gray-200 rounded-xl animate-pulse mb-4"></div>
-            <div className="flex gap-4">
-              <div className="h-10 w-32 bg-gray-200 rounded-xl animate-pulse"></div>
-              <div className="h-10 w-24 bg-gray-200 rounded-xl animate-pulse"></div>
-            </div>
-          </div>
-        </div>
-
-        {/* Camps Grid Skeleton */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 sm:pb-20">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <CampCardSkeleton key={i} index={i} />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
+    return <FullPageLoadingScreen message="جاري تحميل المخيمات ..." />;
   }
 
   if (error) {
@@ -556,15 +510,32 @@ const QuranCampsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50">
+    <div
+      className={`min-h-screen ${
+        isRamadanThemeActive
+          ? "ramadan-bg-gradient"
+          : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"
+      }`}
+    >
       <SEO
         title="المخيمات القرآنية - مشكاة الأحاديث"
         description="انضم إلى مخيماتنا القرآنية المكثفة للتعمق في سور القرآن الكريم مع منهج متكامل من القراءة والحفظ والتفسير"
         keywords="مخيمات قرآنية, حفظ القرآن, تفسير القرآن, دراسة القرآن"
+        canonicalUrl={`${window.location.origin}/quran-camps`}
       />
 
+      {/* Ramadan Countdown */}
+      {isRamadanThemeActive && <RamadanCountdown />}
+
+      {/* Floating Elements */}
+      {isRamadanThemeActive && <RamadanFloatingElements />}
+
       {/* Hero Section */}
-      <div className="relative py-12 sm:py-16 md:py-20 lg:py-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
+      <div
+        className={`relative py-12 sm:py-16 md:py-20 lg:py-24 px-4 sm:px-6 lg:px-8 overflow-hidden ${
+          isRamadanThemeActive ? "ramadan-hero-section pt-32 md:pt-28" : ""
+        }`}
+      >
         {/* Background Pattern */}
         <div className="absolute inset-0 bg-gradient-to-br from-purple-100/30 via-blue-100/20 to-indigo-100/30"></div>
         <div

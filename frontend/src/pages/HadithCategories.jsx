@@ -15,6 +15,7 @@ import { Link } from "react-router-dom";
 import { Loading3QuartersOutlined, WhatsAppOutlined } from "@ant-design/icons";
 import { useHadithCategories } from "../hooks/useHadithCategories";
 import { useNavigate } from "react-router-dom";
+import SEO from "../components/SEO";
 
 const HadithCategories = () => {
   const navigate = useNavigate();
@@ -174,9 +175,15 @@ const HadithCategories = () => {
 
   return (
     <div
-      className="min-h-screen bg-gradient-to-br from-[#f7f6fb] via-[#f3edff] to-[#e9e4f5] py-16 px-4 font-cairo"
+      className="min-h-screen bg-gradient-to-br from-[#f7f6fb] via-[#f3edff] to-[#e9e4f5] py-16 px-4 font-amiri"
       dir="rtl"
     >
+      <SEO
+        title="تصنيفات الأحاديث - مشكاة الأحاديث"
+        description="تصفح تصنيفات الأحاديث النبوية الشريفة في مشكاة. تصنيفات شاملة للأحاديث حسب الموضوع والفئة"
+        keywords="تصنيفات أحاديث, أحاديث نبوية, مشكاة, حديث نبوي, تصنيفات إسلامية"
+        canonicalUrl={`${window.location.origin}/hadiths/categories`}
+      />
       <div className="max-w-7xl mx-auto">
         {/* Header Section */}
         <motion.div
@@ -277,7 +284,7 @@ const HadithCategories = () => {
                     className="bg-white/90 backdrop-blur-xl rounded-3xl border border-white/20 shadow-lg hover:shadow-xl transition-all duration-300 p-8"
                   >
                     {/* Hadith Text */}
-                    <div className="text-xl font-cairo leading-loose mb-6 text-gray-900 bg-gradient-to-r from-gray-50 to-white p-6 rounded-2xl border-r-4 border-[#7440E9]">
+                    <div className="text-md font-amiri leading-loose mb-6 text-gray-900 bg-gradient-to-r from-gray-50 to-white p-6 rounded-2xl">
                       {hadith.hadeeth}
                     </div>
 

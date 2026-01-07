@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { Player } from "@lottiefiles/react-lottie-player";
 import {
   Users,
   BookOpen,
@@ -139,7 +140,7 @@ const HeroSection = () => {
                 className="space-y-4"
               >
                 <motion.h1
-                  className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-[#7440E9] drop-shadow-sm"
+                  className="font-almarai text-4xl sm:text-5xl lg:text-6xl font-extrabold text-[#7440E9] drop-shadow-sm"
                   initial={{ scale: 0.8 }}
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.8, type: "spring", stiffness: 100 }}
@@ -181,7 +182,7 @@ const HeroSection = () => {
                     href="https://play.google.com/store/apps/details?id=com.mishkat_almasabih.app"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-3 px-8 py-1 bg-[#7440E9] text-white font-bold text-md rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:bg-[#6B3CD6] group"
+                    className="inline-flex items-center gap-3 px-8 py-4 bg-[#7440E9] text-white font-bold text-md rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:bg-[#6B3CD6] group"
                   >
                     حمل التطبيق
                     <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-300" />
@@ -194,7 +195,7 @@ const HeroSection = () => {
                 >
                   <Link
                     to="/hadiths"
-                    className="inline-flex items-center gap-3 px-8 py-1 bg-white text-[#7440E9] font-bold text-md rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-[#7440E9] hover:bg-[#7440E9] hover:text-white group"
+                    className="inline-flex items-center gap-3 px-8 py-4 bg-white text-[#7440E9] font-bold text-md rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-[#7440E9] hover:bg-[#7440E9] hover:text-white group"
                   >
                     <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform duration-300" />
                     ابدأ الآن
@@ -208,11 +209,11 @@ const HeroSection = () => {
                 >
                   <Link
                     to="/daily-hadith"
-                    className="inline-flex items-center gap-3 px-8 py-1 bg-gray-100 text-gray-700 font-bold text-md rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:bg-gray-200 group"
+                    className="inline-flex items-center gap-3 px-8 py-4 bg-gray-100 text-gray-700 font-bold text-md rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:bg-gray-200 group"
                   >
                     <BookOpen className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" />
                     حديث اليوم
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
+                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-300" />
                   </Link>
                 </motion.div>
               </motion.div>
@@ -261,20 +262,18 @@ const HeroSection = () => {
                   className="absolute -bottom-4 -right-4 w-6 h-6 bg-[#7440E9]/15 rounded-full"
                 />
 
-                {/* Main App Image */}
+                {/* Main Lottie Animation */}
                 <motion.div whileHover={{ scale: 1.05 }} className="relative">
-                  <motion.img
-                    src="/assets/hero_image.png"
-                    alt="تطبيق مشكاة"
-                    className="w-64 sm:w-[100%] h-auto max-w-full object-contain drop-shadow-2xl"
-                    animate={{
-                      y: [0, -10, 0],
+                  <Player
+                    autoplay
+                    loop
+                    src="/assets/LIghts.json"
+                    style={{
+                      width: "100%",
+                      maxWidth: "600px",
+                      height: "auto",
                     }}
-                    transition={{
-                      duration: 3,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
+                    className="drop-shadow-2xl"
                   />
 
                   {/* Simple Shadow */}

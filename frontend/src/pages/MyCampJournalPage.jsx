@@ -241,6 +241,8 @@ const MyCampJournalPage = () => {
         title={`يومياتي - ${camp?.name || "المخيم"} - مشكاة الأحاديث`}
         description="مراجعة وتتبع يومياتك وتدبرك في المخيم القرآني"
         keywords="يوميات، تدبر، مخيم قرآني، مراجعة"
+        canonicalUrl={`${window.location.origin}/my-camp-journal/${campId}`}
+        noindex={true}
       />
 
       {/* Header */}

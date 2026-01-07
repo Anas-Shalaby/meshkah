@@ -701,14 +701,12 @@ const IslamicHadithPage = () => {
             getBookTranslation(language, hadithDetails?.book?.writerName) ||
             hadithDetails?.book?.writerName
           }, Hadith, Meshkah, Islamic library, Islamic sciences`,
-    canonicalUrl: `${window.location.origin}${window.location.pathname}${
-      window.location.search ? "" : ""
-    }`,
+    canonicalUrl: `${window.location.origin}${window.location.pathname}`,
     ogImage: "https://hadith-shareef.com/logo.svg",
     alternateLanguages: [
       {
         hrefLang: "ar",
-        href: `${window.location.origin}${window.location.pathname}?lang=ar`,
+        href: `${window.location.origin}${window.location.pathname}`,
       },
       {
         hrefLang: "en",
@@ -759,7 +757,9 @@ const IslamicHadithPage = () => {
       position: parseInt(hadithDetails?.hadithNumber || hadithDetails?.id),
       publisher: {
         "@type": "Organization",
-        name: "Meshkah",
+        name: "مشكاة الأحاديث",
+        alternateName: "Meshkah",
+        url: "https://hadith-shareef.com",
       },
     },
   };

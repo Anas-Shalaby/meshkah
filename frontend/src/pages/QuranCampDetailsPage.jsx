@@ -16,95 +16,47 @@ import {
   Users,
   BookOpen,
   Trophy,
-  Star,
   CheckCircle,
   Clock3,
-  User,
-  Eye,
-  EyeOff,
-  Target,
-  Brain,
-  ArrowUp,
-  Bookmark,
-  Heart,
-  Zap,
-  Shield,
-  Award,
   AlertCircle,
-  ChevronDown,
-  ChevronUp,
   Share2,
-  Download,
-  Info,
-  X,
-  Plus,
-  Sun,
   Lock,
-  Play,
-  CheckCircle2,
-  Check,
-  Lightbulb,
-  MessageSquare,
-  UserCheck,
-  MapPin,
-  FileText,
-  Settings,
-  Bell,
-  AlertTriangle,
-  LogOut,
-  ChevronLeft,
-  ChevronRight,
-  Sparkles,
-  Send,
-  Save,
-  HandHeart,
 } from "lucide-react";
 
 import SEO from "../components/SEO";
 import { useAuth } from "../context/AuthContext";
-import ActionPlanModal from "../components/ActionPlanModal";
-import NotesModal from "../components/NotesModal";
-import { toPng } from "html-to-image";
-import copy from "copy-to-clipboard";
-import OnboardingModal from "../components/OnboardingModal";
+import { useRamadanTheme } from "../context/RamadanThemeContext";
+import RamadanCountdown from "../components/ramadan/RamadanCountdown";
+import RamadanFloatingElements from "../components/ramadan/RamadanFloatingElements";
 import { CampDetailsSkeleton } from "../components/CampDetailsSkeletons";
-import { TaskCardSkeleton } from "../components/CampDetailsSkeletons";
-import CampResources from "../components/dashboard/CampResources";
-import CampQandA from "../components/dashboard/CampQandA";
-import RichTadabburEditor from "../components/RichTadabburEditor";
 import CommitmentModal from "../components/CommitmentModal";
-import FriendsTab from "../components/FriendsTab";
-import * as campService from "../services/campService";
-import {
-  Tooltip as TooltipComponent,
-  ConfirmationDialog,
-} from "../components/UI/Tooltip";
-import {
-  Map as MapIcon,
-  Edit3,
-  BookOpen as JournalIcon,
-  Users as LeaderboardIcon,
-  UsersIcon,
-  BookOpen as StudyHallIcon,
-} from "lucide-react";
 
 // Import extracted components
-import TaskCompletionStats from "../components/quran-camps/TaskCompletionStats";
-import CampBanners from "../components/quran-camps/CampBanners";
 import CampPublicView from "../components/quran-camps/CampPublicView";
 import CampJourneyInterface from "../components/quran-camps/CampJourneyInterface";
 import IdentityChoiceModal from "../components/quran-camps/modals/IdentityChoiceModal";
-import AddReflectionModal from "../components/quran-camps/modals/AddReflectionModal";
-import ReflectionModal from "../components/quran-camps/modals/ReflectionModal";
-import LeaveCampModal from "../components/quran-camps/modals/LeaveCampModal";
-import DeleteReflectionModal from "../components/quran-camps/modals/DeleteReflectionModal";
-import Breadcrumb from "../components/quran-camps/Breadcrumb";
+import CampBreadcrumbs from "../components/quran-camps/CampBreadcrumbs";
 import ShareModal from "../components/quran-camps/ShareModal";
+import CohortSelector from "../components/quran-camps/CohortSelector";
+
+// Import utility functions
+import {
+  getStatusText,
+  getStatusColor,
+  getStatusIcon,
+  groupTasksByDay,
+  truncateHTML,
+  highlightSearchTermHTML,
+  highlightSearchTerm,
+  formatDate,
+  getCurrentDay,
+} from "../utils/campUtils.jsx";
 
 const QuranCampDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
+  const { isRamadanThemeActive, loading: themeLoading } = useRamadanTheme();
 
   // تحقق إضافي من وجود token عند التحميل
   useEffect(() => {
@@ -138,7 +90,6 @@ const QuranCampDetailsPage = () => {
   const [enrolling, setEnrolling] = useState(false);
   const [hideIdentity, setHideIdentity] = useState(false);
   const [identityChoice, setIdentityChoice] = useState(null); // null, 'anonymous', 'public'
-  const [showAllNotes, setShowAllNotes] = useState(false);
   const [showIdentityModal, setShowIdentityModal] = useState(false);
   const [showCommitmentModal, setShowCommitmentModal] = useState(false);
   const [pendingIdentityChoice, setPendingIdentityChoice] = useState(null);
@@ -148,6 +99,7 @@ const QuranCampDetailsPage = () => {
   const [campDay, setCampDay] = useState(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [isSticky, setIsSticky] = useState(false);
+  const [selectedCohortNumber, setSelectedCohortNumber] = useState(null);
 
   // Sticky header effect
   useEffect(() => {
@@ -281,16 +233,6 @@ const QuranCampDetailsPage = () => {
     }
   }, [id]);
 
-  // دالة فتح نافذة الملاحظات وجلب البيانات
-  const handleOpenNotesModal = useCallback(() => {
-    setShowAllNotes(true);
-  }, []);
-
-  // دالة إغلاق نافذة الملاحظات
-  const closeNotesModal = useCallback(() => {
-    setShowAllNotes(false);
-  }, []);
-
   const handleEnroll = async () => {
     // التحقق من أن التسجيل العام مفعّل
     if (camp?.enable_public_enrollment === false) {
@@ -334,6 +276,13 @@ const QuranCampDetailsPage = () => {
       navigate("/login");
       return;
     }
+
+    // التحقق من اختيار فوج قبل التسجيل
+    if (!selectedCohortNumber) {
+      toast.error("يرجى اختيار فوج للانضمام إليه");
+      return;
+    }
+
     setShowCommitmentModal(true);
   };
 
@@ -347,6 +296,13 @@ const QuranCampDetailsPage = () => {
     // التحقق من أن التسجيل العام مفعّل
     if (camp?.enable_public_enrollment === 0) {
       toast.error("التسجيل في هذا المخيم مغلق من قبل الإدارة");
+      setEnrolling(false);
+      return;
+    }
+
+    // التحقق من اختيار فوج
+    if (!selectedCohortNumber) {
+      toast.error("يرجى اختيار فوج للانضمام إليه");
       setEnrolling(false);
       return;
     }
@@ -365,6 +321,7 @@ const QuranCampDetailsPage = () => {
           // جسم بيانات التسجيل في المخيم
           body: JSON.stringify({
             hide_identity: choice === "anonymous",
+            cohort_number: selectedCohortNumber, // إرسال رقم الفوج المختار
           }),
         }
       );
@@ -389,224 +346,13 @@ const QuranCampDetailsPage = () => {
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "active":
-        return "bg-green-100 text-green-800 border-green-200";
-      case "early_registration":
-        return "bg-blue-100 text-blue-800 border-blue-200";
-      case "completed":
-        return "bg-gray-100 text-gray-800 border-gray-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+  // استخدام getCurrentDay من campUtils
+  useEffect(() => {
+    if (camp) {
+      const currentDay = getCurrentDay(camp);
+      setCampDay(currentDay);
     }
-  };
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case "active":
-        return <CheckCircle className="w-4 h-4" />;
-      case "early_registration":
-        return <Clock3 className="w-4 h-4" />;
-      case "completed":
-        return <Trophy className="w-4 h-4" />;
-      default:
-        return <Clock3 className="w-4 h-4" />;
-    }
-  };
-
-  const getStatusText = (status) => {
-    switch (status) {
-      case "active":
-        return "نشط الآن";
-      case "early_registration":
-        return "قريباً";
-      case "completed":
-        return "منتهي";
-      default:
-        return "غير محدد";
-    }
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("ar-SA", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
-  const groupTasksByDay = (tasks) => {
-    // Debug: التحقق من بيانات الأصدقاء في المهام الأصلية
-    if (tasks && tasks.length > 0) {
-      const taskWithFriends = tasks.find(
-        (t) => t.completed_by_friends && t.completed_by_friends.length > 0
-      );
-    }
-
-    return tasks.reduce((groups, task) => {
-      const day = task.day_number;
-      if (!groups[day]) {
-        groups[day] = [];
-      }
-      groups[day].push(task);
-      return groups;
-    }, {});
-  };
-
-  // دالة لقطع HTML مع الحفاظ على الـ tags المفتوحة
-  const truncateHTML = (html, maxLength) => {
-    if (!html) return "";
-
-    // إذا كان النص أقصر من الحد الأقصى، أرجع HTML كما هو
-    const textContent = html.replace(/<[^>]*>/g, "");
-    if (textContent.length <= maxLength) {
-      return html;
-    }
-
-    // إنشاء DOM parser مؤقت
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = html;
-
-    // ثوابت Node types
-    const TEXT_NODE = 3;
-    const ELEMENT_NODE = 1;
-
-    // دالة مساعدة لقطع النص مع الحفاظ على الـ tags
-    const truncateNode = (node, remainingLength) => {
-      if (remainingLength <= 0) {
-        return "";
-      }
-
-      if (node.nodeType === TEXT_NODE) {
-        const text = node.textContent || "";
-        if (text.length <= remainingLength) {
-          return text;
-        }
-        return text.substring(0, remainingLength) + "...";
-      }
-
-      if (node.nodeType === ELEMENT_NODE) {
-        const tagName = node.tagName.toLowerCase();
-        const attributes = Array.from(node.attributes)
-          .map((attr) => `${attr.name}="${attr.value}"`)
-          .join(" ");
-
-        let html = `<${tagName}${attributes ? " " + attributes : ""}>`;
-        let remaining = remainingLength;
-
-        for (const child of Array.from(node.childNodes)) {
-          const childHtml = truncateNode(child, remaining);
-          if (!childHtml) break;
-          html += childHtml;
-          const childTextLength = (child.textContent || "").length;
-          remaining -= childTextLength;
-          if (remaining <= 0) break;
-        }
-
-        // إغلاق الـ tags المفتوحة
-        if (!["br", "hr", "img", "input"].includes(tagName)) {
-          html += `</${tagName}>`;
-        }
-
-        return html;
-      }
-
-      return "";
-    };
-
-    let result = "";
-    let remaining = maxLength;
-
-    for (const child of Array.from(tempDiv.childNodes)) {
-      const childHtml = truncateNode(child, remaining);
-      if (!childHtml) break;
-      result += childHtml;
-      const textLength = (child.textContent || "").length;
-      remaining -= textLength;
-      if (remaining <= 0) break;
-    }
-
-    return result || html.substring(0, maxLength) + "...";
-  };
-
-  // دالة لتمييز الكلمات المبحوث عنها مع الأمان - للـ HTML
-  const highlightSearchTermHTML = (html, searchTerm) => {
-    if (!searchTerm || !html) return html;
-
-    // تنظيف مصطلح البحث من الأحرف الخطيرة
-    const cleanSearchTerm = searchTerm.replace(/[<>"'&]/g, "");
-    if (!cleanSearchTerm) return html;
-
-    // استخدام regex آمن مع escape للأحرف الخاصة
-    const regex = new RegExp(
-      `(${cleanSearchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
-      "gi"
-    );
-
-    // تقسيم HTML إلى أجزاء بين tags والنص
-    // هذا regex يطابق أي HTML tag
-    const tagRegex = /<[^>]*>/g;
-    const parts = [];
-    let lastIndex = 0;
-    let match;
-
-    // استخراج جميع HTML tags
-    while ((match = tagRegex.exec(html)) !== null) {
-      // إضافة النص قبل الـ tag
-      if (match.index > lastIndex) {
-        const textBeforeTag = html.substring(lastIndex, match.index);
-        parts.push({ type: "text", content: textBeforeTag });
-      }
-      // إضافة الـ tag نفسه
-      parts.push({ type: "tag", content: match[0] });
-      lastIndex = tagRegex.lastIndex;
-    }
-
-    // إضافة أي نص متبقي
-    if (lastIndex < html.length) {
-      parts.push({ type: "text", content: html.substring(lastIndex) });
-    }
-
-    // تطبيق التمييز على النص فقط (ليس على tags)
-    return parts
-      .map((part) => {
-        if (part.type === "tag") {
-          return part.content;
-        } else {
-          // تطبيق التمييز على النص
-          return part.content.replace(regex, (match) => {
-            return `<mark class="bg-yellow-200 px-1 rounded">${match}</mark>`;
-          });
-        }
-      })
-      .join("");
-  };
-
-  // دالة لتمييز الكلمات المبحوث عنها مع الأمان - للـ JSX
-  // تنظف المدخلات وتطبق التمييز بأمان
-  const highlightSearchTerm = (text, searchTerm) => {
-    if (!searchTerm || !text) return text;
-
-    // تنظيف مصطلح البحث من الأحرف الخطيرة
-    const cleanSearchTerm = searchTerm.replace(/[<>"'&]/g, "");
-    if (!cleanSearchTerm) return text;
-
-    // استخدام regex آمن مع escape للأحرف الخاصة
-    const regex = new RegExp(
-      `(${cleanSearchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
-      "gi"
-    );
-    return text.split(regex).map((part, index) =>
-      regex.test(part) ? (
-        <mark key={index} className="bg-yellow-200 px-1 rounded">
-          {part}
-        </mark>
-      ) : (
-        part
-      )
-    );
-  };
+  }, [camp]);
 
   if (loading) {
     return (
@@ -622,7 +368,13 @@ const QuranCampDetailsPage = () => {
 
   if (error || !camp) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 flex items-center justify-center px-4">
+      <div
+        className={`min-h-screen ${
+          isRamadanThemeActive
+            ? "ramadan-bg-gradient"
+            : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"
+        } flex items-center justify-center px-4`}
+      >
         <SEO
           title="حدث خطأ - تفاصيل المخيم"
           description="حدث خطأ أثناء تحميل تفاصيل المخيم"
@@ -701,28 +453,50 @@ const QuranCampDetailsPage = () => {
   const tasksByDay = groupTasksByDay(dailyTasks);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50">
+    <div
+      className={`min-h-screen ${
+        isRamadanThemeActive
+          ? "ramadan-bg-gradient"
+          : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"
+      }`}
+    >
       <SEO
         title={`${camp.name} - المخيمات القرآنية`}
         description={camp.description}
         keywords={`مخيم قرآني, ${camp.surah_name}, حفظ القرآن, تفسير القرآن`}
+        canonicalUrl={`${window.location.origin}/quran-camps/${id}`}
       />
 
+      {/* Ramadan Countdown */}
+      {isRamadanThemeActive && <RamadanCountdown />}
+      {isRamadanThemeActive && <RamadanFloatingElements />}
+
       {/* Cinematic Hero Section */}
-      <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      <div
+        className={`camp-hero-section relative flex items-center justify-center overflow-hidden ${
+          isRamadanThemeActive ? "pt-28 md:pt-16" : ""
+        }`}
+      >
         {/* Cinematic Background */}
         {camp.banner_image ? (
           <div className="absolute inset-0">
             <img
               src={camp.banner_image}
               alt={camp.name}
+              loading="lazy"
               className="w-full h-full object-cover camp-banner-image"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/30" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/70 to-black/40" />
             <div className="absolute inset-0 bg-gradient-to-r from-purple-900/40 to-blue-900/40" />
           </div>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900" />
+          <div
+            className={`absolute inset-0 ${
+              isRamadanThemeActive
+                ? "ramadan-hero-section"
+                : "bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900"
+            }`}
+          />
         )}
 
         {/* Floating Elements */}
@@ -734,33 +508,35 @@ const QuranCampDetailsPage = () => {
 
         {/* Header */}
         <div className="absolute top-0 left-0 right-0 z-20 backdrop-blur-xl">
-          <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
+          <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-3 md:py-4">
             {/* Mobile Layout */}
             <div className="block sm:hidden">
-              <div className="flex items-center gap-10 justify-between mb-3">
+              <div className="flex items-center gap-2 justify-between mb-2">
                 {/* Back Button - Mobile */}
                 <button
                   onClick={() => navigate(-1)}
-                  className="flex items-center text-white hover:text-[#7440E9] transition-all duration-300 group"
+                  className="flex items-center text-white hover:text-[#7440E9] transition-all duration-300 group min-h-[44px]"
                 >
-                  <div className="p-2 bg-white/10 rounded-xl group-hover:bg-white/20 transition-all duration-300 shadow-lg">
+                  <div className="p-2.5 bg-white/10 rounded-xl group-hover:bg-white/20 transition-all duration-300 shadow-lg">
                     <ArrowLeft className="w-4 h-4" />
                   </div>
-                  <span className="mr-2 font-medium text-sm">العودة</span>
+                  <span className="mr-2 font-almarai font-medium text-sm">
+                    العودة
+                  </span>
                 </button>
 
                 {/* Status Badge - Mobile */}
                 {camp.is_enrolled ? (
-                  <div className="flex items-center px-3 py-2 bg-gradient-to-r from-green-500/20 to-emerald-500/20 backdrop-blur-md rounded-xl border border-green-400/30 shadow-lg">
+                  <div className="flex items-center px-3 py-2 bg-gradient-to-r from-green-500/20 to-emerald-500/20 backdrop-blur-md rounded-xl border border-green-400/30 shadow-lg min-h-[44px]">
                     <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse mr-2"></div>
-                    <CheckCircle className="w-3 h-3 text-green-300 mr-1" />
-                    <span className="text-green-100 font-medium text-xs">
+                    <CheckCircle className="w-3.5 h-3.5 text-green-300 mr-1" />
+                    <span className="text-green-100 font-almarai font-medium text-xs">
                       مسجل
                     </span>
                   </div>
                 ) : (
                   <div
-                    className={`flex items-center px-3 py-2 backdrop-blur-md rounded-xl border shadow-lg ${getStatusColor(
+                    className={`flex items-center px-3 py-2 backdrop-blur-md rounded-xl border shadow-lg min-h-[44px] ${getStatusColor(
                       camp.status
                     )}`}
                   >
@@ -776,7 +552,7 @@ const QuranCampDetailsPage = () => {
                       }}
                     ></div>
                     {getStatusIcon(camp.status)}
-                    <span className="mr-1 font-medium text-xs">
+                    <span className="mr-1 font-almarai font-medium text-xs">
                       {getStatusText(camp.status)}
                     </span>
                   </div>
@@ -794,7 +570,9 @@ const QuranCampDetailsPage = () => {
                 <div className="p-3 bg-white/10 rounded-2xl group-hover:bg-white/20 transition-all duration-300 shadow-lg group-hover:shadow-xl">
                   <ArrowLeft className="w-5 h-5" />
                 </div>
-                <span className="mr-3 font-semibold text-lg">العودة</span>
+                <span className="mr-3 font-almarai font-semibold text-lg">
+                  العودة
+                </span>
               </button>
 
               {/* Status & Actions - Desktop */}
@@ -805,7 +583,7 @@ const QuranCampDetailsPage = () => {
                     <div className="flex items-center px-4 py-2 bg-gradient-to-r from-green-500/20 to-emerald-500/20 backdrop-blur-md rounded-2xl border border-green-400/30 shadow-lg">
                       <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-3"></div>
                       <CheckCircle className="w-4 h-4 text-green-300 mr-2" />
-                      <span className="text-green-100 font-semibold">
+                      <span className="text-green-100 font-almarai font-semibold">
                         مسجل في المخيم
                       </span>
                     </div>
@@ -830,7 +608,7 @@ const QuranCampDetailsPage = () => {
                         }}
                       ></div>
                       {getStatusIcon(camp.status)}
-                      <span className="mr-2 font-semibold">
+                      <span className="mr-2 font-almarai font-semibold">
                         {getStatusText(camp.status)}
                       </span>
                     </div>
@@ -838,16 +616,16 @@ const QuranCampDetailsPage = () => {
                     {/* Quick Stats - Desktop */}
                     <div className="flex items-center gap-2 space-x-4 text-white/80">
                       <div className="text-center">
-                        <div className="text-lg font-bold text-white">
+                        <div className="text-lg font-almarai font-bold text-white">
                           {camp.duration_days}
                         </div>
-                        <div className="text-xs">أيام</div>
+                        <div className="text-xs font-almarai">أيام</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-lg font-bold text-white">
+                        <div className="text-lg font-almarai font-bold text-white">
                           {camp.enrolled_count || 0}
                         </div>
-                        <div className="text-xs">مشترك</div>
+                        <div className="text-xs font-almarai">مشترك</div>
                       </div>
                     </div>
                   </div>
@@ -858,7 +636,7 @@ const QuranCampDetailsPage = () => {
         </div>
 
         {/* Hero Content */}
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center mt-20">
+        <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 text-center mt-12 sm:mt-16 md:mt-20">
           {/* Share Button in Hero */}
           <div className="absolute hidden top-0 left-4 sm:left-8">
             <motion.button
@@ -867,10 +645,10 @@ const QuranCampDetailsPage = () => {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowShareModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white/20 backdrop-blur-md rounded-full text-white border border-white/30 shadow-lg hover:bg-white/30 transition-all duration-300 group"
+              className="flex items-center gap-2 px-4 py-2.5 bg-white/20 backdrop-blur-md rounded-full text-white border border-white/30 shadow-lg hover:bg-white/30 transition-all duration-300 group min-h-[44px]"
             >
               <Share2 className="w-4 h-4 group-hover:rotate-12 transition-transform" />
-              <span className="text-sm font-semibold hidden sm:inline">
+              <span className="text-sm font-almarai font-semibold hidden sm:inline">
                 مشاركة
               </span>
             </motion.button>
@@ -878,113 +656,157 @@ const QuranCampDetailsPage = () => {
 
           {/* Main Title */}
           <h1
-            style={{ lineHeight: "1.7" }}
-            className=" leading-normal text-7xl  md:text-9xl font-black mb-8 bg-gradient-to-r from-white via-purple-100 to-blue-100 bg-clip-text text-transparent drop-shadow-2xl animate-fade-in"
+            className="hero-title font-almarai leading-normal text-4xl sm:text-5xl md:text-7xl lg:text-8xl xl:text-9xl font-black mb-6 sm:mb-8 bg-gradient-to-r from-white via-purple-100 to-blue-100 bg-clip-text text-transparent drop-shadow-2xl animate-fade-in"
+            style={{ lineHeight: "1.5" }}
           >
             {camp.name}
           </h1>
 
           {/* Subtitle */}
-          <p className="text-4xl md:text-5xl text-white/90 mb-12 font-bold flex items-center justify-center">
+          <p className="hero-subtitle font-almarai text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-white/90 mb-8 sm:mb-10 md:mb-12 font-bold flex items-center justify-center">
             سورة {camp.surah_name}
           </p>
 
           {/* Description */}
-          <p className="text-2xl md:text-3xl text-white/80 mb-16 max-w-4xl mx-auto leading-relaxed">
+          <p className="hero-description font-almarai text-base sm:text-lg md:text-xl lg:text-2xl text-white/80 mb-10 sm:mb-12 md:mb-16 max-w-3xl mx-auto leading-relaxed">
             {camp.description}
           </p>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-16 max-w-5xl mx-auto">
-            {[
-              {
-                icon: (
-                  <div className="p-3 rounded-full mx-auto mb-4 bg-primary/10 backdrop-blur-sm shadow-ai-dark">
-                    <Calendar className="w-10 h-10 text-primary" />
-                  </div>
-                ),
-                label: "يبدأ",
-                value: formatDate(camp.start_date),
-                sub: null,
-              },
-              {
-                icon: (
-                  <div className="p-3 rounded-full mx-auto mb-4 bg-primary/10 backdrop-blur-sm shadow-ai-dark">
-                    <Clock className="w-10 h-10 text-primary" />
-                  </div>
-                ),
-                label: camp.duration_days,
-                value: "أيام",
-                sub: null,
-              },
-              {
-                icon: (
-                  <div className="p-3 rounded-full mx-auto mb-4 bg-green-500/10 backdrop-blur-sm shadow-ai-dark">
-                    <Users className="w-10 h-10 text-primary" />
-                  </div>
-                ),
-                label: camp.enrolled_count || 0,
-                value: "مشترك",
-                sub: null,
-              },
-              {
-                icon: (
-                  <div className="p-3 rounded-full mx-auto mb-4 bg-primary/10 backdrop-blur-sm shadow-ai-dark">
-                    <Trophy className="w-10 h-10 text-primary" />
-                  </div>
-                ),
-                label: `${dailyTasks.reduce(
-                  (sum, task) => sum + (task.points || 0),
-                  0
-                )}`,
-                value: "نقطة",
-                sub: null,
-              },
-            ].map((item, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 30, scale: 0.9 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{
-                  duration: 0.6,
-                  delay: 0.6 + i * 0.1,
-                  ease: "easeOut",
-                }}
-                whileHover={{ scale: 1.05, y: -5 }}
-                className="group bg-white/10 backdrop-blur-lg rounded-3xl p-8 border border-white/15 shadow-ai-dark transition-ai flex flex-col items-center min-h-[175px] hover:border-primary/40 hover:shadow-ai-hover-dark"
-              >
+          {/* Stats Grid - Redesigned for Mobile */}
+          <div className="stats-grid max-w-5xl mx-auto mb-10 sm:mb-12 md:mb-16">
+            {/* Mobile: Horizontal Compact Cards */}
+            <div className="grid grid-cols-2 gap-3 sm:hidden">
+              {[
+                {
+                  icon: <Calendar className="w-5 h-5 text-purple-300" />,
+                  label: formatDate(camp.start_date),
+                  title: "يبدأ",
+                },
+                {
+                  icon: <Clock className="w-5 h-5 text-blue-300" />,
+                  label: camp.duration_days,
+                  title: "أيام",
+                },
+                {
+                  icon: <Users className="w-5 h-5 text-green-300" />,
+                  label: camp.enrolled_count || 0,
+                  title: "مشترك",
+                },
+                {
+                  icon: <Trophy className="w-5 h-5 text-yellow-300" />,
+                  label: dailyTasks.reduce(
+                    (sum, task) => sum + (task.points || 0),
+                    0
+                  ),
+                  title: "نقطة",
+                },
+              ].map((item, i) => (
                 <motion.div
-                  whileHover={{ rotate: 360 }}
-                  transition={{ duration: 0.6 }}
+                  key={i}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{
+                    duration: 0.4,
+                    delay: 0.5 + i * 0.05,
+                  }}
+                  className="bg-white/10 backdrop-blur-lg rounded-2xl p-3 border border-white/15 shadow-lg flex items-center gap-3"
                 >
-                  {item.icon}
+                  <div className="flex-shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
+                    {item.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-almarai text-xl font-black text-white truncate">
+                      {item.label}
+                    </div>
+                    <div className="font-almarai text-xs text-white/70 truncate">
+                      {item.title}
+                    </div>
+                  </div>
                 </motion.div>
-                <div className="text-3xl font-black text-white mb-1 flex items-center justify-center">
-                  {item.label}
-                </div>
-                <div className="text-xl text-white/80 mb-1">{item.value}</div>
-                {item.sub && (
-                  <div className="text-sm text-white/50">{item.sub}</div>
-                )}
-              </motion.div>
-            ))}
+              ))}
+            </div>
+
+            {/* Tablet & Desktop: Original Card Design */}
+            <div className="hidden sm:grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+              {[
+                {
+                  icon: (
+                    <Calendar className="w-8 md:w-10 h-8 md:h-10 text-primary" />
+                  ),
+                  label: "يبدأ",
+                  value: formatDate(camp.start_date),
+                },
+                {
+                  icon: (
+                    <Clock className="w-8 md:w-10 h-8 md:h-10 text-primary" />
+                  ),
+                  label: camp.duration_days,
+                  value: "أيام",
+                },
+                {
+                  icon: (
+                    <Users className="w-8 md:w-10 h-8 md:h-10 text-primary" />
+                  ),
+                  label: camp.enrolled_count || 0,
+                  value: "مشترك",
+                },
+                {
+                  icon: (
+                    <Trophy className="w-8 md:w-10 h-8 md:h-10 text-primary" />
+                  ),
+                  label: dailyTasks.reduce(
+                    (sum, task) => sum + (task.points || 0),
+                    0
+                  ),
+                  value: "نقطة",
+                },
+              ].map((item, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 30, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{
+                    duration: 0.6,
+                    delay: 0.6 + i * 0.1,
+                    ease: "easeOut",
+                  }}
+                  whileHover={{ scale: 1.05, y: -5 }}
+                  className="stats-card group bg-white/10 backdrop-blur-lg rounded-3xl p-6 md:p-8 border border-white/15 shadow-ai-dark transition-ai flex flex-col items-center min-h-[160px] md:min-h-[175px] hover:border-primary/40 hover:shadow-ai-hover-dark"
+                >
+                  <motion.div
+                    whileHover={{ rotate: 360 }}
+                    transition={{ duration: 0.6 }}
+                    className="p-2.5 md:p-3 rounded-full mx-auto mb-3 md:mb-4 bg-primary/10 backdrop-blur-sm shadow-ai-dark"
+                  >
+                    {item.icon}
+                  </motion.div>
+                  <div className="font-almarai text-2xl md:text-3xl font-black text-white mb-1 text-center">
+                    {item.label}
+                  </div>
+                  <div className="font-almarai text-lg md:text-xl text-white/80 text-center">
+                    {item.value}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </div>
 
           {/* CTA Button */}
           {!camp.is_enrolled && (
-            <div className="mb-8">
+            <div className="mb-6 sm:mb-8">
               <button
                 onClick={handleEnrollClick}
                 disabled={
                   enrolling ||
                   camp.status === "completed" ||
                   camp.enable_public_enrollment === false ||
+                  (currentUser && !selectedCohortNumber) ||
                   (camp?.max_participants &&
                     Number(camp.max_participants) > 0 &&
                     Number(camp.enrolled_count || 0) >=
                       Number(camp.max_participants))
                 }
-                className="px-16 py-4 bg-white text-[#7440E9] text-2xl font-bold rounded-2xl hover:bg-gray-100 transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                className="font-almarai px-8 py-3 sm:px-12 sm:py-3.5 md:px-16 md:py-4 bg-white text-[#7440E9] text-lg sm:text-xl md:text-2xl font-bold rounded-2xl hover:bg-gray-100 transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none min-h-[52px]"
               >
                 {enrolling ? (
                   <div className="flex items-center">
@@ -998,12 +820,14 @@ const QuranCampDetailsPage = () => {
                   Number(camp.enrolled_count || 0) >=
                     Number(camp.max_participants) ? (
                   <span>عذراً، اكتمل العدد</span>
+                ) : currentUser && !selectedCohortNumber ? (
+                  <span>يرجى اختيار فوج أولاً</span>
                 ) : (
                   <span>انضم للرحلة الآن 🚀</span>
                 )}
               </button>
               {!currentUser && (
-                <p className="text-center text-white/80 mt-4 text-lg">
+                <p className="text-center text-white/80 mt-3 sm:mt-4 text-sm sm:text-base md:text-lg font-almarai">
                   ستحتاج لتسجيل الدخول أولاً للانضمام لهذا المخيم
                 </p>
               )}
@@ -1011,69 +835,11 @@ const QuranCampDetailsPage = () => {
           )}
 
           {/* Identity Choice Modal */}
-          {showIdentityModal && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl">
-                <div className="text-center mb-6">
-                  <h3 className="text-2xl font-bold text-gray-800 mb-2">
-                    اختر طريقة المشاركة
-                  </h3>
-                  <p className="text-gray-600">كيف تريد أن تظهر في المخيم؟</p>
-                </div>
-
-                <div className="space-y-4">
-                  {/* خيار المشاركة العامة */}
-                  <button
-                    onClick={() => handleIdentityChoice("public")}
-                    className="w-full p-6 border-2 border-green-200 rounded-2xl hover:border-green-400 hover:bg-green-50 transition-all duration-300 group"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center group-hover:bg-green-200 transition-colors">
-                        <UserCheck className="w-6 h-6 text-green-600" />
-                      </div>
-                      <div className="text-right flex-1">
-                        <h4 className="text-lg font-bold text-gray-800">
-                          مشاركة عامة
-                        </h4>
-                        <p className="text-sm text-gray-600">
-                          اسمك وصورتك ستظهر للجميع
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-
-                  {/* خيار المشاركة المجهولة */}
-                  <button
-                    onClick={() => handleIdentityChoice("anonymous")}
-                    className="w-full p-6 border-2 border-purple-200 rounded-2xl hover:border-purple-400 hover:bg-purple-50 transition-all duration-300 group"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-                        <EyeOff className="w-6 h-6 text-purple-600" />
-                      </div>
-                      <div className="text-right flex-1">
-                        <h4 className="text-lg font-bold text-gray-800">
-                          مشاركة مجهولة
-                        </h4>
-                        <p className="text-sm text-gray-600">
-                          ستظهر كـ "مشارك مجهول"
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                </div>
-
-                <div className="mt-6 text-center">
-                  <button
-                    onClick={() => setShowIdentityModal(false)}
-                    className="text-gray-500 hover:text-gray-700 text-sm"
-                  >
-                    إلغاء
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          <IdentityChoiceModal
+            isOpen={showIdentityModal}
+            onClose={() => setShowIdentityModal(false)}
+            onChoice={handleIdentityChoice}
+          />
 
           {/* Commitment Gate Modal */}
           <CommitmentModal
@@ -1086,17 +852,30 @@ const QuranCampDetailsPage = () => {
       </div>
 
       {/* Main Content Section - Conditional Rendering */}
-      <div className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#F7F6FB] via-[#F3EDFF] to-[#E9E4F5]">
+      <div className="py-12 sm:py-16 md:py-20 px-3 sm:px-4 md:px-6 lg:px-8 bg-gradient-to-br from-[#F7F6FB] via-[#F3EDFF] to-[#E9E4F5]">
         {camp && (
           <div className="max-w-7xl mx-auto mb-8">
-            <Breadcrumb
-              items={[
-                { label: "المخيمات القرآنية", to: "/quran-camps" },
-                { label: camp.name },
-              ]}
+            <CampBreadcrumbs
+              camp={camp}
+              selectedDay={null}
+              selectedTask={null}
+              taskGroups={taskGroups}
             />
           </div>
         )}
+
+        {/* Cohort Selector - فوق محتوى المخيم */}
+        {!camp.is_enrolled && currentUser && (
+          <div className="max-w-6xl mx-auto mb-8 sm:mb-10 md:mb-12">
+            <CohortSelector
+              campId={id}
+              selectedCohortNumber={selectedCohortNumber}
+              onSelectCohort={setSelectedCohortNumber}
+              isEnrolled={camp.is_enrolled}
+            />
+          </div>
+        )}
+
         {!camp.is_enrolled ? (
           <CampPublicView
             camp={camp}

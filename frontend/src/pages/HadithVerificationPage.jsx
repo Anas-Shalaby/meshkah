@@ -9,6 +9,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import "../styles/animations.css";
+import SEO from "../components/SEO";
 
 const HadithVerificationPage = () => {
   const [searchText, setSearchText] = useState("");
@@ -267,6 +268,12 @@ const HadithVerificationPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#F7F6FB] via-[#F3EDFF] to-[#E9E4F5] font-[Cairo,Amiri,sans-serif]">
+      <SEO
+        title="التحقق من صحة الأحاديث - مشكاة الأحاديث"
+        description="تحقق من صحة الأحاديث النبوية الشريفة ومعرفة درجتها (صحيح، حسن، ضعيف، موضوع)"
+        keywords="تحقق من الحديث, صحة الحديث, علم الحديث, حديث صحيح, حديث حسن, حديث ضعيف, حديث موضوع"
+        canonicalUrl={`${window.location.origin}/hadith-verification`}
+      />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12">
         {/* Header */}
         <div className="text-center mb-8 sm:mb-12">

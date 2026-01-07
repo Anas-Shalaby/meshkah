@@ -6,7 +6,6 @@ import {
   ChevronDown,
   ChevronUp,
   Bookmark,
-  BookOpen,
   HelpCircle,
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
@@ -19,11 +18,15 @@ import { getTranslation, getBookTranslation } from "../utils/translations";
 import { toast } from "react-toastify";
 import WelcomeBanner from "../components/WelcomeBanner";
 import SEO from "../components/SEO";
+import { useRamadanTheme } from "../context/RamadanThemeContext";
+import RamadanCountdown from "../components/ramadan/RamadanCountdown";
+import RamadanFloatingElements from "../components/ramadan/RamadanFloatingElements";
 import {
   searchIslamicLibrary,
   getIslamicLibrarySuggestions,
   getIslamicLibrarySearchStats,
 } from "../services/api";
+import FullPageLoadingScreen from "../components/FullPageLoadingScreen";
 
 // Local books configuration for navigation
 const LOCAL_BOOKS = {
@@ -40,6 +43,7 @@ const LOCAL_BOOKS = {
 
 const IslamicLibraryPage = () => {
   const navigate = useNavigate();
+  const { isRamadanThemeActive } = useRamadanTheme();
   const [categories, setCategories] = useState({});
   const [allBooks, setAllBooks] = useState([]);
   const [hadiths, setHadiths] = useState([]);
@@ -178,7 +182,8 @@ const IslamicLibraryPage = () => {
     },
     publisher: {
       "@type": "Organization",
-      name: "مشكاة",
+      name: "مشكاة الأحاديث",
+      alternateName: "Meshkah",
       url: "https://hadith-shareef.com",
       logo: {
         "@type": "ImageObject",
@@ -216,7 +221,7 @@ const IslamicLibraryPage = () => {
     alternateLanguages: [
       {
         hrefLang: "ar",
-        href: `${window.location.origin}/islamic-library?lang=ar`,
+        href: `${window.location.origin}/islamic-library`,
       },
       {
         hrefLang: "en",
@@ -356,16 +361,7 @@ const IslamicLibraryPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-4 sm:p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center py-12 sm:py-20">
-            <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-purple-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600 text-sm sm:text-base">
-              {getTranslation(language, "loading")}
-            </p>
-          </div>
-        </div>
-      </div>
+      <FullPageLoadingScreen message={getTranslation(language, "loading")} />
     );
   }
 
@@ -373,12 +369,23 @@ const IslamicLibraryPage = () => {
     <>
       <SEO {...seoData} />
       <div
-        className="min-h-screen bg-gradient-to-br from-purple-50 font-cairo to-blue-50 "
+        className={`min-h-screen font-cairo ${
+          isRamadanThemeActive
+            ? "ramadan-bg-gradient"
+            : "bg-gradient-to-br from-purple-50 to-blue-50"
+        }`}
         dir={language === "ar" ? "rtl" : "ltr"}
         lang={language}
       >
+        {/* Ramadan Theme Elements */}
+        {isRamadanThemeActive && <RamadanCountdown />}
+        {isRamadanThemeActive && <RamadanFloatingElements />}
         {/* Header */}
-        <div className="bg-white/80 backdrop-blur-md border-b border-purple-200/50 sticky top-0 z-10">
+        <div
+          className={`bg-white/80 backdrop-blur-md border-b border-purple-200/50 sticky z-10 ${
+            isRamadanThemeActive ? "top-[170px] md:top-[160px]" : "top-0"
+          }`}
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
             <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
               {/* Title Section */}
@@ -388,7 +395,6 @@ const IslamicLibraryPage = () => {
                   animate={{ opacity: 1, x: 0 }}
                   className="flex items-center space-x-2 space-x-reverse"
                 >
-                  <BookOpen className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" />
                   <h1 className="text-xl sm:text-2xl lg:text-3xl font-cairo font-bold text-gray-900">
                     {getTranslation(language, "libraryTitle")}
                   </h1>
@@ -446,7 +452,7 @@ const IslamicLibraryPage = () => {
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-20 sm:py-20">
           {/* Welcome Banner for First-time Users */}
           {!hasSeenTutorial && (
             <WelcomeBanner
@@ -1028,9 +1034,7 @@ const IslamicLibraryPage = () => {
               className="mb-6 sm:mb-8 p-4 sm:p-6 lg:p-8 bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 rounded-2xl sm:rounded-3xl border-2 border-purple-200/50 shadow-xl"
             >
               <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4 sm:space-x-reverse">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
-                  <BookOpen className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-                </div>
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg"></div>
                 <div className="flex-1">
                   <h3 className="text-xl sm:text-2xl lg:text-3xl font-cairo font-bold text-gray-900 mb-2 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
                     {language === "ar"

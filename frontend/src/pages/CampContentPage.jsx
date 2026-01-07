@@ -11,6 +11,7 @@ import {
   Star,
 } from "lucide-react";
 import CampOnboardingTips from "../components/CampOnboardingTips";
+import SEO from "../components/SEO";
 
 const CampContentPage = () => {
   const { id } = useParams();
@@ -144,6 +145,13 @@ const CampContentPage = () => {
   }
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#F7F6FB] via-[#F3EDFF] to-[#E9E4F5]">
+      <SEO
+        title={`محتوى المخيم - ${camp?.name || "المخيم"} - مشكاة الأحاديث`}
+        description={`عرض محتوى ومهام مخيم ${camp?.name || "المخيم"} القرآني`}
+        keywords={`مخيم قرآني, ${camp?.surah_name || ""}, مهام يومية, محتوى المخيم`}
+        canonicalUrl={`${window.location.origin}/camp-content/${id}`}
+        noindex={true}
+      />
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">

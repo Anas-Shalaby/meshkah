@@ -1,5 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { Player } from "@lottiefiles/react-lottie-player";
 import { Sparkles } from "lucide-react";
 
 const FullPageLoadingScreen = ({ message = "جاري التحميل..." }) => {
@@ -11,36 +12,23 @@ const FullPageLoadingScreen = ({ message = "جاري التحميل..." }) => {
       className="fixed inset-0 z-[9999] bg-white/95 backdrop-blur-md flex items-center justify-center"
     >
       <div className="text-center">
-        {/* Animated Logo/Icon */}
+        {/* Lottie Animation */}
         <motion.div
-          animate={{
-            rotate: 360,
-            scale: [1, 1.1, 1],
-          }}
-          transition={{
-            rotate: {
-              duration: 2,
-              repeat: Infinity,
-              ease: "linear",
-            },
-            scale: {
-              duration: 2,
-              repeat: Infinity,
-              ease: "easeInOut",
-            },
-          }}
-          className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-6"
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          className="mb-6"
         >
-          <div className="relative w-full h-full">
-            {/* Outer ring */}
-            <div className="absolute inset-0 border-4 border-[#7440E9]/20 rounded-full"></div>
-            {/* Spinning ring */}
-            <div className="absolute inset-0 border-4 border-[#7440E9] rounded-full border-t-transparent animate-spin"></div>
-            {/* Center icon */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-[#7440E9]" />
-            </div>
-          </div>
+          <Player
+            autoplay
+            loop
+            src="/assets/LIghts.json"
+            style={{ 
+              width: "200px", 
+              height: "200px",
+              margin: "0 auto"
+            }}
+          />
         </motion.div>
 
         {/* Loading Text */}

@@ -1,0 +1,120 @@
+/* Islamic Pattern Overlays */
+.ramadan-pattern-overlay {
+  position: relative;
+  overflow: hidden;
+}
+
+.ramadan-pattern-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("/assets/islamic-patterns/geometric-star.svg");
+  background-size: 250px 250px;
+  background-repeat: repeat;
+  background-position: center;
+  opacity: 0.25;
+  pointer-events: none;
+  z-index: 1;
+  animation: pattern-pulse 10s ease-in-out infinite;
+}
+
+@keyframes pattern-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(1.02);
+  }
+}
+
+.ramadan-pattern-gold::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 20% 30%,
+    var(--ramadan-accent-1) 0%,
+    transparent 50%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Different pattern variations */
+.ramadan-pattern-moroccan::before {
+  background-image: url("/assets/islamic-patterns/moroccan-pattern.svg");
+  background-size: 300px 300px;
+  opacity: 0.06;
+}
+
+.ramadan-pattern-geometric::before {
+  background-image: url("/assets/islamic-patterns/geometric-star.svg");
+  background-size: 350px 350px;
+  opacity: 0.07;
+}
+
+/* Animated pattern (subtle movement) */
+@keyframes pattern-float {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(10px, 10px);
+  }
+}
+
+.ramadan-pattern-animated::before {
+  animation: pattern-float 30s ease-in-out infinite;
+}
+
+/* Gold overlay for cards */
+.ramadan-gold-overlay {
+  position: relative;
+}
+
+.ramadan-gold-overlay::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 150px;
+  height: 150px;
+  background: radial-gradient(
+    circle,
+    rgba(212, 175, 55, 0.15) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Corner decoration */
+.ramadan-corner-decoration::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(
+    135deg,
+    var(--ramadan-gold-light) 0%,
+    transparent 50%
+  );
+  opacity: 0.15;
+  clip-path: polygon(100% 0, 100% 100%, 0 0);
+  pointer-events: none;
+}
+
+/* Border decoration with pattern */
+.ramadan-border-pattern {
+  border: 2px solid transparent;
+  background-image: linear-gradient(white, white),
+    linear-gradient(135deg, var(--ramadan-gold-light), var(--ramadan-primary));
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}

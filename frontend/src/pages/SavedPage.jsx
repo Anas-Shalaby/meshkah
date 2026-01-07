@@ -74,7 +74,8 @@ const SavedPage = () => {
       "url": window.location.href,
       "publisher": {
         "@type": "Organization",
-        "name": "مشكاة",
+        "name": "مشكاة الأحاديث",
+        "alternateName": "Meshkah",
         "url": "https://hadith-shareef.com"
       }
     }

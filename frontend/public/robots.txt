@@ -1,11 +1,10 @@
-# Robots.txt for Hadith Shareef Website
+# Robots.txt for Meshkah (مشكاة الأحاديث)
 
 User-agent: *
 Allow: /
 
 # Sitemap locations
 Sitemap: https://hadith-shareef.com/sitemap-index.xml
-Sitemap: https://hadith-shareef.com/sitemap.xml
 
 # Crawl-delay for respectful crawling
 Crawl-delay: 1
@@ -20,10 +19,21 @@ Disallow: /static/
 # Allow important pages
 Allow: /islamic-library/
 Allow: /hadiths/
-Allow: /saved/
 Allow: /about/
 Allow: /contact/
 Allow: /help-support/
+Allow: /quran-camps/
+Allow: /daily-hadith/
+Allow: /hadith-verification/
+
+# Disallow private pages
+Disallow: /saved/
+Disallow: /profile/
+Disallow: /my-camp-journey/
+Disallow: /my-camp-journal/
+Disallow: /camp-summary/
+Disallow: /camp-content/
+Disallow: /select-cohort/
 
 # Specific rules for different bots
 User-agent: Googlebot

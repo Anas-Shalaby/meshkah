@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { BookOpen, BookMarked, FileText, TrendingUp, Users, Clock } from "lucide-react";
+import {
+  BookOpen,
+  BookMarked,
+  FileText,
+  TrendingUp,
+  Users,
+  Clock,
+} from "lucide-react";
 import { getTranslation } from "../utils/translations";
 
 const IslamicLibraryStats = ({ language }) => {
@@ -19,7 +26,7 @@ const IslamicLibraryStats = ({ language }) => {
         `${import.meta.env.VITE_API_URL}/islamic-library/statistics`
       );
       const data = await response.json();
-      
+
       if (data.status === 200) {
         setStats(data.statistics);
       } else {
@@ -131,14 +138,6 @@ const IslamicLibraryStats = ({ language }) => {
     >
       {/* Header */}
       <div className="text-center mb-8">
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-          className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg"
-        >
-          <BookOpen className="w-8 h-8 text-white" />
-        </motion.div>
         <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
           {getTranslation(language, "libraryStatistics")}
         </h2>
@@ -157,7 +156,9 @@ const IslamicLibraryStats = ({ language }) => {
             className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-purple-200/50 shadow-lg hover:shadow-xl transition-all duration-300"
           >
             <div className="flex flex-col items-center text-center space-y-2">
-              <div className={`w-12 h-12 bg-gradient-to-br ${stat.gradient} rounded-xl flex items-center justify-center shadow-lg`}>
+              <div
+                className={`w-12 h-12 bg-gradient-to-br ${stat.gradient} rounded-xl flex items-center justify-center shadow-lg`}
+              >
                 <stat.icon className="w-6 h-6 text-white" />
               </div>
               <div>
@@ -179,44 +180,49 @@ const IslamicLibraryStats = ({ language }) => {
           {getTranslation(language, "booksByCategory")}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Object.entries(stats.booksByCategory).map(([categoryId, category], index) => (
-            <motion.div
-              key={categoryId}
-              variants={cardVariants}
-              whileHover={{ scale: 1.02 }}
-              className="bg-white/70 backdrop-blur-sm rounded-xl p-4 border border-purple-200/50 shadow-md hover:shadow-lg transition-all duration-300"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-semibold text-gray-900 text-sm">
-                    {language === "ar" ? category.name : language === "en" ? category.nameEn : category.nameUr}
-                  </h4>
-                  <p className="text-xs text-gray-600 mt-1">
-                    {category.count} {getTranslation(language, "books")}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="text-lg font-bold text-purple-600">
-                    {category.hadiths.toLocaleString()}
+          {Object.entries(stats.booksByCategory).map(
+            ([categoryId, category], index) => (
+              <motion.div
+                key={categoryId}
+                variants={cardVariants}
+                whileHover={{ scale: 1.02 }}
+                className="bg-white/70 backdrop-blur-sm rounded-xl p-4 border border-purple-200/50 shadow-md hover:shadow-lg transition-all duration-300"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold text-gray-900 text-sm">
+                      {language === "ar"
+                        ? category.name
+                        : language === "en"
+                        ? category.nameEn
+                        : category.nameUr}
+                    </h4>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {category.count} {getTranslation(language, "books")}
+                    </p>
                   </div>
-                  <div className="text-xs text-gray-500">
-                    {getTranslation(language, "hadiths")}
+                  <div className="text-right">
+                    <div className="text-lg font-bold text-purple-600">
+                      {category.hadiths.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {getTranslation(language, "hadiths")}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            )
+          )}
         </div>
       </div>
-
-    
 
       {/* Last Updated */}
       <div className="mt-6 text-center">
         <div className="flex items-center justify-center space-x-2 space-x-reverse text-gray-500 text-xs">
           <Clock className="w-4 h-4" />
           <span>
-            {getTranslation(language, "lastUpdated")}: {new Date(stats.lastUpdated).toLocaleDateString()}
+            {getTranslation(language, "lastUpdated")}:{" "}
+            {new Date(stats.lastUpdated).toLocaleDateString()}
           </span>
         </div>
       </div>
@@ -224,4 +230,4 @@ const IslamicLibraryStats = ({ language }) => {
   );
 };
 
-export default IslamicLibraryStats; 
+export default IslamicLibraryStats;

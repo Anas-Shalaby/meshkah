@@ -65,15 +65,13 @@ async function generateSitemap() {
       fetchBooks(),
     ]);
 
-    // Static Pages
+    // Static Pages - Only public pages (exclude private pages like profile, saved)
     const staticPages = [
       { url: "/", priority: 1.0, changefreq: "daily" },
       { url: "/hadiths", priority: 0.9, changefreq: "daily" },
       { url: "/islamic-library", priority: 0.9, changefreq: "weekly" },
       { url: "/islamic-bookmarks", priority: 0.8, changefreq: "daily" },
-      { url: "/saved", priority: 0.8, changefreq: "daily" },
       { url: "/daily-hadith", priority: 0.8, changefreq: "daily" },
-      { url: "/profile", priority: 0.4, changefreq: "weekly" },
       { url: "/about", priority: 0.6, changefreq: "monthly" },
       { url: "/contact", priority: 0.5, changefreq: "monthly" },
       {
@@ -81,19 +79,20 @@ async function generateSitemap() {
         priority: 0.4,
         changefreq: "monthly",
       },
-      { url: "/login", priority: 0.3, changefreq: "monthly" },
-      { url: "/register", priority: 0.3, changefreq: "monthly" },
+      { url: "/quran-camps", priority: 0.8, changefreq: "weekly" },
+      { url: "/hadith-verification", priority: 0.7, changefreq: "monthly" },
       { url: "/public-cards", priority: 0.4, changefreq: "weekly" },
     ];
 
     // Add static pages to sitemap with language alternates
+    // Note: Arabic (ar) is the default, so no ?lang=ar needed
     staticPages.forEach((page) => {
       sitemapStream.write({
         url: page.url,
         changefreq: page.changefreq,
         priority: page.priority,
         links: [
-          { lang: "ar", url: `${page.url}?lang=ar` },
+          { lang: "ar", url: page.url },
           { lang: "en", url: `${page.url}?lang=en` },
           { lang: "x-default", url: page.url },
         ],
@@ -102,13 +101,13 @@ async function generateSitemap() {
 
     // Dynamic Category Routes with Hadiths
     for (const category of categories) {
-      // Category page
+      // Category page - Arabic is default, no ?lang=ar needed
       sitemapStream.write({
         url: `/hadiths/${category.id}/page/1`,
         changefreq: "weekly",
         priority: 0.7,
         links: [
-          { lang: "ar", url: `/hadiths/${category.id}/page/1?lang=ar` },
+          { lang: "ar", url: `/hadiths/${category.id}/page/1` },
           { lang: "en", url: `/hadiths/${category.id}/page/1?lang=en` },
           { lang: "x-default", url: `/hadiths/${category.id}/page/1` },
         ],
@@ -131,7 +130,7 @@ async function generateSitemap() {
           changefreq: "weekly",
           priority: 0.6,
           links: [
-            { lang: "ar", url: `/hadiths/hadith/${hadithId}?lang=ar` },
+            { lang: "ar", url: `/hadiths/hadith/${hadithId}` },
             { lang: "en", url: `/hadiths/hadith/${hadithId}?lang=en` },
             { lang: "x-default", url: `/hadiths/hadith/${hadithId}` },
           ],
@@ -139,14 +138,8 @@ async function generateSitemap() {
       });
     }
 
-    // Language Alternatives
-    sitemapStream.write({
-      url: "/",
-      links: [
-        { lang: "ar", url: "/ar" },
-        { lang: "en", url: "/en" },
-      ],
-    });
+    // Note: Language alternatives are already included in each URL above
+    // No need for separate language alternative entries
 
     // End the stream
     sitemapStream.end();

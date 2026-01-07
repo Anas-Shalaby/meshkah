@@ -395,6 +395,8 @@ const MyCampJourneyPage = () => {
         title={`رحلتي في ${progress.enrollment.camp_name} - المخيمات القرآنية`}
         description={`تابع تقدمك في مخيم ${progress.enrollment.camp_name} للتعمق في سورة ${progress.enrollment.surah_name}`}
         keywords={`مخيم قرآني, ${progress.enrollment.surah_name}, حفظ القرآن, تقدم المخيم`}
+        canonicalUrl={`${window.location.origin}/my-camp-journey/${campId}`}
+        noindex={true}
       />
 
       {/* Header */}

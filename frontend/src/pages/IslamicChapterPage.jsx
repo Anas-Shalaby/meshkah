@@ -571,7 +571,7 @@ const IslamicChapterPage = () => {
     alternateLanguages: [
       {
         hrefLang: "ar",
-        href: `${window.location.origin}/islamic-library/book/${bookSlug}/chapter/${chapterNumber}?lang=ar`,
+        href: `${window.location.origin}/islamic-library/book/${bookSlug}/chapter/${chapterNumber}`,
       },
       {
         hrefLang: "en",

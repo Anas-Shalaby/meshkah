@@ -406,7 +406,7 @@ const Navbar = () => {
               )}
 
               {/* Navigation Links */}
-              <div className="flex-1 p-6 space-y-2">
+              <div className="flex-1 p-6 space-y-2 font-almarai overflow-scroll mb-2">
                 {NAV_LINKS_MOBILE.map((link, index) => (
                   <motion.div
                     key={link.to}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
+import SEO from "../components/SEO";
 
 const ContactPage = () => {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
@@ -40,6 +41,12 @@ const ContactPage = () => {
       className="min-h-screen bg-gradient-to-br from-white via-[#f8f7fa] to-[#f3edff] py-12 px-4 font-cairo"
       dir="rtl"
     >
+      <SEO
+        title="تواصل معنا - مشكاة الأحاديث"
+        description="تواصل معنا لأي استفسار أو اقتراح. نحن هنا لمساعدتك"
+        keywords="تواصل, دعم, مشكاة, استفسار"
+        canonicalUrl={`${window.location.origin}/contact`}
+      />
       <div className="max-w-2xl mx-auto w-full">
         <h1 className="text-3xl font-bold text-[#7440E9] mb-2 text-right">
           تواصل معنا

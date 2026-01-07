@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { BookOpen, ChevronRight, ArrowLeft } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
+import SEO from "../components/SEO";
 
 const CategoryPage = () => {
   const { categoryId } = useParams();
@@ -127,6 +128,16 @@ const CategoryPage = () => {
       className="min-h-screen bg-gradient-to-br from-[#f7f6fb] via-[#f3edff] to-[#e9e4f5] py-16 px-4 font-cairo"
       dir="rtl"
     >
+      <SEO
+        title={`${category?.title || "التصنيف"} - مشكاة الأحاديث`}
+        description={`تصفح أحاديث تصنيف ${
+          category?.title || "التصنيف"
+        } في مشكاة`}
+        keywords={`${
+          category?.title || "تصنيف"
+        }, أحاديث نبوية, مشكاة, حديث نبوي`}
+        canonicalUrl={`${window.location.origin}/hadiths/category/${categoryId}`}
+      />
       <div className="max-w-7xl mx-auto">
         {/* Breadcrumb Navigation */}
         {currentLevel.length > 0 && (

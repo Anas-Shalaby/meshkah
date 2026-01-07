@@ -97,11 +97,21 @@ import AddReflectionModal from "./modals/AddReflectionModal";
 import ReflectionModal from "./modals/ReflectionModal";
 import LeaveCampModal from "./modals/LeaveCampModal";
 import DeleteReflectionModal from "./modals/DeleteReflectionModal";
+import TaskDetailsModal from "./modals/TaskDetailsModal";
 import ProgressOverview from "./ProgressOverview";
 import CampTabs from "./CampTabs";
 import InteractionButtons from "./InteractionButtons";
-import JourneyMap from "./JourneyMap";
-import StudyHallCard from "./StudyHallCard";
+// Import journey components
+import DayNode from "./journey/DayNode";
+import DayNodeSVG from "./journey/DayNodeSVG";
+import ProgressBar from "./journey/ProgressBar";
+import MilestoneIndicator from "./journey/MilestoneIndicator";
+import MilestoneMarker from "./journey/MilestoneMarker";
+import CohortInfoPanel from "./journey/CohortInfoPanel";
+
+// Import study hall components
+import StudyHallLayout from "./study-hall/StudyHallLayout";
+import { StudyHallSkeleton } from "./skeletons/StudyHallSkeleton";
 import ShareModal from "./ShareModal";
 import JournalCard from "./JournalCard";
 import EmbeddedVideoPlayer from "./EmbeddedVideoPlayer";
@@ -110,216 +120,21 @@ import TaskAttachments from "./TaskAttachments";
 import TaskLinks from "./TaskLinks";
 import CampBreadcrumbs from "./CampBreadcrumbs";
 import QuickAccessMenu from "./QuickAccessMenu";
+import DailyTestModal from "./daily-test/DailyTestModal";
+import TestResultsView from "./daily-test/TestResultsView";
+import TestReviewView from "./daily-test/TestReviewView";
 
-const getStatusText = (status) => {
-  switch (status) {
-    case "active":
-      return "نشط الآن";
-    case "early_registration":
-      return "قريباً";
-    case "completed":
-      return "منتهي";
-    default:
-      return "غير محدد";
-  }
-};
-
-const groupTasksByDay = (tasks) => {
-  if (tasks && tasks.length > 0) {
-    const taskWithFriends = tasks.find(
-      (t) => t.completed_by_friends && t.completed_by_friends.length > 0
-    );
-  }
-
-  return tasks.reduce((groups, task) => {
-    const day = task.day_number;
-    if (!groups[day]) {
-      groups[day] = [];
-    }
-    groups[day].push(task);
-    return groups;
-  }, {});
-};
-
-// دالة لقطع HTML مع الحفاظ على الـ tags المفتوحة
-const truncateHTML = (html, maxLength) => {
-  if (!html) return "";
-
-  const textContent = html.replace(/<[^>]*>/g, "");
-  if (textContent.length <= maxLength) {
-    return html;
-  }
-
-  const tempDiv = document.createElement("div");
-  tempDiv.innerHTML = html;
-
-  const TEXT_NODE = 3;
-  const ELEMENT_NODE = 1;
-
-  const truncateNode = (node, remainingLength) => {
-    if (remainingLength <= 0) {
-      return "";
-    }
-
-    if (node.nodeType === TEXT_NODE) {
-      const text = node.textContent || "";
-      if (text.length <= remainingLength) {
-        return text;
-      }
-      return text.substring(0, remainingLength) + "...";
-    }
-
-    if (node.nodeType === ELEMENT_NODE) {
-      const tagName = node.tagName.toLowerCase();
-      const attributes = Array.from(node.attributes)
-        .map((attr) => `${attr.name}="${attr.value}"`)
-        .join(" ");
-
-      let html = `<${tagName}${attributes ? " " + attributes : ""}>`;
-      let remaining = remainingLength;
-
-      for (const child of Array.from(node.childNodes)) {
-        const childHtml = truncateNode(child, remaining);
-        if (!childHtml) break;
-        html += childHtml;
-        const childTextLength = (child.textContent || "").length;
-        remaining -= childTextLength;
-        if (remaining <= 0) break;
-      }
-
-      if (!["br", "hr", "img", "input"].includes(tagName)) {
-        html += `</${tagName}>`;
-      }
-
-      return html;
-    }
-
-    return "";
-  };
-
-  let result = "";
-  let remaining = maxLength;
-
-  for (const child of Array.from(tempDiv.childNodes)) {
-    const childHtml = truncateNode(child, remaining);
-    if (!childHtml) break;
-    result += childHtml;
-    const textLength = (child.textContent || "").length;
-    remaining -= textLength;
-    if (remaining <= 0) break;
-  }
-
-  return result || html.substring(0, maxLength) + "...";
-};
-
-// دالة لتمييز الكلمات المبحوث عنها مع الأمان - للـ HTML
-const highlightSearchTermHTML = (html, searchTerm) => {
-  if (!searchTerm || !html) return html;
-
-  const cleanSearchTerm = searchTerm.replace(/[<>"'&]/g, "");
-  if (!cleanSearchTerm) return html;
-
-  const regex = new RegExp(
-    `(${cleanSearchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
-    "gi"
-  );
-
-  const tagRegex = /<[^>]*>/g;
-  const parts = [];
-  let lastIndex = 0;
-  let match;
-
-  while ((match = tagRegex.exec(html)) !== null) {
-    if (match.index > lastIndex) {
-      const textBeforeTag = html.substring(lastIndex, match.index);
-      parts.push({ type: "text", content: textBeforeTag });
-    }
-    parts.push({ type: "tag", content: match[0] });
-    lastIndex = tagRegex.lastIndex;
-  }
-
-  if (lastIndex < html.length) {
-    parts.push({ type: "text", content: html.substring(lastIndex) });
-  }
-
-  return parts
-    .map((part) => {
-      if (part.type === "tag") {
-        return part.content;
-      } else {
-        return part.content.replace(regex, (match) => {
-          return `<mark class="bg-yellow-200 px-1 rounded">${match}</mark>`;
-        });
-      }
-    })
-    .join("");
-};
-
-// دالة لتمييز الكلمات المبحوث عنها مع الأمان - للـ JSX
-const highlightSearchTerm = (text, searchTerm) => {
-  if (!searchTerm || !text) return text;
-
-  const cleanSearchTerm = searchTerm.replace(/[<>"'&]/g, "");
-  if (!cleanSearchTerm) return text;
-
-  const regex = new RegExp(
-    `(${cleanSearchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
-    "gi"
-  );
-  return text.split(regex).map((part, index) =>
-    regex.test(part) ? (
-      <mark key={index} className="bg-yellow-200 px-1 rounded">
-        {part}
-      </mark>
-    ) : (
-      part
-    )
-  );
-};
-
-const ARABIC_DAY_ORDINALS = {
-  1: "الأول",
-  2: "الثاني",
-  3: "الثالث",
-  4: "الرابع",
-  5: "الخامس",
-  6: "السادس",
-  7: "السابع",
-  8: "الثامن",
-  9: "التاسع",
-  10: "العاشر",
-  11: "الحادي عشر",
-  12: "الثاني عشر",
-  13: "الثالث عشر",
-  14: "الرابع عشر",
-  15: "الخامس عشر",
-  16: "السادس عشر",
-  17: "السابع عشر",
-  18: "الثامن عشر",
-  19: "التاسع عشر",
-  20: "العشرون",
-  21: "الحادي والعشرون",
-  22: "الثاني والعشرون",
-  23: "الثالث والعشرون",
-  24: "الرابع والعشرون",
-  25: "الخامس والعشرون",
-  26: "السادس والعشرون",
-  27: "السابع والعشرون",
-  28: "الثامن والعشرون",
-  29: "التاسع والعشرون",
-  30: "الثلاثون",
-};
-
-const formatDayLabel = (dayNumber) => {
-  const numericDay = Number(dayNumber);
-  if (!Number.isFinite(numericDay) || numericDay <= 0)
-    return `اليوم ${dayNumber}`;
-  const ordinal = ARABIC_DAY_ORDINALS[numericDay];
-  return ordinal ? `اليوم ${ordinal}` : `اليوم ${numericDay}`;
-};
-
-const formatChallengeDayLabel = (dayNumber) =>
-  `تحدي ${formatDayLabel(dayNumber)}`;
+// Import utility functions
+import {
+  getStatusText,
+  groupTasksByDay,
+  truncateHTML,
+  highlightSearchTermHTML,
+  highlightSearchTerm,
+  formatDayLabel,
+  formatChallengeDayLabel,
+  getCurrentDay as getCurrentDayUtil,
+} from "../../utils/campUtils.jsx";
 
 const CampJourneyInterface = ({
   camp,
@@ -624,21 +439,7 @@ const CampJourneyInterface = ({
   };
 
   const getCurrentDay = () => {
-    if (!camp || !camp.start_date) return 1;
-    // إذا كان المخيم في حالة التسجيل المبكر ولم يبدأ من الإدارة، ثبّت اليوم على 1
-    if (camp.status === "early_registration") return 1;
-
-    const startDate = new Date(camp.start_date);
-    startDate.setHours(0, 0, 0, 0); // تأكد من إزالة الوقت
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // تأكد من إزالة الوقت
-
-    const diffTime = today - startDate;
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
-
-    // اليوم الأول = 1، محدود بعدد أيام المخيم
-    return Math.max(1, Math.min(diffDays, camp.duration_days || 1));
+    return getCurrentDayUtil(camp);
   };
 
   // حساب اليوم الحالي للمخيم
@@ -670,19 +471,29 @@ const CampJourneyInterface = ({
   // وليس عندما يكمل المستخدم المهام في اليوم الحالي
   const isCampFinished = parentIsCampOfficiallyFinished;
 
-  // استخدام is_read_only من الـ API (للمخيمات المنتهية)
-  const isReadOnly = camp?.is_read_only || camp?.status === "completed";
+  // استخدام is_read_only من الـ API (للمخيمات المنتهية أو الفوج المقفول)
+  const isReadOnly =
+    camp?.is_read_only ||
+    camp?.status === "completed" ||
+    camp?.user_cohort?.is_closed;
 
   // معلومات الانضمام المتأخر
   const joinedLate = camp?.joined_late || false;
   const missedDaysCount = camp?.missed_days_count || 0;
 
-  // منع إكمال المهام إذا كان المخيم في حالة "early_registration" (لم يبدأ بعد)
-  const isCampNotStarted = camp?.status === "early_registration";
+  // منع إكمال المهام إذا كان المخيم في حالة "early_registration" أو "scheduled" (لم يبدأ/يفتح بعد)
+  const isCampNotStarted =
+    camp?.status === "early_registration" || camp?.status === "scheduled";
   const [selectedDay, setSelectedDay] = useState(1);
   const [challengeDetailsModal, setChallengeDetailsModal] = useState(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showTaskSidebar, setShowTaskSidebar] = useState(false);
+  // Test states
+  const [showTestModal, setShowTestModal] = useState(false);
+  const [testInfo, setTestInfo] = useState(null);
+  const [testResults, setTestResults] = useState(null);
+  const [dayTestInfo, setDayTestInfo] = useState(null);
+  const [checkingTest, setCheckingTest] = useState(false);
   const [celebratingDay, setCelebratingDay] = useState(null); // Track which day is being celebrated
   const [studyHallSelectedDay, setStudyHallSelectedDay] = useState(
     getCurrentDay()
@@ -736,7 +547,7 @@ const CampJourneyInterface = ({
   const [reflectionJson, setReflectionJson] = useState(null);
   const [benefitsText, setBenefitsText] = useState("");
   const [proposedStep, setProposedStep] = useState("");
-  const [shareInStudyHall, setShareInStudyHall] = useState(false);
+  const [shareInStudyHall, setShareInStudyHall] = useState(true); // Default: مشاركة في قاعة التدارس
   const [videoWatched, setVideoWatched] = useState(false); // تتبع مشاهدة الفيديو
   // Read & Acknowledge mechanism states
   const [isInstructionsRead, setIsInstructionsRead] = useState(false);
@@ -1175,6 +986,53 @@ const CampJourneyInterface = ({
     }
   }, [camp, currentUser]);
 
+  // التحقق من وجود اختبار في اليوم المحدد
+  const checkDayHasTest = useCallback(
+    async (day) => {
+      try {
+        setCheckingTest(true);
+        const token = localStorage.getItem("token");
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/quran-camps/${
+            camp.id
+          }/daily-tests/${day}`,
+          {
+            headers: {
+              "x-auth-token": token,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data) {
+            setDayTestInfo({
+              hasTest: true,
+              test: data.data,
+              hasAttempted: data.data.has_attempted || false,
+            });
+            return;
+          }
+        }
+        setDayTestInfo({ hasTest: false });
+      } catch (error) {
+        console.error("Error checking test:", error);
+        setDayTestInfo({ hasTest: false });
+      } finally {
+        setCheckingTest(false);
+      }
+    },
+    [camp.id]
+  );
+
+  // التحقق من وجود اختبار عند تغيير اليوم
+  useEffect(() => {
+    if (showTaskSidebar && selectedDay) {
+      checkDayHasTest(selectedDay);
+    }
+  }, [selectedDay, showTaskSidebar, checkDayHasTest]);
+
   // إكمال مهمة (بدون تدبر) مع تحديث فوري للـ state
   const markTaskComplete = useCallback(
     async (taskId) => {
@@ -1268,7 +1126,6 @@ const CampJourneyInterface = ({
           // مسح cache قاعة التدارس لإظهار المحتوى الجديد
           clearStudyHallCache(studyHallSelectedDay);
 
-          toast.success("تم إكمال المهمة بنجاح! 🎉");
           return true;
         } else {
           const errorData = await response.json();
@@ -2360,10 +2217,42 @@ const CampJourneyInterface = ({
 
   // دالة تعديل الفائدة من قاعة التدارس
   const handleEditStudyHallReflection = (item) => {
-    // البحث عن المهمة من userProgress باستخدام day
-    const task = userProgress?.tasks?.find(
-      (t) => t.day_number === item.day && t.title === item.title
-    );
+    // تنظيف title من "تدبر: " أو أي بادئة مشابهة
+    const cleanTitle = item.title
+      ? item.title.replace(/^تدبر\s*:\s*/i, "").trim()
+      : "";
+
+    // البحث عن المهمة من userProgress
+    // نحاول البحث بعدة طرق:
+    // 1. استخدام task_title إذا كان موجوداً
+    // 2. استخدام title بعد تنظيفه من "تدبر: "
+    // 3. استخدام day فقط (نأخذ أول مهمة في اليوم)
+    let task = null;
+
+    if (item.task_title) {
+      // البحث باستخدام task_title و day
+      task = userProgress?.tasks?.find(
+        (t) => t.day_number === item.day && t.title === item.task_title
+      );
+    }
+
+    // إذا لم نجد، نبحث باستخدام title بعد تنظيفه
+    if (!task && cleanTitle && item.day) {
+      task = userProgress?.tasks?.find(
+        (t) => t.day_number === item.day && t.title === cleanTitle
+      );
+    }
+
+    // إذا لم نجد، نبحث باستخدام day فقط (نأخذ أول مهمة في اليوم)
+    if (!task && item.day) {
+      const dayTasks = userProgress?.tasks?.filter(
+        (t) => t.day_number === item.day
+      );
+      if (dayTasks && dayTasks.length > 0) {
+        // نأخذ أول مهمة في اليوم (أو المهمة المكتملة إذا كانت موجودة)
+        task = dayTasks.find((t) => t.completed) || dayTasks[0];
+      }
+    }
 
     if (!task) {
       toast.error("لم يتم العثور على المهمة المرتبطة بهذه الفائدة");
@@ -2420,7 +2309,7 @@ const CampJourneyInterface = ({
       setReflectionText("");
       setReflectionJson(null);
       setProposedStep("");
-      setShareInStudyHall(false);
+      setShareInStudyHall(true); // Default: مشاركة في قاعة التدارس
 
       // إعادة جلب بيانات التقدم
       await fetchUserProgress();
@@ -2482,10 +2371,41 @@ const CampJourneyInterface = ({
         await markTaskComplete(selectedTask.id);
       }
 
-      // الخطوة 3: تحديث journalData إذا كان تعديلاً
+      // الخطوة 3: تحديث journalData إذا كان تعديلاً أو إضافة جديدة
       if (isEdit) {
         await fetchJournalData();
         toast.success("تم تحديث الفائدة بنجاح! ✅");
+        // تحديث قاعة التدارس إذا كانت الفائدة عامة
+        if (!shareInStudyHall) {
+          // shareInStudyHall = false يعني عامة (is_private = false)
+          clearStudyHallCache(selectedTask.day_number);
+          if (activeTab === "study_hall") {
+            await fetchStudyHallContent(
+              studyHallSelectedDay,
+              studyHallSort,
+              1,
+              20,
+              true
+            );
+          }
+        }
+      } else if (reflectionText.trim() !== "") {
+        // تحديث سجلي بعد إضافة تدبر جديد
+        await fetchJournalData();
+        // تحديث قاعة التدارس إذا كانت الفائدة عامة
+        if (!shareInStudyHall) {
+          // shareInStudyHall = false يعني عامة
+          clearStudyHallCache(selectedTask.day_number);
+          if (activeTab === "study_hall") {
+            await fetchStudyHallContent(
+              studyHallSelectedDay,
+              studyHallSort,
+              1,
+              20,
+              true
+            );
+          }
+        }
       }
 
       // الخطوة 4: إغلاق وتحديث
@@ -2495,7 +2415,7 @@ const CampJourneyInterface = ({
       setReflectionText("");
       setReflectionJson(null);
       setProposedStep("");
-      setShareInStudyHall(false);
+      setShareInStudyHall(true); // Default: مشاركة في قاعة التدارس
       setReflectionToEdit(null); // إعادة تعيين حالة التعديل
       setTaskOpenedAt(null);
       await fetchUserProgress();
@@ -2530,14 +2450,6 @@ const CampJourneyInterface = ({
   // بانرات الحالة (انضمام متأخر / قراءة فقط)
   const Banners = () => (
     <div className="space-y-3 sm:space-y-4 mb-3 sm:mb-4">
-      {joinedLate && !isReadOnly && (
-        <div className="rounded-xl border border-yellow-200 bg-yellow-50 text-yellow-800 px-4 py-3 flex items-center justify-between">
-          <div className="text-sm sm:text-base font-medium">
-            لقد انضممت متأخرًا. لديك {missedDaysCount} يوم/أيام فائتة من المخيم
-            إستعن بالله.
-          </div>
-        </div>
-      )}
       {isReadOnly &&
         !(
           userProgress?.tasks?.length > 0 &&
@@ -2583,6 +2495,19 @@ const CampJourneyInterface = ({
   }, [camp]);
 
   // استخدام useCallback لتجنب إعادة إنشاء الدوال في كل render
+  const getDayProgress = useCallback(
+    (dayNumber) => {
+      if (!userProgress?.tasks) return 0;
+      const dayTasks = userProgress.tasks.filter(
+        (task) => task.day_number === dayNumber
+      );
+      if (dayTasks.length === 0) return 0;
+      const completedTasks = dayTasks.filter((task) => task.completed).length;
+      return (completedTasks / dayTasks.length) * 100;
+    },
+    [userProgress]
+  );
+
   const getDayStatus = useCallback(
     (dayNumber) => {
       if (!userProgress) return "locked";
@@ -2625,7 +2550,7 @@ const CampJourneyInterface = ({
   );
 
   return (
-    <div className="max-w-7xl mx-auto relative">
+    <div className="max-w-7xl mx-auto relative font-almarai">
       {/* ----- زر الملخص للمخيم المنتهي (الهوية البصرية) ----- */}
       {/* ----- الواجهة العادية للمخيم ----- */}
       <>
@@ -2641,7 +2566,7 @@ const CampJourneyInterface = ({
             >
               <Link
                 to={`/camp-summary/${camp.id}`}
-                className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-2 sm:gap-3 px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-[#7440E9] via-[#8B5CF6] to-[#7440E9] text-white rounded-xl sm:rounded-2xl shadow-2xl hover:shadow-[#7440E9]/50 font-bold text-base sm:text-lg transition-all duration-300 transform hover:scale-105 active:scale-95 overflow-hidden"
+                className="font-almarai group relative w-full sm:w-auto inline-flex items-center justify-center gap-2 sm:gap-3 px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-[#7440E9] via-[#8B5CF6] to-[#7440E9] text-white rounded-xl sm:rounded-2xl shadow-2xl hover:shadow-[#7440E9]/50 font-bold text-base sm:text-lg transition-all duration-300 transform hover:scale-105 active:scale-95 overflow-hidden"
                 style={{
                   backgroundSize: "200% 200%",
                   animation: "gradient 3s ease infinite",
@@ -2690,10 +2615,10 @@ const CampJourneyInterface = ({
 
           {/* Welcome Header */}
           <div className="text-center px-2 relative">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-800 mb-3 sm:mb-4 lg:mb-6 leading-tight">
+            <h2 className="font-almarai text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-800 mb-3 sm:mb-4 lg:mb-6 leading-tight">
               مرحباً بك في رحلة {camp.name}
             </h2>
-            <p className="text-sm sm:text-base lg:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+            <p className="font-almarai text-sm sm:text-base lg:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
               استعد لرحلة تحويلية مع سورة {camp.surah_name} -{" "}
               {camp.duration_days} أيام من التعلم المكثف
             </p>
@@ -2761,36 +2686,290 @@ const CampJourneyInterface = ({
                     <Clock3 className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
                   <div className="flex-1">
-                    <h4 className="text-base sm:text-lg font-bold text-blue-900 mb-1">
-                      ⏳ المخيم لم يبدأ بعد
+                    <h4 className="font-almarai text-base sm:text-lg font-bold text-blue-900 mb-1">
+                      🔒 المخيم لم يفتح بعد
                     </h4>
                     <p className="text-sm sm:text-base text-blue-800 leading-relaxed">
-                      عذراً، المخيم في حالة التسجيل المبكر. لا يمكنك فتح المهام
-                      أو إكمالها حتى يبدأ الادمن المخيم. سيتم إشعارك عند بدء
-                      المخيم عبر البريد الإلكتروني والإشعارات.
+                      {camp?.status === "scheduled"
+                        ? "المخيم مُجدول ولم يفتح بعد. لا يمكنك الوصول إلى المهام أو إكمالها حتى يبدأ المشرف المخيم رسمياً."
+                        : "المخيم في حالة التسجيل المبكر. لا يمكنك فتح المهام أو إكمالها حتى يبدأ المشرف المخيم."}{" "}
+                      سيتم إشعارك عند بدء المخيم عبر البريد الإلكتروني
+                      والإشعارات.
                     </p>
                   </div>
                 </div>
               </motion.div>
             )}
-            <JourneyMap
-              camp={camp}
-              userProgress={userProgress}
-              selectedDay={selectedDay}
-              setSelectedDay={setSelectedDay}
-              setShowTaskSidebar={setShowTaskSidebar}
-              getDayStatus={getDayStatus}
-              getDayTheme={getDayTheme}
-              getLockedDayTheme={getLockedDayTheme}
-              taskGroups={taskGroups}
-              dailyTasks={dailyTasks}
-              completionStats={completionStats}
-              celebratingDay={celebratingDay}
-              isCampNotStarted={isCampNotStarted}
-              handleOnboarding={handleOnboarding}
-              setShowTaskModalIntro={setShowTaskModalIntro}
-              currentDay={currentDay}
+
+            {/* Cohort Info Panel */}
+            {camp.cohort_number && (
+              <CohortInfoPanel
+                cohortNumber={camp.cohort_number}
+                cohortName={camp.cohort_name}
+                cohortStartDate={camp.start_date}
+                cohortEndDate={camp.end_date}
+                totalParticipants={camp.total_participants || 0}
+                userRank={userProgress?.rank || null}
+                averageCompletion={completionStats.averageCompletion || 0}
+              />
+            )}
+
+            {/* Progress Bar */}
+            <ProgressBar
+              completed={completionStats.completedDays || 0}
+              total={camp.duration_days}
+              streak={completionStats.currentStreak || 0}
+              points={userProgress?.points || 0}
+              completedTasks={
+                userProgress?.tasks?.filter((task) => task.completed).length ||
+                0
+              }
+              totalTasks={
+                userProgress?.tasks?.length || dailyTasks?.length || 0
+              }
+              campDays={camp.duration_days}
             />
+
+            {/* Journey Map using DayNodeSVG */}
+            <div className="relative">
+              {/* Lock overlay if cohort is closed or not started */}
+              {(camp?.user_cohort?.is_closed ||
+                camp?.user_cohort?.not_started) && (
+                <div className="absolute inset-0 z-50 bg-white/90 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center p-8">
+                  <div className="text-center">
+                    <div
+                      className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 ${
+                        camp?.user_cohort?.not_started
+                          ? "bg-blue-100"
+                          : camp?.user_cohort?.is_completed
+                          ? "bg-gray-100"
+                          : "bg-red-100"
+                      }`}
+                    >
+                      <Lock
+                        className={`w-8 h-8 ${
+                          camp?.user_cohort?.not_started
+                            ? "text-blue-600"
+                            : camp?.user_cohort?.is_completed
+                            ? "text-gray-600"
+                            : "text-red-600"
+                        }`}
+                      />
+                    </div>
+                    <h3
+                      className={`font-almarai text-xl font-bold mb-2 ${
+                        camp?.user_cohort?.not_started
+                          ? "text-blue-900"
+                          : camp?.user_cohort?.is_completed
+                          ? "text-gray-900"
+                          : "text-red-900"
+                      }`}
+                    >
+                      {camp?.user_cohort?.not_started
+                        ? "المخيم لم يبدأ بعد"
+                        : camp?.user_cohort?.is_completed
+                        ? "المخيم منتهي"
+                        : camp?.user_cohort?.is_cancelled
+                        ? "المخيم تم إلغاؤه"
+                        : "خريطة الرحلة مقفولة"}
+                    </h3>
+                    <p className="text-gray-700 text-sm max-w-md">
+                      {camp?.user_cohort?.not_started ? (
+                        <>
+                          الفوج الذي انتسبت إليه (
+                          {camp?.user_cohort?.cohort_number}) لم يبدأ بعد.
+                          <br />
+                          ستبدأ خريطة الرحلة والمهام عند بدء المخيم.
+                        </>
+                      ) : camp?.user_cohort?.is_completed ? (
+                        <>
+                          الفوج الذي انتسبت إليه (
+                          {camp?.user_cohort?.cohort_number}) قد انتهى.
+                          <br />
+                          لا يمكنك الوصول إلى خريطة الرحلة والمهام بعد انتهاء
+                          المخيم.
+                        </>
+                      ) : (
+                        <>
+                          عذراً، الفوج الذي انتسبت إليه (
+                          {camp?.user_cohort?.cohort_number}) مقفول حالياً.
+                          <br />
+                          لا يمكنك الوصول إلى خريطة الرحلة والمهام في الوقت
+                          الحالي.
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              )}
+              <div
+                className={`flex flex-wrap justify-center items-center gap-2 sm:gap-3 lg:gap-4 px-1 sm:px-2 lg:px-0 ${
+                  camp?.user_cohort?.is_closed || camp?.user_cohort?.not_started
+                    ? "opacity-50 pointer-events-none"
+                    : ""
+                }`}
+              >
+                {Array.from({ length: camp.duration_days }, (_, index) => {
+                  const dayNumber = index + 1;
+                  const status = getDayStatus(dayNumber);
+                  const dayProgress = getDayProgress(dayNumber);
+                  const isMilestone = [10, 20, 30].includes(dayNumber);
+                  const hasReflection = userProgress?.tasks?.some(
+                    (task) => task.day_number === dayNumber && task.benefits
+                  );
+                  const isSelected = dayNumber === selectedDay;
+                  const isCelebrating =
+                    celebratingDay === dayNumber && status === "completed";
+
+                  // Convert status to DayNodeSVG format
+                  const svgStatus =
+                    status === "completed"
+                      ? "completed"
+                      : status === "active"
+                      ? "active"
+                      : status === "incomplete"
+                      ? "incomplete"
+                      : "locked";
+
+                  return (
+                    <React.Fragment key={dayNumber}>
+                      <div className="flex flex-col items-center">
+                        <motion.div
+                          className="cursor-pointer"
+                          whileHover={
+                            status !== "locked" &&
+                            !camp?.user_cohort?.is_closed &&
+                            !camp?.user_cohort?.not_started
+                              ? { scale: 1.05 }
+                              : {}
+                          }
+                          whileTap={
+                            status !== "locked" &&
+                            !camp?.user_cohort?.is_closed &&
+                            !camp?.user_cohort?.not_started
+                              ? { scale: 0.95 }
+                              : {}
+                          }
+                          onClick={() => {
+                            if (camp?.user_cohort?.not_started) {
+                              toast.error(
+                                "المخيم لم يبدأ بعد - ستبدأ خريطة الرحلة عند بدء المخيم"
+                              );
+                              return;
+                            }
+                            if (camp?.user_cohort?.is_closed) {
+                              toast.error(
+                                "خريطة الرحلة مقفولة - الفوج الذي انتسبت إليه مقفول حالياً"
+                              );
+                              return;
+                            }
+                            if (status !== "locked" && !isCampNotStarted) {
+                              handleOnboarding(
+                                "taskModal",
+                                setShowTaskModalIntro,
+                                () => {
+                                  setSelectedDay(dayNumber);
+                                  setShowTaskSidebar(true);
+                                }
+                              );
+                            }
+                          }}
+                        >
+                          <DayNodeSVG
+                            status={svgStatus}
+                            progress={dayProgress}
+                            isSelected={isSelected}
+                            isCelebrating={isCelebrating}
+                            size="md"
+                          />
+                        </motion.div>
+                        {/* Day Label */}
+                        <div className="mt-2 text-center max-w-[70px]">
+                          <span
+                            className={`font-bold text-xs block ${
+                              status === "locked" ||
+                              camp?.user_cohort?.is_closed ||
+                              camp?.user_cohort?.not_started
+                                ? "text-gray-500"
+                                : "text-gray-800"
+                            }`}
+                          >
+                            {formatDayLabel(dayNumber)}
+                          </span>
+                          {status !== "locked" &&
+                            !camp?.user_cohort?.is_closed &&
+                            !camp?.user_cohort?.not_started && (
+                              <p className="text-[10px] text-purple-600 font-medium mt-0.5 line-clamp-2">
+                                {getDayTheme(
+                                  dayNumber,
+                                  userProgress?.tasks,
+                                  taskGroups
+                                ) || `مهام ${formatDayLabel(dayNumber)}`}
+                              </p>
+                            )}
+                        </div>
+                        {/* Milestone Marker for special days */}
+                        {isMilestone && (
+                          <MilestoneMarker
+                            dayNumber={dayNumber}
+                            achieved={status === "completed"}
+                          />
+                        )}
+                      </div>
+                      {dayNumber < camp.duration_days && (
+                        <div className="flex-shrink-0 w-4 sm:w-6 md:w-8 h-1 sm:h-1.5 rounded-full bg-gray-200 overflow-hidden">
+                          <motion.div
+                            className={`h-full ${
+                              status === "completed"
+                                ? "bg-green-500"
+                                : status === "active"
+                                ? "bg-[#7440E9]"
+                                : "bg-gray-300"
+                            }`}
+                            initial={{ width: 0 }}
+                            animate={{
+                              width:
+                                status === "completed"
+                                  ? "100%"
+                                  : status === "active"
+                                  ? `${dayProgress}%`
+                                  : "0%",
+                            }}
+                            transition={{ duration: 0.5 }}
+                          />
+                        </div>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Milestone Indicators */}
+            <div className="flex justify-center gap-4 mt-6">
+              {[10, 20, 30]
+                .filter((day) => day <= camp.duration_days)
+                .map((day) => {
+                  const status = getDayStatus(day);
+                  return (
+                    <MilestoneIndicator
+                      key={day}
+                      type={
+                        day === 10
+                          ? "quarter"
+                          : day === 20
+                          ? "half"
+                          : day === 30
+                          ? "three-quarters"
+                          : "complete"
+                      }
+                      achieved={status === "completed"}
+                      dayNumber={day}
+                      campDays={camp.duration_days}
+                    />
+                  );
+                })}
+            </div>
           </motion.div>
 
           {/* Study Tab */}
@@ -2810,741 +2989,49 @@ const CampJourneyInterface = ({
                 pointerEvents: activeTab === "study" ? "auto" : "none",
               }}
             >
-              {/* تبويبات الأيام */}
-              <div className="mb-4 sm:mb-6">
-                <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2 overflow-x-auto pb-2 -mx-2 px-2 sm:mx-0 sm:px-0 scrollbar-hide">
-                  {Array.from(
-                    { length: camp.duration_days },
-                    (_, i) => i + 1
-                  ).map((day) => (
-                    <button
-                      key={day}
-                      onClick={() => {
-                        setStudyHallSelectedDay(day);
-                        fetchStudyHallContent(day, studyHallSort, 1, 20, true);
-                      }}
-                      className={`px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg font-medium transition-all text-xs sm:text-sm whitespace-nowrap flex-shrink-0 ${
-                        studyHallSelectedDay === day
-                          ? "bg-[#7440E9] text-white shadow-lg"
-                          : "bg-gray-100 text-gray-600 hover:bg-[#7440E9]/10 hover:text-[#7440E9]"
-                      }`}
-                    >
-                      {formatDayLabel(day)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="text-center mb-4 sm:mb-6">
-                <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800 mb-2">
-                  قاعة التدارس - {formatDayLabel(studyHallSelectedDay)}
-                </h3>
-
-                {/* Modal إضافة تدبر جديد - خارج الـ container الرئيسي */}
-                {showAddReflectionModal && (
-                  <div
-                    className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4"
-                    style={{ zIndex: 9999 }}
-                  >
-                    <div className="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                      <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-xl font-bold text-gray-800">
-                          أضف تدبر جديد
-                        </h3>
-                        <button
-                          onClick={() => setShowAddReflectionModal(false)}
-                          className="text-gray-400 hover:text-gray-600"
-                        >
-                          <X className="w-6 h-6" />
-                        </button>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            اختر المهمة المكتملة
-                          </label>
-                          <div className="space-y-2 max-h-40 overflow-y-auto">
-                            {userProgress?.tasks?.filter(
-                              (task) => task.completed
-                            )?.length > 0 ? (
-                              userProgress.tasks
-                                .filter((task) => task.completed)
-                                .map((task) => (
-                                  <button
-                                    key={task.id}
-                                    onClick={() => setSelectedTask(task)}
-                                    className={`w-full text-right p-3 rounded-lg border transition-all ${
-                                      selectedTask?.id === task.id
-                                        ? "border-[#7440E9] bg-[#F7F6FB]"
-                                        : "border-gray-200 hover:border-[#7440E9]/30"
-                                    }`}
-                                  >
-                                    <div className="font-medium text-gray-800">
-                                      {task.title}
-                                    </div>
-                                    <div className="text-sm text-gray-600 mt-1">
-                                      {formatDayLabel(task.day_number)}
-                                    </div>
-                                  </button>
-                                ))
-                            ) : (
-                              <div className="text-center py-8 text-gray-500">
-                                <CheckCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                                <p className="text-sm">
-                                  لا توجد مهام مكتملة بعد
-                                </p>
-                                <p className="text-xs text-gray-400 mt-1">
-                                  اكمل بعض المهام أولاً لإضافة تدبرك
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {selectedTask && (
-                          <>
-                            <div className="mb-6">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                اكتب مذكرتك (خاص بك) 📝
-                              </label>
-                              <p className="text-xs text-gray-600 mb-2">
-                                للحصول على اقتراحات الأحاديث، اكتب{" "}
-                                <span className="font-bold text-purple-600">
-                                  /حديث
-                                </span>{" "}
-                                ثم كلمة البحث (مثال:{" "}
-                                <span className="font-bold text-purple-600">
-                                  /حديث الصبر
-                                </span>
-                                ).
-                              </p>
-                              <RichTadabburEditor
-                                initialContent={reflectionText}
-                                onChange={(htmlContent) =>
-                                  setReflectionText(htmlContent)
-                                }
-                                onJSONChange={(jsonContent) =>
-                                  setReflectionJson(jsonContent)
-                                }
-                                placeholder="ابدأ كتابة تدبرك هنا..."
-                                taskId={selectedTask?.id}
-                              />
-                            </div>
-
-                            {/* الجسر الذكي - مشاركة في قاعة التدارس */}
-                            <div className="mb-4 bg-purple-50 border border-purple-200 rounded-lg p-3">
-                              <label className="flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={shareInStudyHall}
-                                  onChange={(e) =>
-                                    setShareInStudyHall(e.target.checked)
-                                  }
-                                  className="h-4 w-4 text-purple-600 rounded focus:ring-purple-500 ml-3"
-                                />
-                                <div className="flex-1">
-                                  <span className="font-semibold text-purple-800 text-sm flex items-center">
-                                    <Users className="w-4 h-4 ml-1" />
-                                    مشاركة في قاعة التدارس
-                                  </span>
-                                  <p className="text-xs text-purple-600">
-                                    سيتم نشر هذه المذكرة ليراها ويستفيد منها
-                                    باقي المشاركين
-                                  </p>
-                                </div>
-                              </label>
-                            </div>
-
-                            {/* الخطوة العملية المقترحة (اختياري) */}
-                            <div className="mb-4">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                الخطوة العملية المقترحة (اختياري)
-                              </label>
-                              <textarea
-                                value={proposedStep}
-                                onChange={(e) =>
-                                  setProposedStep(e.target.value)
-                                }
-                                placeholder="مثال: سأقوم بإهداء كتاب ديني لصديق هذا الأسبوع..."
-                                rows={3}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#7440E9] focus:border-[#7440E9] resize-none text-sm"
-                              />
-                              <p className="text-xs text-gray-500 mt-1">
-                                اقترح خطوة عملية يمكن للآخرين الالتزام بها معك
-                              </p>
-                            </div>
-                          </>
-                        )}
-                      </div>
-
-                      <div className="flex gap-3 mt-6">
-                        <button
-                          onClick={() => setShowAddReflectionModal(false)}
-                          className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                        >
-                          إلغاء
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (
-                              selectedTask &&
-                              (reflectionText || benefitsText)
-                            ) {
-                              try {
-                                // إضافة التدبر والفوائد
-                                if (reflectionText || benefitsText) {
-                                  await updateTaskBenefits(
-                                    selectedTask.id,
-                                    reflectionText,
-                                    benefitsText,
-                                    !shareInStudyHall, // is_private
-                                    reflectionJson,
-                                    proposedStep || null // proposed_step
-                                  );
-                                }
-
-                                // إعادة جلب بيانات قاعة التدارس
-                                await fetchStudyHallContent(
-                                  studyHallSelectedDay,
-                                  studyHallSort,
-                                  1,
-                                  20,
-                                  true
-                                );
-
-                                // إعادة تعيين النموذج
-                                setSelectedTask(null);
-                                setReflectionText("");
-                                setReflectionJson(null);
-                                setBenefitsText("");
-                                setProposedStep("");
-                                setShareInStudyHall(false);
-                                setShowAddReflectionModal(false);
-
-                                // إشعار النجاح
-                                toast.success("تم إضافة التدبر بنجاح! 🎉", {
-                                  duration: 3000,
-                                  position: "top-center",
-                                });
-                              } catch (error) {
-                                toast.error("حدث خطأ أثناء إضافة التدبر", {
-                                  duration: 3000,
-                                  position: "top-center",
-                                });
-                              }
-                            }
-                          }}
-                          disabled={
-                            !selectedTask || (!reflectionText && !benefitsText)
-                          }
-                          className="flex-1 px-4 py-2 bg-[#7440E9] text-white rounded-lg hover:bg-[#5a2fc7] disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg transition-all"
-                        >
-                          إضافة التدبر
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* تبويبات الفرز */}
-                {!studyHallLoading && studyHallData.length > 0 && (
-                  <div className="mb-4 sm:mb-6">
-                    <div className="flex items-center justify-center gap-1.5 sm:gap-2 max-w-2xl mx-auto">
-                      <button
-                        onClick={() => {
-                          setStudyHallSort("newest");
-                          refetchStudyHall("newest", null);
-                        }}
-                        className={`flex-1 px-2.5 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 rounded-lg sm:rounded-xl font-semibold text-xs sm:text-sm md:text-base transition-all duration-200 ${
-                          studyHallSort === "newest"
-                            ? "bg-[#7440E9] text-white shadow-lg shadow-[#7440E9]/30"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                        }`}
-                      >
-                        الأحدث
-                      </button>
-                      <button
-                        onClick={() => {
-                          setStudyHallSort("helpful");
-                          refetchStudyHall("helpful", null);
-                        }}
-                        className={`flex-1 px-2.5 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 rounded-lg sm:rounded-xl font-semibold text-xs sm:text-sm md:text-base transition-all duration-200 ${
-                          studyHallSort === "helpful"
-                            ? "bg-[#7440E9] text-white shadow-lg shadow-[#7440E9]/30"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                        }`}
-                      >
-                        الأكثر إفادة
-                      </button>
-                      <button
-                        onClick={() => {
-                          setStudyHallSort("saved");
-                          refetchStudyHall("saved", null);
-                        }}
-                        className={`flex-1 px-2.5 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 rounded-lg sm:rounded-xl font-semibold text-xs sm:text-sm md:text-base transition-all duration-200 ${
-                          studyHallSort === "saved"
-                            ? "bg-[#7440E9] text-white shadow-lg shadow-[#7440E9]/30"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                        }`}
-                      >
-                        الأكثر حفظًا
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* بحث في التدبرات */}
-                {!studyHallLoading && studyHallData.length > 0 && (
-                  <div className="mb-4 sm:mb-6 px-2 sm:px-0">
-                    <div className="max-w-md mx-auto">
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={studyHallSearch}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            // تنظيف المدخلات من الأحرف الخطيرة
-                            const cleanValue = value.replace(/[<>"'&]/g, "");
-                            setStudyHallSearch(cleanValue);
-                          }}
-                          placeholder="ابحث في التدبرات والفوائد..."
-                          className="w-full px-3 sm:px-4 py-2 sm:py-2.5 pr-9 sm:pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#7440E9] focus:border-[#7440E9] text-right text-sm sm:text-base"
-                          aria-label="البحث في التدبرات والفوائد"
-                          aria-describedby="search-description"
-                          maxLength={100}
-                        />
-                        <div
-                          className="absolute left-2.5 sm:left-3 top-1/2 transform -translate-y-1/2"
-                          aria-hidden="true"
-                        >
-                          <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
-                        </div>
-                        {studyHallSearch && (
-                          <button
-                            onClick={() => setStudyHallSearch("")}
-                            className="absolute right-2.5 sm:right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
-                            aria-label="مسح البحث"
-                            title="مسح البحث"
-                          >
-                            <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                          </button>
-                        )}
-                      </div>
-                      {studyHallSearch && (
-                        <p className="text-xs sm:text-sm text-gray-600 mt-2 text-center px-2">
-                          البحث عن: "{studyHallSearch}"
-                        </p>
-                      )}
-
-                      {/* فلاتر إضافية */}
-                      <div className="mt-3 sm:mt-4 space-y-2 sm:space-y-3">
-                        {/* فلترة حسب المؤلف */}
-                        <div>
-                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                            فلترة حسب المؤلف
-                          </label>
-                          <input
-                            type="text"
-                            value={studyHallAuthorFilter}
-                            onChange={(e) => {
-                              const value = e.target.value.replace(
-                                /[<>"'&]/g,
-                                ""
-                              );
-                              setStudyHallAuthorFilter(value);
-                            }}
-                            placeholder="اسم المستخدم..."
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#7440E9] focus:border-[#7440E9] text-right text-sm"
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                fetchStudyHallContent(
-                                  studyHallSelectedDay,
-                                  studyHallSort,
-                                  1,
-                                  20,
-                                  true
-                                );
-                              }
-                            }}
-                          />
-                        </div>
-
-                        {/* فلترة حسب نطاق التواريخ */}
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                              من تاريخ
-                            </label>
-                            <input
-                              type="date"
-                              value={studyHallDateFrom}
-                              onChange={(e) =>
-                                setStudyHallDateFrom(e.target.value)
-                              }
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#7440E9] focus:border-[#7440E9] text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                              إلى تاريخ
-                            </label>
-                            <input
-                              type="date"
-                              value={studyHallDateTo}
-                              onChange={(e) =>
-                                setStudyHallDateTo(e.target.value)
-                              }
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#7440E9] focus:border-[#7440E9] text-sm"
-                            />
-                          </div>
-                        </div>
-
-                        {/* أزرار تطبيق ومسح الفلاتر */}
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => {
-                              fetchStudyHallContent(
-                                studyHallSelectedDay,
-                                studyHallSort,
-                                1,
-                                20,
-                                true
-                              );
-                            }}
-                            className="flex-1 px-4 py-2 bg-[#7440E9] text-white rounded-lg hover:bg-[#5a2fc7] transition-colors text-sm font-medium"
-                          >
-                            تطبيق الفلاتر
-                          </button>
-                          <button
-                            onClick={() => {
-                              setStudyHallAuthorFilter("");
-                              setStudyHallDateFrom("");
-                              setStudyHallDateTo("");
-                              setStudyHallSearch("");
-                              fetchStudyHallContent(
-                                studyHallSelectedDay,
-                                studyHallSort,
-                                1,
-                                20,
-                                true
-                              );
-                            }}
-                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
-                          >
-                            مسح الكل
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* إحصائيات البحث والفلترة */}
-                      {(studyHallSearch ||
-                        studyHallFilter !== "all" ||
-                        studyHallAuthorFilter ||
-                        studyHallDateFrom ||
-                        studyHallDateTo) && (
-                        <div className="mt-2 sm:mt-3 p-2.5 sm:p-3 bg-gradient-to-r from-[#F7F6FB] to-[#F3EDFF] rounded-lg border border-[#7440E9]/20">
-                          <div className="text-xs sm:text-sm text-[#7440E9] text-center font-medium">
-                            {(() => {
-                              let filteredData = studyHallData;
-                              if (studyHallFilter === "my") {
-                                filteredData = studyHallData.filter(
-                                  (item) => item.is_own
-                                );
-                              } else if (studyHallFilter === "others") {
-                                filteredData = studyHallData.filter(
-                                  (item) => !item.is_own
-                                );
-                              }
-
-                              if (studyHallSearch) {
-                                filteredData = filteredData.filter((item) => {
-                                  const searchTerm =
-                                    studyHallSearch.toLowerCase();
-                                  return (
-                                    item.content
-                                      ?.toLowerCase()
-                                      .includes(searchTerm) ||
-                                    item.title
-                                      ?.toLowerCase()
-                                      .includes(searchTerm) ||
-                                    item.userName
-                                      ?.toLowerCase()
-                                      .includes(searchTerm)
-                                  );
-                                });
-                              }
-
-                              return `عرض ${filteredData.length} من أصل ${studyHallData.length} مساهمة`;
-                            })()}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-              {studyHallLoading ? (
-                <div className="w-full max-w-3xl mx-auto space-y-4 sm:space-y-6">
-                  {[...Array(6)].map((_, index) => (
-                    <div
-                      key={index}
-                      className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6 animate-pulse"
-                    >
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
-                          <div className="h-4 bg-gray-200 rounded w-24"></div>
-                        </div>
-                        <div className="h-6 bg-gray-200 rounded w-16"></div>
-                      </div>
-                      <div className="mb-4">
-                        <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                        <div className="h-4 bg-gray-200 rounded mb-1"></div>
-                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                      </div>
-                      <div className="flex items-center justify-between text-sm text-gray-500 border-t border-gray-100 pt-3">
-                        <div className="h-4 bg-gray-200 rounded w-20"></div>
-                        <div className="h-4 bg-gray-200 rounded w-24"></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="w-full max-w-3xl mx-auto space-y-4 sm:space-y-6">
-                  {filteredAndSortedData.map((item, index) => (
-                    <StudyHallCard
-                      key={item.id}
-                      item={item}
-                      index={index}
-                      isReadOnly={isReadOnly}
-                      isCampNotStarted={isCampNotStarted}
-                      campSettings={campSettings}
-                      currentUser={currentUser}
-                      getAvatarUrl={getAvatarUrl}
-                      expandedReflections={expandedReflections}
-                      setExpandedReflections={setExpandedReflections}
-                      highlightSearchTermHTML={highlightSearchTermHTML}
-                      truncateHTML={truncateHTML}
-                      studyHallSearch={studyHallSearch}
-                      onUpvote={handleToggleUpvote}
-                      onSave={handleToggleSave}
-                      onPledge={handlePledgeToJointStep}
-                      showUpvoteTooltip={showUpvoteTooltip}
-                      showBookmarkTooltip={showBookmarkTooltip}
-                      showPledgeTooltip={showPledgeTooltip}
-                      setShowUpvoteTooltip={setShowUpvoteTooltip}
-                      setShowBookmarkTooltip={setShowBookmarkTooltip}
-                      setShowPledgeTooltip={setShowPledgeTooltip}
-                      pledgingProgressId={pledgingProgressId}
-                      pledgedSteps={pledgedSteps}
-                      onShareCamp={() => setShowShareCampModal(true)}
-                      showShareCamp={true}
-                      onEdit={handleEditStudyHallReflection}
-                      onDelete={openDeleteModal}
-                      studyHallData={studyHallData}
-                      setStudyHallData={setStudyHallData}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {/* Pagination Controls */}
-              {!studyHallLoading &&
-                studyHallData.length > 0 &&
-                studyHallPagination.total_pages > 1 && (
-                  <div className="flex items-center justify-center gap-2 sm:gap-3 mt-6 sm:mt-8 pb-4">
-                    <button
-                      onClick={() => {
-                        const prevPage = studyHallPagination.page - 1;
-                        if (prevPage >= 1) {
-                          fetchStudyHallContent(
-                            studyHallSelectedDay,
-                            studyHallSort,
-                            prevPage,
-                            20,
-                            false
-                          );
-                          // Scroll to top
-                          window.scrollTo({ top: 0, behavior: "smooth" });
-                        }
-                      }}
-                      disabled={
-                        !studyHallPagination.has_prev || studyHallLoading
-                      }
-                      className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg font-semibold text-sm sm:text-base transition-all ${
-                        !studyHallPagination.has_prev || studyHallLoading
-                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                          : "bg-[#7440E9] text-white hover:bg-[#5a2fc7] shadow-lg"
-                      }`}
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                      السابق
-                    </button>
-
-                    <div className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-gray-100 rounded-lg">
-                      <span className="text-sm sm:text-base font-semibold text-gray-700">
-                        صفحة {studyHallPagination.page} من{" "}
-                        {studyHallPagination.total_pages}
-                      </span>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        const nextPage = studyHallPagination.page + 1;
-                        if (nextPage <= studyHallPagination.total_pages) {
-                          fetchStudyHallContent(
-                            studyHallSelectedDay,
-                            studyHallSort,
-                            nextPage,
-                            20,
-                            false
-                          );
-                          // Scroll to top
-                          window.scrollTo({ top: 0, behavior: "smooth" });
-                        }
-                      }}
-                      disabled={
-                        !studyHallPagination.has_next || studyHallLoading
-                      }
-                      className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg font-semibold text-sm sm:text-base transition-all ${
-                        !studyHallPagination.has_next || studyHallLoading
-                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                          : "bg-[#7440E9] text-white hover:bg-[#5a2fc7] shadow-lg"
-                      }`}
-                    >
-                      التالي
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-              {!studyHallLoading && studyHallData.length === 0 && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.3 }}
-                  className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 text-center"
-                >
-                  <div className="w-20 h-20 bg-[#7440E9] rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-                    <Sparkles className="w-10 h-10 text-white" />
-                  </div>
-
-                  <h3 className="text-3xl font-bold text-gray-900 mb-4">
-                    أهلاً بك في قاعة التدارس!
-                  </h3>
-
-                  <p className="text-lg text-gray-600 mb-8 max-w-lg mx-auto leading-relaxed">
-                    هذه الساحة مخصصة لعرض "أفضل" الفوائد والخواطر من جميع
-                    المشاركين في المخيم.
-                  </p>
-
-                  <div className="bg-gradient-to-br from-[#F7F6FB] via-[#F3EDFF] to-[#E9E4F5] border-t-4 border-[#7440E9] rounded-lg p-6">
-                    <h4 className="text-xl font-bold text-[#7440E9] mb-3">
-                      كيف أشارك فائدتي؟
-                    </h4>
-                    <p className="text-gray-700 text-md leading-relaxed mb-6">
-                      الأمر بسيط: اذهب إلى (خريطة الرحلة)، افتح "مهام اليوم"،
-                      واكتب فائدتك في المربع المخصص. ستظهر مساهمتك هنا تلقائيًا!
-                    </p>
-                    <button
-                      onClick={() => setActiveTab("journey")}
-                      className="inline-flex items-center space-x-2 px-6 py-3 bg-[#7440E9] text-white rounded-lg font-semibold hover:bg-[#5a2fc7] transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
-                    >
-                      <Send className="w-5 h-5" />
-                      <span>اذهب لخريطة الرحلة الآن</span>
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* رسالة عندما لا توجد نتائج للفلترة أو البحث */}
-              {!studyHallLoading &&
-                studyHallData.length > 0 &&
-                (() => {
-                  let filteredData = studyHallData;
-                  if (studyHallFilter === "my") {
-                    // عند الفلترة بـ "my"، استبعد التدبرات الشخصية
-                    filteredData = studyHallData.filter((item) => {
-                      const isPrivate =
-                        item.is_private === true ||
-                        item.is_private === 1 ||
-                        item.is_private === "1";
-                      return item.is_own && !isPrivate;
-                    });
-                  } else if (studyHallFilter === "others") {
-                    // عند الفلترة بـ "others"، استبعد التدبرات الشخصية أيضاً
-                    filteredData = studyHallData.filter((item) => {
-                      const isPrivate =
-                        item.is_private === true ||
-                        item.is_private === 1 ||
-                        item.is_private === "1";
-                      return !item.is_own && !isPrivate;
-                    });
-                  } else {
-                    // عند الفلترة بـ "all"، استبعد جميع التدبرات الشخصية
-                    filteredData = studyHallData.filter((item) => {
-                      const isPrivate =
-                        item.is_private === true ||
-                        item.is_private === 1 ||
-                        item.is_private === "1";
-                      return !isPrivate;
-                    });
-                  }
-
-                  // تطبيق البحث
-                  if (studyHallSearch) {
-                    filteredData = filteredData.filter((item) => {
-                      const searchTerm = studyHallSearch.toLowerCase();
-                      return (
-                        item.content?.toLowerCase().includes(searchTerm) ||
-                        item.title?.toLowerCase().includes(searchTerm) ||
-                        item.userName?.toLowerCase().includes(searchTerm)
-                      );
-                    });
-                  }
-
-                  if (filteredData.length === 0) {
-                    return (
-                      <div className="text-center py-12">
-                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <BookOpen className="w-8 h-8 text-gray-400" />
-                        </div>
-                        <h4 className="text-lg font-semibold text-gray-600 mb-2">
-                          {studyHallSearch
-                            ? "لا توجد نتائج للبحث"
-                            : "لا توجد نتائج للفلترة المحددة"}
-                        </h4>
-                        <p className="text-gray-500 text-sm mb-4">
-                          {studyHallSearch
-                            ? `لم يتم العثور على أي تدبرات تحتوي على "${studyHallSearch}"`
-                            : studyHallFilter === "my"
-                            ? "لم تقم بإضافة أي تدبرات بعد"
-                            : "لم يقم الآخرون بإضافة أي تدبرات بعد"}
-                        </p>
-                        <div className="flex gap-2 justify-center">
-                          {studyHallSearch && (
-                            <button
-                              onClick={() => setStudyHallSearch("")}
-                              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                            >
-                              مسح البحث
-                            </button>
-                          )}
-                          <button
-                            onClick={() => {
-                              setStudyHallFilter("all");
-                              setStudyHallSearch("");
-                            }}
-                            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                          >
-                            عرض جميع المساهمات
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
+              <StudyHallLayout
+                campId={camp.id}
+                cohortNumber={camp.current_cohort_number}
+                cohortName={camp.cohort_name}
+                duration_days={camp.duration_days}
+                currentUser={currentUser}
+                getAvatarUrl={getAvatarUrl}
+                onUpvote={handleToggleUpvote}
+                onSave={handleToggleSave}
+                onPledge={handlePledgeToJointStep}
+                onDelete={openDeleteModal}
+                onEdit={handleEditStudyHallReflection}
+                onShareCamp={() => setShowShareCampModal(true)}
+                initialReflections={studyHallData}
+                isReadOnly={isReadOnly}
+                isCampNotStarted={isCampNotStarted}
+                campSettings={campSettings}
+                selectedDay={studyHallSelectedDay}
+                setSelectedDay={setStudyHallSelectedDay}
+                pagination={studyHallPagination}
+                onPageChange={(page) => {
+                  fetchStudyHallContent(
+                    studyHallSelectedDay,
+                    studyHallSort,
+                    page,
+                    20,
+                    false
+                  );
+                }}
+                loading={studyHallLoading}
+                loadingMore={false}
+                loadMoreRef={null}
+                enableInfiniteScroll={false}
+                onRetry={() => {
+                  fetchStudyHallContent(
+                    studyHallSelectedDay,
+                    studyHallSort,
+                    1,
+                    20,
+                    true
+                  );
+                }}
+              />
             </motion.div>
           )}
 
@@ -3583,7 +3070,7 @@ const CampJourneyInterface = ({
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4 flex-wrap">
                             <Award className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 flex-shrink-0" />
-                            <h3 className="text-lg sm:text-xl md:text-2xl font-bold">
+                            <h3 className="font-almarai text-lg sm:text-xl md:text-2xl font-bold">
                               خطة عملي من هذا المخيم
                             </h3>
                           </div>
@@ -3634,7 +3121,7 @@ const CampJourneyInterface = ({
                     <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4 border-b border-gray-200 overflow-x-auto scrollbar-hide -mx-2 px-2">
                       <button
                         onClick={() => setInnerJournalTab("myReflections")}
-                        className={`px-3 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 font-semibold text-sm sm:text-base md:text-lg transition-all whitespace-nowrap flex-shrink-0 ${
+                        className={`font-almarai px-3 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 font-semibold text-sm sm:text-base md:text-lg transition-all whitespace-nowrap flex-shrink-0 ${
                           innerJournalTab === "myReflections"
                             ? "text-[#7440E9] border-b-2 sm:border-b-3 md:border-b-4 border-[#7440E9]"
                             : "text-gray-500 hover:text-[#7440E9]"
@@ -3644,7 +3131,7 @@ const CampJourneyInterface = ({
                       </button>
                       <button
                         onClick={() => setInnerJournalTab("savedReflections")}
-                        className={`px-3 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 font-semibold text-sm sm:text-base md:text-lg transition-all whitespace-nowrap flex-shrink-0 ${
+                        className={`font-almarai px-3 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 font-semibold text-sm sm:text-base md:text-lg transition-all whitespace-nowrap flex-shrink-0 ${
                           innerJournalTab === "savedReflections"
                             ? "text-[#7440E9] border-b-2 sm:border-b-3 md:border-b-4 border-[#7440E9]"
                             : "text-gray-500 hover:text-[#7440E9]"
@@ -3889,7 +3376,7 @@ const CampJourneyInterface = ({
                           ) : (
                             <div className="text-center py-12 bg-gradient-to-br from-[#F7F6FB] to-[#F3EDFF] rounded-xl border border-[#7440E9]/20">
                               <Heart className="w-16 h-16 text-[#7440E9]/50 mx-auto mb-4" />
-                              <h4 className="text-lg font-semibold text-[#7440E9] mb-2">
+                              <h4 className="font-almarai text-lg font-semibold text-[#7440E9] mb-2">
                                 لم تقم بكتابة أي فوائد بعد
                               </h4>
                               <p className="text-gray-600 text-sm">
@@ -3935,7 +3422,7 @@ const CampJourneyInterface = ({
                           ) : (
                             <div className="text-center py-12 bg-gradient-to-br from-[#F7F6FB] to-[#F3EDFF] rounded-xl border border-[#7440E9]/20">
                               <Bookmark className="w-16 h-16 text-[#7440E9]/50 mx-auto mb-4" />
-                              <h4 className="text-lg font-semibold text-[#7440E9] mb-2">
+                              <h4 className="font-almarai text-lg font-semibold text-[#7440E9] mb-2">
                                 لا توجد فوائد محفوظة
                               </h4>
                               <p className="text-gray-600 text-sm mb-6">
@@ -4214,7 +3701,7 @@ const CampJourneyInterface = ({
                         challengeDetailsModal?.dayNumber
                       )}
                     </p>
-                    <h3 className="text-lg font-bold text-gray-900">
+                    <h3 className="font-almarai text-lg font-bold text-gray-900">
                       {challengeDetailsModal?.title}
                     </h3>
                   </div>
@@ -4259,7 +3746,7 @@ const CampJourneyInterface = ({
                 <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-4 lg:p-6 z-10 shadow-sm">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-800">
+                      <h3 className="font-almarai text-base sm:text-lg lg:text-xl font-bold text-gray-800">
                         مهام {formatDayLabel(selectedDay)}
                       </h3>
                       <p className="text-xs sm:text-sm text-gray-600 mt-0.5 sm:mt-1">
@@ -4288,20 +3775,91 @@ const CampJourneyInterface = ({
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="text-sm sm:text-base font-bold text-blue-900 mb-1">
-                          ⏳ المخيم لم يبدأ بعد
+                          🔒 المخيم لم يفتح بعد
                         </h4>
                         <p className="text-xs sm:text-sm text-blue-800 leading-relaxed">
-                          عذراً، المخيم في حالة التسجيل المبكر. لا يمكنك فتح
-                          المهام أو إكمالها حتى يبدأ الادمن المخيم. سيتم إشعارك
-                          عند بدء المخيم.
+                          {camp?.status === "scheduled"
+                            ? "المخيم مُجدول ولم يفتح بعد. لا يمكنك الوصول إلى المهام أو إكمالها حتى يبدأ المشرف المخيم رسمياً."
+                            : "المخيم في حالة التسجيل المبكر. لا يمكنك فتح المهام أو إكمالها حتى يبدأ المشرف المخيم."}
                         </p>
                       </div>
                     </div>
                   </div>
                 )}
 
+                {/* Test Section */}
+                {!isCampNotStarted && (
+                  <div className="p-3 sm:p-4 lg:p-6 border-b border-gray-200">
+                    {checkingTest ? (
+                      <div className="flex items-center justify-center py-4">
+                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-t-[#7440E9] border-gray-200"></div>
+                      </div>
+                    ) : dayTestInfo?.hasTest ? (
+                      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-4 border-2 border-purple-200">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#7440E9] to-[#8B5CF6] text-white flex items-center justify-center flex-shrink-0">
+                              <FileText className="w-5 h-5" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-almarai text-sm sm:text-base font-bold text-purple-900 mb-1">
+                                اختبار اليوم
+                              </h4>
+                              <p className="text-xs text-purple-700">
+                                {dayTestInfo.hasAttempted
+                                  ? "تم حل الاختبار - يمكنك مراجعة النتائج"
+                                  : "اختبار متاح - اضغط للبدء"}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={async () => {
+                              if (dayTestInfo.hasTest) {
+                                if (dayTestInfo.hasAttempted) {
+                                  // Show results directly if test is already completed
+                                  // TestReviewView will fetch the results itself
+                                  setTestResults({}); // Set a truthy value to trigger the modal
+                                } else {
+                                  // Open test modal for new test
+                                  setTestInfo({
+                                    testId: dayTestInfo.test.id,
+                                    attemptId: dayTestInfo.test.attempt_id,
+                                  });
+                                  setShowTestModal(true);
+                                }
+                              }
+                            }}
+                            className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
+                              dayTestInfo.hasAttempted
+                                ? "bg-white text-purple-700 border-2 border-purple-300 hover:bg-purple-50"
+                                : "bg-gradient-to-r from-[#7440E9] to-[#8B5CF6] text-white hover:shadow-lg hover:shadow-purple-500/30"
+                            }`}
+                          >
+                            {dayTestInfo.hasAttempted
+                              ? "عرض النتائج"
+                              : "بدء الاختبار"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-gray-200 flex items-center justify-center flex-shrink-0">
+                            <FileText className="w-5 h-5 text-gray-400" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-600">
+                              لا يوجد اختبار متاح لهذا اليوم
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Tasks List */}
-                <div className="p-3 sm:p-4 lg:p-6 space-y-6 pb-4 sm:pb-6 mb-4">
+                <div className="p-3 sm:p-4 lg:p-6 space-y-6 pb-4 sm:pb-6 mb-12">
                   {(() => {
                     const dayTasks =
                       userProgress?.tasks?.filter(
@@ -4484,7 +4042,7 @@ const CampJourneyInterface = ({
                                             ) {
                                               toast.error(
                                                 isCampNotStarted
-                                                  ? "لا يمكن إكمال المهام قبل بدء المخيم"
+                                                  ? "المخيم لم يفتح بعد. لا يمكنك إكمال المهام حتى يبدأ المشرف المخيم رسمياً"
                                                   : "لا يمكن إكمال المهام في المخيمات المنتهية"
                                               );
                                               return;
@@ -4518,7 +4076,7 @@ const CampJourneyInterface = ({
                                           title={
                                             isReadOnly || isCampNotStarted
                                               ? isCampNotStarted
-                                                ? "المخيم لم يبدأ بعد"
+                                                ? "المخيم لم يفتح بعد"
                                                 : "المخيم منتهي"
                                               : "إكمال سريع بدون فتح المهمة"
                                           }
@@ -4560,20 +4118,16 @@ const CampJourneyInterface = ({
                                           setReflectionText(
                                             task.journal_entry || ""
                                           );
+                                          setReflectionJson(
+                                            task.content_rich || null
+                                          );
+                                          setProposedStep(
+                                            task.proposed_step || ""
+                                          );
+                                          setShareInStudyHall(!task.is_private);
                                           setActiveTaskTab("task");
                                           setShowReflectionModal(true);
                                           setShowTaskSidebar(false);
-                                          setTaskOpenedAt(new Date());
-                                          setHasUnsavedChanges(false);
-                                          // Read & Acknowledge: Check if task has draft or is completed
-                                          // If yes, skip gate and show editor directly
-                                          const hasDraftOrCompleted = !!(
-                                            task.journal_entry || task.completed
-                                          );
-                                          setIsInstructionsRead(
-                                            hasDraftOrCompleted
-                                          );
-                                          setShowEditor(hasDraftOrCompleted);
                                         }}
                                         className={`flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl font-semibold text-sm sm:text-base transition-all duration-300 transform active:scale-95 ${
                                           task.completed
@@ -4624,7 +4178,7 @@ const CampJourneyInterface = ({
                                   >
                                     <ChevronDown className="w-5 h-5 text-purple-600 flex-shrink-0" />
                                   </motion.div>
-                                  <h4 className="text-lg sm:text-xl font-bold text-purple-700 group-hover:text-purple-800 transition-colors truncate">
+                                  <h4 className="font-almarai text-lg sm:text-xl font-bold text-purple-700 group-hover:text-purple-800 transition-colors truncate">
                                     {group.title}
                                   </h4>
                                   <span className="text-sm text-gray-500 flex-shrink-0">
@@ -4770,7 +4324,7 @@ const CampJourneyInterface = ({
                                                   ) {
                                                     toast.error(
                                                       isCampNotStarted
-                                                        ? "لا يمكن إكمال المهام قبل بدء المخيم"
+                                                        ? "المخيم لم يفتح بعد. لا يمكنك إكمال المهام حتى يبدأ المشرف المخيم رسمياً"
                                                         : "لا يمكن إكمال المهام في المخيمات المنتهية"
                                                     );
                                                     return;
@@ -4805,7 +4359,7 @@ const CampJourneyInterface = ({
                                                 title={
                                                   isReadOnly || isCampNotStarted
                                                     ? isCampNotStarted
-                                                      ? "المخيم لم يبدأ بعد"
+                                                      ? "المخيم لم يفتح بعد"
                                                       : "المخيم منتهي"
                                                     : "إكمال سريع بدون فتح المهمة"
                                                 }
@@ -4849,11 +4403,18 @@ const CampJourneyInterface = ({
                                                 setReflectionText(
                                                   task.journal_entry || ""
                                                 );
+                                                setReflectionJson(
+                                                  task.content_rich || null
+                                                );
+                                                setProposedStep(
+                                                  task.proposed_step || ""
+                                                );
+                                                setShareInStudyHall(
+                                                  !task.is_private
+                                                );
                                                 setActiveTaskTab("task");
                                                 setShowReflectionModal(true);
                                                 setShowTaskSidebar(false);
-                                                setTaskOpenedAt(new Date());
-                                                setHasUnsavedChanges(false);
                                               }}
                                               className={`flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl font-semibold text-sm sm:text-base transition-all duration-300 transform active:scale-95 ${
                                                 task.completed
@@ -4932,806 +4493,6 @@ const CampJourneyInterface = ({
                     </motion.div>
                   )}
                 </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Reflection Modal */}
-        <AnimatePresence>
-          {showReflectionModal && selectedTask && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 sm:top-[60px] bg-black/50 z-50 flex items-center justify-center p-0 sm:p-2 md:p-4"
-              onClick={() => {
-                setShowCheckBoxIntro(false);
-                setIsInstructionsRead(false);
-                setShowEditor(false);
-                // تذكير إذا كان هناك تغييرات غير محفوظة
-                if (
-                  hasUnsavedChanges &&
-                  reflectionText.trim() &&
-                  selectedTask &&
-                  !selectedTask.completed
-                ) {
-                  setConfirmationModal({
-                    isOpen: true,
-                    title: "⚠️ تغييرات غير محفوظة",
-                    message:
-                      "لديك تغييرات غير محفوظة!\n\nهل تريد إغلاق المهمة بدون حفظ؟\n\nيمكنك إكمال المهمة مباشرة أو حفظ التدبر لاحقاً.",
-                    confirmText: "نعم، أغلق بدون حفظ",
-                    cancelText: "إلغاء",
-                    confirmColor: "red",
-                    onConfirm: () => {
-                      setShowReflectionModal(false);
-                      setActiveTaskTab("task");
-                      setReflectionToEdit(null);
-                      setHasUnsavedChanges(false);
-                      setTaskOpenedAt(null);
-                      // Reset Read & Acknowledge states
-                      setIsInstructionsRead(false);
-                      setShowEditor(false);
-                    },
-                  });
-                } else {
-                  setShowReflectionModal(false);
-                  setActiveTaskTab("task");
-                  setReflectionToEdit(null);
-                  setHasUnsavedChanges(false);
-                  setTaskOpenedAt(null);
-                  // Reset Read & Acknowledge states
-                  setIsInstructionsRead(false);
-                  setShowEditor(false);
-                }
-              }}
-            >
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                onClick={(e) => e.stopPropagation()}
-                className="bg-white rounded-none sm:rounded-xl md:rounded-2xl max-w-4xl w-full h-full sm:h-[95vh] md:h-auto md:max-h-[calc(100vh-4rem)] shadow-2xl flex flex-col overflow-hidden m-0 sm:m-2 md:m-4"
-              >
-                {/* Sticky Header */}
-                <div className="sticky top-[60px] sm:top-[0px] bg-white border-b border-gray-200 p-3 sm:p-4  pb-3 sm:pb-4 md:pb-6 z-20 flex-shrink-0">
-                  <div className="flex items-start sm:items-center justify-between gap-2 sm:gap-3">
-                    <div className="flex-1 min-w-0 pr-1 sm:pr-0">
-                      {/* Breadcrumbs */}
-
-                      {selectedTask.path && selectedTask.path.length > 0 && (
-                        <div
-                          className="flex items-center gap-1 text-[10px] xs:text-xs sm:text-sm text-gray-500 mb-1.5 sm:mb-2 overflow-x-auto scrollbar-hide"
-                          dir="rtl"
-                        >
-                          {selectedTask.path.map((segment, index) => {
-                            // Support both old format (string) and new format (object)
-                            const segmentObj =
-                              typeof segment === "string"
-                                ? { type: "day", title: segment }
-                                : segment;
-                            const isGroup = segmentObj.type === "group";
-                            const isClickable = isGroup;
-
-                            return (
-                              <div
-                                key={index}
-                                className="flex items-center flex-shrink-0"
-                              >
-                                {isClickable ? (
-                                  <button
-                                    onClick={() => {
-                                      // Toggle group in sidebar
-                                      setExpandedGroups((prev) => ({
-                                        ...prev,
-                                        [segmentObj.groupId]:
-                                          prev[segmentObj.groupId] === undefined
-                                            ? false
-                                            : !prev[segmentObj.groupId],
-                                      }));
-                                      // Open sidebar if closed and set the correct day
-                                      if (!showTaskSidebar) {
-                                        // Find day number from path or use selectedTask's day
-                                        const daySegment =
-                                          selectedTask.path.find((s) => {
-                                            const seg =
-                                              typeof s === "string"
-                                                ? { type: "day", title: s }
-                                                : s;
-                                            return seg.type === "day";
-                                          });
-                                        const dayToShow =
-                                          daySegment?.dayNumber ||
-                                          (typeof daySegment === "object"
-                                            ? daySegment.dayNumber
-                                            : null) ||
-                                          selectedTask.day_number ||
-                                          selectedDay;
-                                        setSelectedDay(dayToShow);
-                                        setShowTaskSidebar(true);
-                                        setShowReflectionModal(false);
-                                      }
-                                    }}
-                                    className="hover:text-purple-600 hover:underline transition-colors cursor-pointer whitespace-nowrap"
-                                  >
-                                    {segmentObj.title}
-                                  </button>
-                                ) : (
-                                  <span className="hover:text-gray-700 transition-colors whitespace-nowrap">
-                                    {segmentObj.title}
-                                  </span>
-                                )}
-                                {index < selectedTask.path.length - 1 && (
-                                  <ChevronLeft className="w-2.5 h-2.5 xs:w-3 xs:h-3 sm:w-4 sm:h-4 text-gray-400 mx-0.5 sm:mx-1 flex-shrink-0" />
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                      <h3 className="text-base xs:text-lg sm:text-xl md:text-2xl font-bold text-gray-800 truncate leading-tight">
-                        {selectedTask.title}
-                      </h3>
-                      <p className="text-[10px] xs:text-xs sm:text-sm text-gray-600 mt-0.5 sm:mt-1">
-                        تفاصيل المهمة والتدبر
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setIsInstructionsRead(false);
-                        setShowEditor(false);
-                        setShowCheckBoxIntro(false);
-                        // تذكير إذا كان هناك تغييرات غير محفوظة
-                        if (
-                          hasUnsavedChanges &&
-                          reflectionText.trim() &&
-                          !selectedTask.completed
-                        ) {
-                          setConfirmationModal({
-                            isOpen: true,
-                            title: "⚠️ تغييرات غير محفوظة",
-                            message:
-                              "لديك تغييرات غير محفوظة!\n\nهل تريد إغلاق المهمة بدون حفظ؟\n\nيمكنك إكمال المهمة مباشرة أو حفظ التدبر لاحقاً.",
-                            confirmText: "نعم، أغلق بدون حفظ",
-                            cancelText: "إلغاء",
-                            confirmColor: "red",
-                            onConfirm: () => {
-                              setShowReflectionModal(false);
-                              setActiveTaskTab("task");
-                              setReflectionToEdit(null);
-                              setHasUnsavedChanges(false);
-                              setTaskOpenedAt(null);
-                              // Reset Read & Acknowledge states
-                              setIsInstructionsRead(false);
-                              setShowEditor(false);
-                            },
-                          });
-                        } else {
-                          setShowReflectionModal(false);
-                          setActiveTaskTab("task");
-                          setReflectionToEdit(null);
-                          setHasUnsavedChanges(false);
-                          setTaskOpenedAt(null);
-                          // Reset Read & Acknowledge states
-                          setIsInstructionsRead(false);
-                          setShowEditor(false);
-                        }
-                      }}
-                      className="p-1.5 xs:p-2 sm:p-2.5 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0 active:scale-95 mt-0.5 sm:mt-0"
-                      aria-label="إغلاق"
-                    >
-                      <X className="w-4 h-4 xs:w-5 xs:h-5 sm:w-6 sm:h-6 text-gray-500" />
-                    </button>
-                  </div>
-
-                  {/* Tab Navigation */}
-                  <div className="space-y-2">
-                    {/* Warning message when checkbox is not checked */}
-                    {!showCheckBoxIntro &&
-                      !isInstructionsRead &&
-                      activeTaskTab === "task" && (
-                        <div className="bg-amber-50 animate-pulse  rounded-lg p-2 xs:p-2.5 sm:p-3 flex items-start gap-2 xs:gap-2.5 animate-fade-in">
-                          <AlertCircle className="w-4 h-4 xs:w-5 xs:h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                          <p className="text-xs xs:text-sm text-amber-800 leading-relaxed flex-1">
-                            <span className="font-semibold">تنبيه:</span> يرجى
-                            قراءة تفاصيل المهمة والموافقة على أنك قرأت الوصف قبل
-                            الانتقال إلى تب "تدبري وإتمام"
-                          </p>
-                        </div>
-                      )}
-                    <div className="flex gap-1 sm:gap-2 border-b border-gray-200 relative">
-                      <button
-                        onClick={() => setActiveTaskTab("task")}
-                        className={`flex-1 px-2 xs:px-3 sm:px-4 py-1.5 xs:py-2 sm:py-2.5 text-xs xs:text-sm sm:text-base transition-colors relative font-medium outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 touch-manipulation ${
-                          activeTaskTab === "task"
-                            ? "text-purple-600"
-                            : "text-gray-500 active:text-gray-700 sm:hover:text-gray-700"
-                        }`}
-                      >
-                        تفاصيل المهمة
-                        {activeTaskTab === "task" && (
-                          <span className="absolute bottom-0 right-0 left-0 h-0.5 bg-purple-600 rounded-t"></span>
-                        )}
-                      </button>
-                      <div className="relative flex-1">
-                        <button
-                          onClick={() => {
-                            if (isInstructionsRead) {
-                              setActiveTaskTab("reflection");
-                            } else {
-                              // Show tooltip on mobile click
-                              setShowReflectionTabTooltip(true);
-                              setTimeout(
-                                () => setShowReflectionTabTooltip(false),
-                                4000
-                              );
-                            }
-                          }}
-                          onTouchStart={() => {
-                            if (!isInstructionsRead) {
-                              setShowReflectionTabTooltip(true);
-                            }
-                          }}
-                          onTouchEnd={() => {
-                            setTimeout(() => {
-                              if (!isInstructionsRead) {
-                                setShowReflectionTabTooltip(false);
-                              }
-                            }, 2000);
-                          }}
-                          disabled={!isInstructionsRead}
-                          className={`w-full px-2 xs:px-3 sm:px-4 py-1.5 xs:py-2 sm:py-2.5 text-xs xs:text-sm sm:text-base transition-colors relative font-medium outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 touch-manipulation ${
-                            activeTaskTab === "reflection"
-                              ? "text-purple-600"
-                              : !isInstructionsRead
-                              ? "text-gray-400 cursor-not-allowed opacity-60 active:opacity-70"
-                              : "text-gray-500 active:text-gray-700 sm:hover:text-gray-700"
-                          }`}
-                        >
-                          تدبري وإتمام
-                          {activeTaskTab === "reflection" && (
-                            <span className="absolute bottom-0 right-0 left-0 h-0.5 bg-purple-600 rounded-t"></span>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Scrollable Content */}
-                <div className="overflow-y-auto flex-1 min-h-0 mt-20 sm:mt-0 p-3 xs:p-4 sm:p-5 md:p-6 lg:p-8 pb-20 sm:pb-24">
-                  {/* الفيديو المدمج متاح في جميع التابات */}
-                  {selectedTask.youtube_link && (
-                    <div className="mb-4 xs:mb-5 sm:mb-6">
-                      <EmbeddedVideoPlayer
-                        youtubeLink={selectedTask.youtube_link}
-                        taskId={selectedTask.id}
-                        onVideoWatched={() => setVideoWatched(true)}
-                        showCloseButton={true}
-                      />
-                    </div>
-                  )}
-
-                  {/* Tab Content: Task */}
-                  {activeTaskTab === "task" && (
-                    <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6">
-                      {/* رسالة توضيحية للمخيم الذي لم يبدأ بعد */}
-                      {isCampNotStarted && (
-                        <div className="mb-4 xs:mb-5 sm:mb-6 p-3 xs:p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-r-4 border-blue-500 rounded-lg xs:rounded-xl shadow-md">
-                          <div className="flex items-start gap-2 xs:gap-3">
-                            <div className="flex-shrink-0 w-8 h-8 xs:w-10 xs:h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                              <Clock3 className="w-4 h-4 xs:w-5 xs:h-5 text-white" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-sm xs:text-base font-bold text-blue-900 mb-1">
-                                ⏳ المخيم لم يبدأ بعد
-                              </h4>
-                              <p className="text-xs xs:text-sm text-blue-800 leading-relaxed">
-                                عذراً، المخيم في حالة التسجيل المبكر. لا يمكنك
-                                إكمال هذه المهمة أو حفظ الفوائد حتى يبدأ الادمن
-                                المخيم. سيتم إشعارك عند بدء المخيم.
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* تفاصيل المهمة */}
-                      <div className="bg-gray-50 rounded-lg p-3 xs:p-3.5 sm:p-4">
-                        <h4 className="font-semibold text-sm xs:text-base sm:text-lg text-gray-800 mb-2 xs:mb-2.5 sm:mb-3 arabic-text">
-                          تفاصيل المهمة:
-                        </h4>
-                        <div className="space-y-2.5 xs:space-y-3 sm:space-y-4">
-                          <p className="text-gray-600 text-xs xs:text-sm sm:text-base md:text-lg leading-relaxed arabic-text break-words">
-                            {selectedTask.description}
-                          </p>
-
-                          {!isInstructionsRead && (
-                            <>
-                              {/* Checkbox Section - Mobile Optimized */}
-                              <div className="bg-white border-2 border-gray-200 rounded-lg xs:rounded-xl p-3 xs:p-4 sm:p-5 md:p-6 shadow-sm active:border-[#7440E9]/50 sm:hover:border-[#7440E9]/30 transition-colors touch-manipulation">
-                                <label className="flex items-start gap-2.5 xs:gap-3 sm:gap-4 cursor-pointer group active:opacity-80">
-                                  {/* Custom Checkbox - Larger on mobile */}
-                                  <div className="flex-shrink-0 mt-0.5 xs:mt-1">
-                                    <div
-                                      className={`relative w-7 h-7 xs:w-8 xs:h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-lg border-2 transition-all duration-200 flex items-center justify-center touch-manipulation ${
-                                        showCheckBoxIntro
-                                          ? "bg-[#7440E9] border-[#7440E9] shadow-md scale-105"
-                                          : "bg-white border-gray-300 active:border-[#7440E9]/70 sm:group-hover:border-[#7440E9]/50"
-                                      }`}
-                                    >
-                                      {showCheckBoxIntro && (
-                                        <Check className="w-5 h-5 xs:w-6 xs:h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-white stroke-[2.5] xs:stroke-[3]" />
-                                      )}
-                                    </div>
-                                  </div>
-                                  <input
-                                    type="checkbox"
-                                    checked={!!showCheckBoxIntro}
-                                    onChange={(e) =>
-                                      setShowCheckBoxIntro(!!e.target.checked)
-                                    }
-                                    className="sr-only"
-                                    aria-label="قرأت وصف المهمة جيداً وفهمت المطلوب"
-                                  />
-                                  <div className="flex-1 min-w-0 pt-0.5 xs:pt-1">
-                                    <p className="text-sm xs:text-base sm:text-lg md:text-xl font-semibold text-gray-800 leading-relaxed mb-1 xs:mb-1.5">
-                                      قرأت وصف المهمة جيداً وفهمت المطلوب
-                                    </p>
-                                    <p className="text-xs xs:text-sm sm:text-base text-gray-500 leading-relaxed">
-                                      يرجى التأكد من قراءة تفاصيل المهمة بعناية
-                                      قبل البدء في الكتابة
-                                    </p>
-                                  </div>
-                                </label>
-                              </div>
-                              {/* Start Task Button - Mobile Optimized */}
-                              <button
-                                onClick={() => {
-                                  if (showCheckBoxIntro) {
-                                    setIsInstructionsRead(true);
-                                    setShowEditor(true);
-                                    setActiveTaskTab("reflection");
-                                  }
-                                }}
-                                disabled={!showCheckBoxIntro}
-                                className={`w-full px-4 xs:px-5 sm:px-6 md:px-8 py-3 xs:py-3.5 sm:py-4 md:py-4.5 rounded-lg xs:rounded-xl font-semibold text-sm xs:text-base sm:text-lg md:text-xl transition-all duration-300 touch-manipulation ${
-                                  showCheckBoxIntro
-                                    ? "bg-gradient-to-r from-[#7440E9] to-[#8B5CF6] text-white shadow-lg active:scale-95 sm:hover:shadow-xl sm:hover:scale-[1.02] sm:active:scale-100"
-                                    : "hidden bg-gray-200 text-gray-400 cursor-not-allowed"
-                                }`}
-                              >
-                                <span className="flex items-center justify-center gap-2">
-                                  <span>ابدأ المهمة</span>
-                                </span>
-                              </button>
-                            </>
-                          )}
-
-                          <div className="flex items-center gap-2 xs:gap-3 sm:gap-4 text-[10px] xs:text-xs sm:text-sm text-gray-500 flex-wrap arabic-text">
-                            <span>
-                              ⏱️ {selectedTask.estimated_time || "30 دقيقة"}
-                            </span>
-                            {selectedTask.points && (
-                              <span>⭐ {selectedTask.points} نقطة</span>
-                            )}
-                            <span
-                              className={`px-1.5 xs:px-2 py-0.5 xs:py-1 rounded-full text-[10px] xs:text-xs font-medium arabic-text ${
-                                selectedTask.is_optional
-                                  ? "bg-orange-100 text-orange-700"
-                                  : "bg-blue-100 text-blue-700"
-                              }`}
-                            >
-                              {selectedTask.is_optional ? "اختياري" : "مطلوب"}
-                            </span>
-                          </div>
-
-                          {/* تفاصيل الآيات */}
-                          {(selectedTask.verses_from ||
-                            selectedTask.verses_to) && (
-                            <div>
-                              <div className="flex items-center gap-1.5 xs:gap-2 text-[10px] xs:text-xs sm:text-sm text-[#7440E9] bg-blue-50 px-2 xs:px-3 py-1.5 xs:py-2 rounded-lg arabic-text">
-                                <BookOpen className="w-3 h-3 xs:w-4 xs:h-4 flex-shrink-0" />
-                                <span className="font-medium">
-                                  {selectedTask.verses_from &&
-                                  selectedTask.verses_to
-                                    ? `الآيات ${selectedTask.verses_from} - ${selectedTask.verses_to}`
-                                    : selectedTask.verses_from
-                                    ? `من الآية ${selectedTask.verses_from}`
-                                    : `إلى الآية ${selectedTask.verses_to}`}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* روابط الموارد والمرفقات - أزرار بجانب بعض */}
-                          {(selectedTask?.tafseer_link ||
-                            selectedTask?.additional_links.length > 0 ||
-                            selectedTask?.attachments.length > 0) && (
-                            <div className="space-y-2 sm:space-y-3">
-                              <h5 className="text-xs sm:text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                <span>موارد مساعدة لإتمام المهمة</span>
-                              </h5>
-                              <div className="flex flex-wrap gap-2 sm:gap-3">
-                                <TaskLinks
-                                  links={selectedTask?.additional_links}
-                                  tafsirLink={selectedTask?.tafseer_link}
-                                />
-                                <TaskAttachments
-                                  attachments={selectedTask?.attachments}
-                                  apiUrl={import.meta.env.VITE_API_URL}
-                                />
-                              </div>
-                            </div>
-                          )}
-
-                          {/* الجسر بين القراءة والكتابة */}
-                          {videoWatched && (
-                            <div className="mt-3 xs:mt-4 sm:mt-5 pt-2.5 xs:pt-3 sm:pt-4 border-t border-gray-200">
-                              <button
-                                onClick={() => setActiveTaskTab("reflection")}
-                                className="hidden w-full sm:flex items-center justify-center gap-1.5 xs:gap-2 px-3 xs:px-4 sm:px-6 py-2.5 xs:py-3 sm:py-3.5 bg-purple-600 text-white rounded-lg xs:rounded-xl sm:rounded-2xl hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl font-semibold text-xs xs:text-sm sm:text-base active:scale-95"
-                              >
-                                <span className="text-center">
-                                  قرأت المهمة، سأبدأ تدبري الآن ⬅️
-                                </span>
-                                <ArrowLeft className="w-3 h-3 xs:w-4 xs:h-4 sm:w-5 sm:h-5 font-bold flex-shrink-0" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Tab Content: Reflection */}
-                  {activeTaskTab === "reflection" && (
-                    <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6">
-                      {/* رسالة توضيحية للمخيم الذي لم يبدأ بعد */}
-                      {isCampNotStarted && (
-                        <div className="mb-4 xs:mb-5 sm:mb-6 p-3 xs:p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-r-4 border-blue-500 rounded-lg xs:rounded-xl shadow-md">
-                          <div className="flex items-start gap-2 xs:gap-3">
-                            <div className="flex-shrink-0 w-8 h-8 xs:w-10 xs:h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                              <Clock3 className="w-4 h-4 xs:w-5 xs:h-5 text-white" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-sm xs:text-base font-bold text-blue-900 mb-1">
-                                ⏳ المخيم لم يبدأ بعد
-                              </h4>
-                              <p className="text-xs xs:text-sm text-blue-800 leading-relaxed">
-                                عذراً، المخيم في حالة التسجيل المبكر. لا يمكنك
-                                إكمال هذه المهمة أو حفظ الفوائد حتى يبدأ الادمن
-                                المخيم. سيتم إشعارك عند بدء المخيم.
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Editor Section - Show only when showEditor is true */}
-                      {showEditor && (
-                        <>
-                          {/* ----- بداية قسم الكتابة الموحد مع المحرر الغني ----- */}
-                          <div>
-                            <label
-                              htmlFor="reflectionInput"
-                              className="block text-sm xs:text-base sm:text-lg md:text-xl font-bold text-gray-800 mb-1.5 xs:mb-2"
-                            >
-                              شاركنا تدبرك وفوائدك
-                            </label>
-                            <p className="text-[10px] xs:text-xs text-gray-600 mb-2 leading-relaxed">
-                              للحصول على اقتراحات الأحاديث، اكتب{" "}
-                              <span className="font-bold text-purple-600">
-                                /حديث
-                              </span>{" "}
-                              ثم كلمة البحث (مثال:{" "}
-                              <span className="font-bold text-purple-600">
-                                /حديث الصبر
-                              </span>
-                              ).
-                            </p>
-
-                            {/* --- التوجيه في الحالة الصفرية --- */}
-                            {!reflectionText.trim() && (
-                              <div className="bg-blue-50 border-r-4 border-blue-400 p-3 xs:p-4 sm:p-5 rounded-lg mb-3 xs:mb-4 sm:mb-5">
-                                <div className="flex items-start gap-2 xs:gap-3">
-                                  <div className="flex-shrink-0">
-                                    <Lightbulb className="w-4 h-4 xs:w-5 xs:h-5 sm:w-6 sm:h-6 text-blue-600 mt-0.5" />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs xs:text-sm sm:text-base text-blue-800 leading-relaxed">
-                                      ابدأ بقراءة{" "}
-                                      <strong className="font-semibold">
-                                        'تفاصيل المهمة'
-                                      </strong>{" "}
-                                      (في التاب الأول) واستخدم التايمر. ثم عُد
-                                      إلى هنا لتدوين أهم فائدة لمست قلبك.
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                            {/* --- نهاية التوجيه --- */}
-
-                            <RichTadabburEditor
-                              initialContent={reflectionText}
-                              onChange={(htmlContent) => {
-                                setReflectionText(htmlContent);
-                                setHasUnsavedChanges(true);
-                              }}
-                              onJSONChange={(jsonContent) =>
-                                setReflectionJson(jsonContent)
-                              }
-                              placeholder={
-                                !reflectionText.trim()
-                                  ? "ابدأ بقراءة 'تفاصيل المهمة' (في التاب الأول) واستخدم التايمر. ثم عُد إلى هنا لتدوين أهم فائدة لمست قلبك."
-                                  : "ابدأ كتابة الفوائد هنا..."
-                              }
-                              taskId={selectedTask?.id}
-                            />
-                          </div>
-                          {/* ----- نهاية قسم الكتابة الموحد ----- */}
-                        </>
-                      )}
-
-                      {/* الجسر الذكي - مشاركة في قاعة التدارس */}
-                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-2.5 xs:p-3 sm:p-4">
-                        <label className="flex items-start xs:items-center cursor-pointer gap-2 xs:gap-3">
-                          <input
-                            type="checkbox"
-                            checked={shareInStudyHall}
-                            onChange={(e) =>
-                              setShareInStudyHall(e.target.checked)
-                            }
-                            className="h-3.5 w-3.5 xs:h-4 xs:w-4 sm:h-5 sm:w-5 text-purple-600 rounded focus:ring-purple-500 ml-2 xs:ml-3 mt-0.5 xs:mt-0 flex-shrink-0"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <span className="font-semibold text-purple-800 text-xs xs:text-sm sm:text-base flex items-center gap-1">
-                              <Users className="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5 ml-1 flex-shrink-0" />
-                              مشاركة في قاعة التدارس
-                            </span>
-                            <p className="text-[10px] xs:text-xs sm:text-sm text-purple-600 mt-0.5 xs:mt-1 leading-relaxed">
-                              سيتم نشر هذه المذكرة ليراها ويستفيد منها باقي
-                              المشاركين
-                            </p>
-                          </div>
-                        </label>
-                      </div>
-
-                      {/* الخطوة العملية المقترحة (اختياري) */}
-                      <div>
-                        <label className="block text-xs xs:text-sm sm:text-base font-medium text-gray-700 mb-1.5 xs:mb-2">
-                          الخطوة العملية المقترحة (اختياري)
-                        </label>
-                        <textarea
-                          value={proposedStep}
-                          onChange={(e) => setProposedStep(e.target.value)}
-                          placeholder="مثال: سأقوم بإهداء كتاب ديني لصديق هذا الأسبوع..."
-                          rows={3}
-                          className="w-full px-2.5 xs:px-3 sm:px-4 py-2 xs:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#7440E9] focus:border-[#7440E9] resize-none text-xs xs:text-sm sm:text-base"
-                        />
-                        <p className="text-[10px] xs:text-xs sm:text-sm text-gray-500 mt-1">
-                          اقترح خطوة عملية يمكن للآخرين الالتزام بها معك
-                        </p>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="flex flex-col gap-2 xs:gap-2.5 sm:gap-3 pt-2">
-                        {/* زر إكمال المهمة (فقط للمهام غير المكتملة) */}
-                        {!selectedTask.completed && (
-                          <button
-                            type="button"
-                            onClick={handleCompleteAndSave}
-                            disabled={isCompleting || isCampNotStarted}
-                            className="w-full px-3 xs:px-4 sm:px-6 py-2 xs:py-2.5 sm:py-3 bg-green-500 text-white rounded-lg xs:rounded-xl active:bg-green-600 sm:hover:bg-green-600 transition-colors text-xs xs:text-sm sm:text-base font-medium flex items-center justify-center gap-1.5 xs:gap-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 sm:active:scale-100"
-                          >
-                            {isCompleting ? (
-                              <div className="animate-spin rounded-full h-3.5 w-3.5 xs:h-4 xs:w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
-                            ) : (
-                              <>
-                                <CheckCircle2 className="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-                                <span className="text-center">
-                                  إكمال المهمة وحفظ الفوائد
-                                </span>
-                              </>
-                            )}
-                          </button>
-                        )}
-
-                        {/* زر حفظ/تحديث الفائدة فقط (للمهام المكتملة أو غير المكتملة) */}
-                        {selectedTask.completed && (
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (isCompleting) return;
-                              setIsCompleting(true);
-
-                              try {
-                                // حفظ/تحديث الفائدة فقط (بدون إكمال المهمة)
-                                if (reflectionText.trim() !== "") {
-                                  await updateTaskBenefits(
-                                    selectedTask.id,
-                                    reflectionText.trim(),
-                                    "",
-                                    !shareInStudyHall,
-                                    reflectionJson,
-                                    proposedStep || null // proposed_step
-                                  );
-
-                                  const isEdit = reflectionToEdit !== null;
-                                  if (isEdit) {
-                                    toast.success("تم تحديث الفائدة بنجاح! ✅");
-                                    await fetchJournalData();
-                                  } else {
-                                    toast.success("تم حفظ الفائدة بنجاح! ✅");
-                                  }
-
-                                  // تحديث بيانات المستخدم وقاعة التدارس
-                                  await fetchUserProgress();
-                                  if (studyHallSelectedDay) {
-                                    await fetchStudyHallContent(
-                                      studyHallSelectedDay,
-                                      studyHallSort,
-                                      studyHallPagination.page,
-                                      20,
-                                      false
-                                    );
-                                  }
-
-                                  // تحديث النص المحفوظ في selectedTask
-                                  setSelectedTask({
-                                    ...selectedTask,
-                                    journal_entry: reflectionText.trim(),
-                                  });
-                                  setReflectionToEdit(null); // إعادة تعيين حالة التعديل
-                                  setHasUnsavedChanges(false);
-                                  setShowReflectionModal(false);
-                                  setActiveTaskTab("task");
-                                } else {
-                                  toast.error("اكتب فائدة أولاً قبل الحفظ");
-                                }
-                              } catch (error) {
-                                console.error(
-                                  "Failed to save reflection:",
-                                  error
-                                );
-                                toast.error(
-                                  "حدث خطأ أثناء حفظ الفائدة. يرجى المحاولة مرة أخرى."
-                                );
-                              } finally {
-                                setIsCompleting(false);
-                              }
-                            }}
-                            disabled={isCompleting || isReadOnly}
-                            className="w-full px-3 xs:px-4 sm:px-6 py-2 xs:py-2.5 sm:py-3 bg-[#7440E9] text-white rounded-lg xs:rounded-xl active:bg-[#5a2fc7] sm:hover:bg-[#5a2fc7] transition-colors text-xs xs:text-sm sm:text-base font-medium flex items-center justify-center gap-1.5 xs:gap-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 sm:active:scale-100"
-                          >
-                            {isCompleting ? (
-                              <div className="animate-spin rounded-full h-3.5 w-3.5 xs:h-4 xs:w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
-                            ) : (
-                              <>
-                                <Save className="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-                                <span className="text-center">
-                                  {reflectionToEdit
-                                    ? "تحديث الفائدة"
-                                    : "حفظ الفائدة"}
-                                </span>
-                              </>
-                            )}
-                          </button>
-                        )}
-
-                        {/* زر الإلغاء */}
-                        <button
-                          onClick={() => {
-                            setIsInstructionsRead(false);
-                            setShowEditor(false);
-                            setShowCheckBoxIntro(false);
-                            // تذكير إذا كان هناك تغييرات غير محفوظة
-                            if (
-                              hasUnsavedChanges &&
-                              reflectionText.trim() &&
-                              !selectedTask.completed
-                            ) {
-                              setConfirmationModal({
-                                isOpen: true,
-                                title: "⚠️ تغييرات غير محفوظة",
-                                message:
-                                  "لديك تغييرات غير محفوظة!\n\nهل تريد إغلاق المهمة بدون حفظ؟\n\nيمكنك إكمال المهمة مباشرة أو حفظ التدبر لاحقاً.",
-                                confirmText: "نعم، أغلق بدون حفظ",
-                                cancelText: "إلغاء",
-                                confirmColor: "red",
-                                onConfirm: () => {
-                                  setShowReflectionModal(false);
-                                  setActiveTaskTab("task");
-                                  setReflectionToEdit(null);
-                                  setReflectionText("");
-                                  setReflectionJson(null);
-                                  setProposedStep("");
-                                  setShareInStudyHall(false);
-                                  setHasUnsavedChanges(false);
-                                  setTaskOpenedAt(null);
-                                },
-                              });
-                            } else {
-                              setShowReflectionModal(false);
-                              setActiveTaskTab("task");
-                              setReflectionToEdit(null);
-                              setReflectionText("");
-                              setReflectionJson(null);
-                              setProposedStep("");
-                              setShareInStudyHall(false);
-                              setHasUnsavedChanges(false);
-                              setTaskOpenedAt(null);
-                            }
-                          }}
-                          className="w-full px-3 xs:px-4 sm:px-6 py-2 xs:py-2.5 sm:py-3 bg-gray-200 text-gray-700 rounded-lg xs:rounded-xl active:bg-gray-300 sm:hover:bg-gray-300 transition-colors text-xs xs:text-sm sm:text-base font-medium active:scale-95 sm:active:scale-100"
-                        >
-                          إلغاء
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Sticky Footer - Task Navigation */}
-                {(() => {
-                  // Collect all tasks from userProgress or dailyTasks
-                  const allTasksList = userProgress?.tasks || dailyTasks || [];
-                  if (allTasksList.length > 0 && selectedTask) {
-                    const handleNavigateTask = (task) => {
-                      // Check if the task's day is locked
-                      const taskDayStatus = getDayStatus(task.day_number);
-                      if (taskDayStatus === "locked") {
-                        toast.error("لا يمكن الوصول إلى مهام اليوم المقفول");
-                        return;
-                      }
-
-                      const taskWithPath = {
-                        ...task,
-                        path:
-                          task.path ||
-                          buildTaskPath(
-                            task,
-                            taskGroups || [],
-                            task.day_number || selectedDay
-                          ),
-                      };
-                      setSelectedTask(taskWithPath);
-                      setReflectionText(task.journal_entry || "");
-                      setActiveTaskTab("task");
-                      setShowTaskSidebar(false);
-                    };
-
-                    return (
-                      <div className="sticky bottom-0 bg-white border-t border-gray-200 p-3 xs:p-4 z-10 shadow-lg">
-                        <TaskNavigation
-                          currentTask={selectedTask}
-                          allTasks={allTasksList}
-                          onNavigate={handleNavigateTask}
-                          getDayStatus={getDayStatus}
-                          currentDay={currentDay}
-                        />
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
-
-                {/* Mobile Action Button */}
-                {activeTaskTab === "task" && videoWatched && (
-                  <div className="sm:hidden px-3 xs:px-4 pb-2">
-                    <button
-                      onClick={() => setActiveTaskTab("reflection")}
-                      className="w-full flex items-center justify-center gap-1.5 xs:gap-2 px-3 xs:px-4 py-2.5 xs:py-3 bg-purple-600 text-white rounded-lg xs:rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl font-semibold text-sm xs:text-base active:scale-95"
-                    >
-                      <span className="text-center">
-                        قرأت المهمة، سأبدأ تدبري الآن ⬅️
-                      </span>
-                      <ArrowLeft className="w-4 h-4 xs:w-5 xs:h-5 font-bold flex-shrink-0" />
-                    </button>
-                  </div>
-                )}
               </motion.div>
             </motion.div>
           )}
@@ -6295,6 +5056,143 @@ const CampJourneyInterface = ({
         confirmText={confirmationModal.confirmText}
         cancelText={confirmationModal.cancelText}
         confirmColor={confirmationModal.confirmColor}
+      />
+
+      {/* Daily Test Modal */}
+      {showTestModal && (
+        <DailyTestModal
+          isOpen={showTestModal}
+          onClose={(submitted, results) => {
+            setShowTestModal(false);
+            if (submitted && results) {
+              // If test was just submitted, show results using TestResultsView
+              setTestResults(results);
+              // Refresh user progress after test submission
+              fetchUserProgress();
+              // Refresh test info to update hasAttempted status
+              checkDayHasTest(selectedDay);
+            }
+            setTestInfo(null);
+          }}
+          campId={camp.id}
+          dayNumber={selectedDay}
+          testId={testInfo?.testId}
+          attemptId={testInfo?.attemptId}
+        />
+      )}
+
+      {/* Test Results View */}
+      {testResults && !showTestModal && selectedDay && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 top-[60px] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => setTestResults(null)}
+        >
+          <motion.div
+            initial={{ scale: 0.95, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between z-10">
+              <h2 className="text-xl font-bold text-gray-800">
+                نتائج الاختبار
+              </h2>
+              <button
+                onClick={() => setTestResults(null)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              {/* Use TestResultsView if results data is already available, otherwise use TestReviewView to fetch */}
+              {testResults.attempt || testResults.questions ? (
+                <TestResultsView
+                  results={testResults}
+                  test={testInfo?.test || dayTestInfo?.test}
+                />
+              ) : (
+                <TestReviewView
+                  campId={camp.id}
+                  dayNumber={selectedDay}
+                  onClose={() => setTestResults(null)}
+                />
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Task Details Modal */}
+      <TaskDetailsModal
+        isOpen={showReflectionModal && selectedTask !== null}
+        onClose={() => {
+          setShowReflectionModal(false);
+          setSelectedTask(null);
+          setReflectionText("");
+          setReflectionJson(null);
+          setProposedStep("");
+          setShareInStudyHall(true); // Default: مشاركة في قاعة التدارس
+        }}
+        task={selectedTask}
+        camp={camp}
+        isReadOnly={isReadOnly}
+        isCampNotStarted={isCampNotStarted}
+        onComplete={async (data) => {
+          if (!selectedTask) return;
+
+          try {
+            setIsCompleting(true);
+            // Save reflection if provided
+            if (data.reflectionText) {
+              await updateTaskBenefits(
+                selectedTask.id,
+                data.reflectionText,
+                "",
+                !data.shareInStudyHall,
+                reflectionJson,
+                data.proposedStep
+              );
+            }
+
+            // Mark task as complete
+            await markTaskComplete(selectedTask.id);
+
+            // Refresh data
+            await fetchUserProgress();
+            await fetchJournalData();
+
+            // Close modal
+            setShowReflectionModal(false);
+            setSelectedTask(null);
+            setReflectionText("");
+            setReflectionJson(null);
+            setProposedStep("");
+            setShareInStudyHall(true); // Default: مشاركة في قاعة التدارس
+
+            toast.success("تم إكمال المهمة بنجاح! 🎉");
+          } catch (error) {
+            toast.error("حدث خطأ أثناء إكمال المهمة");
+            console.error(error);
+          } finally {
+            setIsCompleting(false);
+          }
+        }}
+        reflectionText={reflectionText}
+        setReflectionText={setReflectionText}
+        proposedStep={proposedStep}
+        setProposedStep={setProposedStep}
+        shareInStudyHall={shareInStudyHall}
+        setShareInStudyHall={setShareInStudyHall}
+        isSubmitting={isCompleting}
+        EmbeddedVideoPlayer={EmbeddedVideoPlayer}
+        TaskLinks={TaskLinks}
+        TaskAttachments={TaskAttachments}
+        RichTadabburEditor={RichTadabburEditor}
+        reflectionJson={reflectionJson}
+        setReflectionJson={setReflectionJson}
       />
     </div>
   );

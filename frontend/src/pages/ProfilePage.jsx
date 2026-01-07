@@ -23,6 +23,7 @@ import toast from "react-hot-toast";
 import { useHadithCategories } from "../hooks/useHadithCategories";
 import { Dialog } from "@headlessui/react";
 import EditCardModal from "../components/EditCardModal";
+import SEO from "../components/SEO";
 
 const ProfilePage = () => {
   const { user, setUser } = useAuth();
@@ -281,6 +282,13 @@ const ProfilePage = () => {
   // Render main profile content
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 font-[Cairo,Amiri,sans-serif] text-right">
+      <SEO
+        title={`الملف الشخصي - ${user?.username || "مستخدم"} - مشكاة الأحاديث`}
+        description="عرض الملف الشخصي، الأحاديث المحفوظة، والبطاقات الدعوية في مشكاة"
+        keywords="ملف شخصي, أحاديث محفوظة, بطاقات دعوية, مشكاة"
+        canonicalUrl={`${window.location.origin}/profile`}
+        noindex={true}
+      />
       {/* Hero Section with Animated Background */}
       <motion.section
         initial={{ opacity: 0 }}
