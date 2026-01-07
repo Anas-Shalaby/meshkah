@@ -604,4 +604,17 @@ router.post("/contact-us", async (req, res) => {
   }
 });
 
+// Ramadan Theme Routes
+// Get Ramadan theme status (public)
+router.get("/theme/ramadan", adminController.getRamadanThemeStatus);
+
+// Update Ramadan theme status (Admin only)
+router.put("/theme/ramadan", adminController.updateRamadanThemeStatus);
+
+// Get Ramadan date (public)
+router.get("/theme/ramadan-date", adminController.getRamadanDate);
+
+// Update Ramadan date (Admin only)
+router.put("/theme/ramadan-date", adminController.updateRamadanDate);
+
 module.exports = router;

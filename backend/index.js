@@ -96,12 +96,15 @@ app.use(
 
 // Routes
 app.use("/api/auth", require("./routes/auth")); // done
+app.use("/api/quran-camps", require("./routes/quranCamps")); // إضافة نظام المخيمات القرآنية
+
 // app.use("/api/print-requests", require("./routes/printRequest"));
 app.use("/api/bookmarks", require("./routes/bookmarks")); // done
 app.use("/api/islamic-bookmarks", require("./routes/islamicBookmarks")); // Islamic Library Bookmarks
 app.use("/api/admin", require("./routes/admin"));
 app.use("/api", require("./routes/card"));
 app.use("/api", require("./routes/hadith"));
+app.use("/api/certificates", require("./routes/certificates"));
 app.use("/api", require("./routes/search"));
 app.use("/api/search-history", require("./routes/searchHistory"));
 app.use("/api", notificationRoutes);
@@ -112,7 +115,6 @@ app.use("/api/islamic-library", require("./routes/islamicLibrary")); // إضاف
 app.use("/api/auth/profile", require("./routes/profile"));
 app.use("/api/support", require("./routes/support")); // إضافة نظام الدعم
 app.use("/api/hadith-verification", require("./routes/hadithVerification")); // إضافة نظام التحقق من الحديث
-app.use("/api/quran-camps", require("./routes/quranCamps")); // إضافة نظام المخيمات القرآنية
 app.use("/api/camp-notifications", require("./routes/campNotifications")); // إضافة إشعارات المخيمات
 app.use("/api/notes-export", require("./routes/notesExport")); // إضافة نظام تصدير الملاحظات
 app.use("/api/friends", require("./routes/friends")); // إضافة نظام الصحبة المخصصة (الأصدقاء)

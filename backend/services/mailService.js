@@ -4,7 +4,7 @@ require("dotenv").config();
 class MailService {
   constructor() {
     this.transporter = nodemailer.createTransport({
-      host: process.env.HOST_MAIL,
+      host: "serv50.onlink4it.com",
       port: 465,
       secure: true,
       auth: {
@@ -868,7 +868,7 @@ class MailService {
   }
 
   async sendCampWelcomeEmail(userEmail, username, campName, campId) {
-    const subject = `🎉 مرحباً بك في مخيم ${campName} القرآني!`;
+    const subject = `🎉 مرحباً بك في  ${campName} القرآني!`;
     const text = `مرحباً ${username}، تم تسجيلك بنجاح في مخيم ${campName}. نتمنى لك رحلة مليئة بالبركة والفوائد.`;
     const html = this.campWelcomeEmailTemplate(username, campName, campId);
 
@@ -890,7 +890,7 @@ class MailService {
   <div style="background-color: #7440EA; padding: 30px; text-align: center;">
     <img src="https://hadith-shareef.com/assets/icons/180×180.png" alt="Meshkah Logo" style="width: 100px; margin-bottom: 15px;">
     <h1 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: bold;">
-      مرحباً بك في مخيم ${campName}! 🎉
+      مرحباً بك في ${campName}! 🎉
     </h1>
   </div>
 
@@ -1255,8 +1255,496 @@ class MailService {
       throw error;
     }
   }
-}
 
-// إرسال إيميل التهنئة عند انتهاء المخيم
+  // Send camp opened notification email
+  async sendCampOpenedEmail(userEmail, campName, campId, unsubscribeToken) {
+    try {
+      const subject = `🎉 مخيم جديد متاح: ${campName}`;
+      const text = `مرحباً، نود إعلامك بأن مخيم "${campName}" متاح الآن للتسجيل.`;
+
+      const campUrl = `https://hadith-shareef.com/quran-camps/${campId}`;
+      const unsubscribeUrl = `https://hadith-shareef.com/unsubscribe?token=${unsubscribeToken}`;
+
+      const html = `
+        <div dir="rtl" style="font-family: 'Arabic Typesetting', Arial, sans-serif; max-width: 600px; margin: 0 auto; direction: rtl; text-align: right; background-color: #ffffff;">
+          <!-- Header -->
+          <div style="background: linear-gradient(135deg, #7440E9 0%, #8b5cf6 50%, #6366f1 100%); padding: 40px 30px; text-align: center; border-radius: 12px 12px 0 0;">
+            <img src="https://hadith-shareef.com/assets/icons/180×180.png" alt="مشكاة الأحاديث" style="max-width: 120px; margin-bottom: 20px;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">
+              مخيم جديد متاح! 🎉
+            </h1>
+          </div>
+          
+          <!-- Main Content -->
+          <div style="padding: 40px 30px; background-color: #ffffff;">
+            <p style="color: #2c3e50; font-size: 18px; line-height: 1.8; margin-bottom: 20px;">
+              مرحباً،
+            </p>
+            
+            <p style="color: #34495e; font-size: 16px; line-height: 1.8; margin-bottom: 30px;">
+              نود إعلامك بأن <strong>مخيم "${campName}"</strong> متاح الآن للتسجيل! 🚀
+            </p>
+            
+            <div style="background: linear-gradient(135deg, #F7F6FB 0%, #F3EDFF 50%, #E9E4F5 100%); border-radius: 12px; padding: 25px; margin: 30px 0; border-right: 4px solid #7440E9;">
+              <h2 style="color: #7440E9; font-size: 22px; margin-bottom: 15px; text-align: center;">
+                ✨ انضم الآن
+              </h2>
+              <p style="color: #2c3e50; font-size: 16px; line-height: 1.8; text-align: center;">
+                لا تفوت فرصة الانضمام إلى هذا المخيم المميز
+              </p>
+            </div>
+            
+            <!-- CTA Button -->
+            <div style="text-align: center; margin: 40px 0;">
+              <a href="${campUrl}" style="
+                display: inline-block;
+                background: linear-gradient(135deg, #7440E9 0%, #8b5cf6 50%, #6366f1 100%);
+                color: #ffffff;
+                padding: 16px 40px;
+                text-decoration: none;
+                border-radius: 30px;
+                font-weight: bold;
+                font-size: 18px;
+                box-shadow: 0 4px 15px rgba(116, 64, 233, 0.4);
+              ">
+                🚀 التسجيل الآن
+              </a>
+            </div>
+            
+            <p style="color: #7f8c8d; font-size: 14px; line-height: 1.6; text-align: center; margin-top: 30px; padding-top: 30px; border-top: 1px solid #ecf0f1;">
+              <a href="${unsubscribeUrl}" style="color: #95a5a6; text-decoration: underline;">
+                إلغاء الاشتراك من هذه الإشعارات
+              </a>
+            </p>
+          </div>
+          
+          <!-- Footer -->
+          <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
+            <p style="color: #95a5a6; font-size: 12px; margin: 0;">
+              © ${new Date().getFullYear()} مشكاة الأحاديث - جميع الحقوق محفوظة
+            </p>
+          </div>
+        </div>
+      `;
+
+      return await this.sendMail(userEmail, subject, text, html);
+    } catch (error) {
+      console.error("Error sending camp opened email:", error);
+      throw error;
+    }
+  }
+
+  // Send cohort opened notification email
+  async sendCohortOpenedEmail(
+    userEmail,
+    campName,
+    campId,
+    cohortNumber,
+    unsubscribeToken,
+    customMessage = null
+  ) {
+    try {
+      const subject = `🎉 فوج جديد متاح: ${campName} - الفوج ${cohortNumber}`;
+      const text = `مرحباً، نود إعلامك بأن فوج جديد من مخيم "${campName}" متاح الآن للتسجيل.`;
+
+      const campUrl = `https://hadith-shareef.com/quran-camps/${campId}`;
+      const unsubscribeUrl = `https://hadith-shareef.com/unsubscribe?token=${unsubscribeToken}`;
+
+      // Replace variables in custom message if provided
+      let messageContent =
+        customMessage || "لا تفوت فرصة الانضمام إلى هذا الفوج المميز";
+      if (customMessage) {
+        messageContent = customMessage
+          .replace(/{camp_name}/g, campName)
+          .replace(/{cohort_number}/g, cohortNumber)
+          .replace(/{start_date}/g, new Date().toLocaleDateString("ar-SA"))
+          .replace(/{camp_url}/g, campUrl);
+      }
+
+      const html = `
+        <div dir="rtl" style="font-family: 'Arabic Typesetting', Arial, sans-serif; max-width: 600px; margin: 0 auto; direction: rtl; text-align: right; background-color: #ffffff;">
+          <!-- Header -->
+          <div style="background: linear-gradient(135deg, #7440E9 0%, #8b5cf6 50%, #6366f1 100%); padding: 40px 30px; text-align: center; border-radius: 12px 12px 0 0;">
+            <img src="https://hadith-shareef.com/assets/icons/180×180.png" alt="مشكاة الأحاديث" style="max-width: 120px; margin-bottom: 20px;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">
+              فوج جديد متاح! 🎉
+            </h1>
+          </div>
+          
+          <!-- Main Content -->
+          <div style="padding: 40px 30px; background-color: #ffffff;">
+            <p style="color: #2c3e50; font-size: 18px; line-height: 1.8; margin-bottom: 20px;">
+              مرحباً،
+            </p>
+            
+            <p style="color: #34495e; font-size: 16px; line-height: 1.8; margin-bottom: 30px;">
+              نود إعلامك بأن <strong>فوج جديد (الفوج ${cohortNumber})</strong> من مخيم <strong>"${campName}"</strong> متاح الآن للتسجيل! 🚀
+            </p>
+            
+            <div style="background: linear-gradient(135deg, #F7F6FB 0%, #F3EDFF 50%, #E9E4F5 100%); border-radius: 12px; padding: 25px; margin: 30px 0; border-right: 4px solid #7440E9;">
+              <h2 style="color: #7440E9; font-size: 22px; margin-bottom: 15px; text-align: center;">
+                ✨ انضم إلى الفوج الجديد
+              </h2>
+              <p style="color: #2c3e50; font-size: 16px; line-height: 1.8; text-align: center; white-space: pre-wrap;">
+                ${messageContent}
+              </p>
+            </div>
+            
+            <!-- CTA Button -->
+            <div style="text-align: center; margin: 40px 0;">
+              <a href="${campUrl}" style="
+                display: inline-block;
+                background: linear-gradient(135deg, #7440E9 0%, #8b5cf6 50%, #6366f1 100%);
+                color: #ffffff;
+                padding: 16px 40px;
+                text-decoration: none;
+                border-radius: 30px;
+                font-weight: bold;
+                font-size: 18px;
+                box-shadow: 0 4px 15px rgba(116, 64, 233, 0.4);
+              ">
+                🚀 التسجيل الآن
+              </a>
+            </div>
+            
+            <p style="color: #7f8c8d; font-size: 14px; line-height: 1.6; text-align: center; margin-top: 30px; padding-top: 30px; border-top: 1px solid #ecf0f1;">
+              <a href="${unsubscribeUrl}" style="color: #95a5a6; text-decoration: underline;">
+                إلغاء الاشتراك من هذه الإشعارات
+              </a>
+            </p>
+          </div>
+          
+          <!-- Footer -->
+          <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
+            <p style="color: #95a5a6; font-size: 12px; margin: 0;">
+              © ${new Date().getFullYear()} مشكاة الأحاديث - جميع الحقوق محفوظة
+            </p>
+          </div>
+        </div>
+      `;
+
+      return await this.sendMail(userEmail, subject, text, html);
+    } catch (error) {
+      console.error("Error sending cohort opened email:", error);
+      throw error;
+    }
+  }
+
+  // إرسال بريد إلكتروني لإشعار انتهاء الفوج
+  async sendCohortCompletionEmail(userEmail, username, campName, cohortNumber) {
+    const subject = `📚 انتهى الفوج ${cohortNumber} في مخيم ${campName}`;
+    const html = this.cohortCompletionTemplate(
+      username,
+      campName,
+      cohortNumber
+    );
+
+    return await this.sendMail(userEmail, subject, "", html);
+  }
+
+  // قالب HTML لإيميل انتهاء الفوج
+  cohortCompletionTemplate(username, campName, cohortNumber) {
+    return `
+      <div dir="rtl" style="font-family: 'Arabic Typography', Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
+        <!-- Header -->
+        <div style="background-color: #7440EA; padding: 30px; text-align: center;">
+          <img src="https://hadith-shareef.com/assets/icons/180×180.png" alt="Meshkah Logo" style="width: 120px; margin-bottom: 20px;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">📚 انتهى الفوج</h1>
+        </div>
+
+        <!-- Content -->
+        <div style="padding: 40px 30px;">
+          <h2 style="color: #2c3e50; margin-bottom: 20px; text-align: center;">
+            أهلاً ${username}
+          </h2>
+
+          <p style="color: #34495e; line-height: 1.8; margin-bottom: 25px; font-size: 18px; text-align: justify;">
+            انتهى الفوج ${cohortNumber} في مخيم ${campName}. نشكرك على مشاركتك معنا في هذه الرحلة المباركة!
+          </p>
+
+          <!-- Message Section -->
+          <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin-bottom: 25px; border-right: 4px solid #7440EA;">
+            <p style="color: #2c3e50; margin: 0; line-height: 1.8; font-size: 16px;">
+              جزاك الله خيراً على جهدك ووقتك. نسأل الله أن يتقبل منك ومنا، وأن ينفعك بما تعلمت.
+            </p>
+          </div>
+
+          <!-- Quranic Verse -->
+          <div style="background-color: #e8f5e9; border-radius: 8px; padding: 20px; margin-bottom: 25px; text-align: center;">
+            <p style="color: #2e7d32; margin: 0; font-size: 18px; font-weight: 600; line-height: 1.8;">
+              ﴿وَالَّذِينَ جَاهَدُوا فِينَا لَنَهْدِيَنَّهُمْ سُبُلَنَا﴾
+            </p>
+            <p style="color: #558b2f; margin: 10px 0 0; font-size: 14px;">
+              سورة العنكبوت: 69
+            </p>
+          </div>
+
+          <!-- Next Steps -->
+          <div style="text-align: center; margin: 30px 0;">
+            <h3 style="color: #2c3e50; margin-bottom: 15px; font-size: 18px;">الخطوات التالية</h3>
+            <p style="color: #666; line-height: 1.6; font-size: 16px;">
+              يمكنك الآن:
+            </p>
+            <ul style="list-style: none; padding: 0; margin: 20px 0; text-align: right;">
+              <li style="margin-bottom: 10px; color: #666;">• التسجيل في فوج جديد</li>
+              <li style="margin-bottom: 10px; color: #666;">• استعراض إنجازاتك من الملف الشخصي</li>
+              <li style="margin-bottom: 10px; color: #666;">• إكمال المهام المتبقية في أي وقت</li>
+            </ul>
+            <a href="https://hadith-shareef.com/quran-camps" style="display: inline-block; background-color: #7440EA; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; margin-top: 20px;">
+              استعراض المخيمات
+            </a>
+          </div>
+
+          <!-- Feedback Section (Optional) -->
+          <div style="background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 15px; margin-top: 30px; text-align: center;">
+            <p style="color: #856404; margin: 0; font-size: 14px;">
+              💭 نود سماع رأيك! شاركنا تجربتك في المخيم لنستمر في التحسين.
+            </p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #eee;">
+          <p style="color: #666; margin: 0; font-size: 14px;">
+            © 2025 مشكاة - جميع الحقوق محفوظة
+          </p>
+          <p style="color: #999; margin: 10px 0 0; font-size: 12px;">
+            هذه رسالة تلقائية، يرجى عدم الرد عليها
+          </p>
+        </div>
+      </div>
+    `;
+  }
+  async sendSupervisorWelcomeEmail(
+    supervisorEmail,
+    supervisorName,
+    campName,
+    campId
+  ) {
+    try {
+      const isGlobalSupervisor = campName === "جميع المخيمات" || !campId;
+      const subject = isGlobalSupervisor
+        ? `🎉 تهانينا! أصبحت مشرفاً على جميع المخيمات`
+        : `🎉 تهانينا! أصبحت مشرفاً على مخيم ${campName}`;
+
+      const html = `
+        <div dir="rtl" style="font-family: Arial, sans-serif; direction: rtl; text-align: right; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">🎉 تهانينا!</h1>
+          </div>
+          
+          <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none;">
+            <p style="color: #374151; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+              السلام عليكم ورحمة الله وبركاته،
+            </p>
+            
+            <p style="color: #374151; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+              عزيزي/عزيزتي <strong>${supervisorName}</strong>،
+            </p>
+            
+            <p style="color: #374151; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+              ${
+                isGlobalSupervisor
+                  ? `يسعدنا أن نعلمك بأنه تم تعيينك كمشرف عام على <strong>جميع المخيمات</strong>.`
+                  : `يسعدنا أن نعلمك بأنه تم تعيينك كمشرف على مخيم <strong>${campName}</strong>.`
+              }
+            </p>
+            
+            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 25px 0; border-right: 4px solid #667eea;">
+              <h3 style="color: #1f2937; margin-top: 0; margin-bottom: 15px; font-size: 18px;">📋 صلاحياتك كمشرف:</h3>
+              <ul style="color: #4b5563; line-height: 1.8; margin: 0; padding-right: 20px;">
+                ${
+                  isGlobalSupervisor
+                    ? `
+                    <li>متابعة جميع المخيمات وأفواجها</li>
+                    <li>إدارة المشاركين في جميع الأفواج</li>
+                    <li>متابعة التقدم والإحصائيات لجميع المخيمات</li>
+                    <li>ستحصل على إشعارات عند إنشاء أي فوج جديد في أي مخيم</li>
+                  `
+                    : `
+                    <li>متابعة جميع أفواج المخيم</li>
+                    <li>إدارة المشاركين في الأفواج</li>
+                    <li>متابعة التقدم والإحصائيات</li>
+                    <li>ستحصل على إشعارات عند إنشاء فوج جديد</li>
+                  `
+                }
+              </ul>
+            </div>
+            
+            <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 25px 0;">
+              نتمنى لك تجربة ممتعة ومثمرة في إدارة المخيمات، ونسأل الله أن يوفقنا وإياك في خدمة هذا الدين.
+            </p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="https://hadith-shareef.com/dashboard/quran-camps${
+                campId ? `/${campId}` : ""
+              }" style="
+                display: inline-block;
+                background-color: #667eea;
+                color: white;
+                padding: 12px 30px;
+                text-decoration: none;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 16px;
+              ">
+                ${isGlobalSupervisor ? "عرض جميع المخيمات" : "عرض المخيم"}
+              </a>
+            </div>
+          </div>
+          
+          <div style="background-color: #f9fafb; padding: 20px; text-align: center; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
+            <p style="color: #6b7280; margin: 0; font-size: 14px;">
+              بارك الله فيك ورعاك<br>
+              فريق مشكاة الأحاديث
+            </p>
+          </div>
+        </div>
+      `;
+
+      return await this.sendMail(supervisorEmail, subject, "", html);
+    } catch (error) {
+      console.error("Error sending supervisor welcome email:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send camp briefing email to supervisor when new cohort is created
+   * @param {string} supervisorEmail
+   * @param {Object} campDetails - { name, share_link }
+   * @param {Object} cohortDetails - { cohortNumber, startDate, endDate }
+   * @param {string} announcementMessage - Optional announcement message
+   */
+  async sendCampBriefing(
+    supervisorEmail,
+    campDetails,
+    cohortDetails,
+    announcementMessage = null
+  ) {
+    try {
+      const startDate = new Date(cohortDetails.startDate);
+
+      // Calculate dates
+      const teaserDate = new Date(startDate);
+      teaserDate.setDate(startDate.getDate() - 3);
+
+      const launchDate = new Date(startDate);
+      launchDate.setDate(startDate.getDate() - 1);
+
+      const formatDate = (date) => {
+        return date.toLocaleDateString("ar-EG", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+      };
+
+      const formatDateShort = (date) => {
+        return date.toLocaleDateString("ar-EG", {
+          month: "long",
+          day: "numeric",
+        });
+      };
+
+      const subject = `🔥 تكليف جديد: مخيم ${campDetails.name} - فوج ${cohortDetails.cohortNumber}`;
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; direction: rtl; text-align: right; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 40px 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 26px; font-weight: bold;">🔥 تكليف جديد</h1>
+            <p style="color: rgba(255,255,255,0.95); margin: 10px 0 0; font-size: 18px;">مخيم ${
+              campDetails.name
+            }</p>
+          </div>
+          
+          <div style="background-color: #ffffff; padding: 35px 30px; border: 1px solid #e5e7eb; border-top: none;">
+            <p style="color: #374151; font-size: 17px; line-height: 1.8; margin-bottom: 25px; font-weight: 500;">
+              السلام عليكم ورحمة الله وبركاته،
+            </p>
+            
+            <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); padding: 25px; border-radius: 12px; margin: 25px 0; border-right: 5px solid #f59e0b;">
+              <h2 style="color: #92400e; margin: 0 0 15px; font-size: 20px; font-weight: bold;">
+                📅 سيبدأ المخيم في: ${formatDate(startDate)}
+              </h2>
+              <p style="color: #78350f; margin: 0; font-size: 16px; line-height: 1.6;">
+                فوج رقم <strong style="font-size: 18px;">${
+                  cohortDetails.cohortNumber
+                }</strong>
+              </p>
+            </div>
+            
+            <div style="margin: 30px 0;">
+              <h3 style="color: #1f2937; margin: 0 0 20px; font-size: 19px; font-weight: bold; text-align: center;">
+                📋 جدول النشر
+              </h3>
+              
+              <table border="1" cellpadding="15" style="border-collapse: collapse; width: 100%; margin: 25px 0; direction: rtl; border-radius: 8px; overflow: hidden;">
+                <thead>
+                  <tr style="background-color: #f3f4f6;">
+                    <th style="border: 1px solid #d1d5db; padding: 12px; text-align: right; color: #1f2937; font-size: 15px; font-weight: bold;">المهمة</th>
+                    <th style="border: 1px solid #d1d5db; padding: 12px; text-align: right; color: #1f2937; font-size: 15px; font-weight: bold;">تاريخ النشر المقترح</th>
+                    <th style="border: 1px solid #d1d5db; padding: 12px; text-align: right; color: #1f2937; font-size: 15px; font-weight: bold;">ملاحظات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style="border: 1px solid #d1d5db; padding: 12px; color: #4b5563; font-size: 15px;">📢 يوم ٣: بوست التشويق (Teaser)</td>
+                    <td style="border: 1px solid #d1d5db; padding: 12px; color: #4b5563; font-weight: bold; font-size: 15px;">${formatDate(
+                      teaserDate
+                    )}</td>
+                    <td style="border: 1px solid #d1d5db; padding: 12px; color: #6b7280; font-size: 14px;">قبل البدء بـ 3 أيام</td>
+                  </tr>
+                  <tr style="background-color: #fef3c7;">
+                    <td style="border: 1px solid #d1d5db; padding: 12px; color: #4b5563; font-size: 15px;">🚀 يوم ١: فتح باب الحجز (Launch)</td>
+                    <td style="border: 1px solid #d1d5db; padding: 12px; color: #4b5563; font-weight: bold; font-size: 15px;">${formatDate(
+                      launchDate
+                    )}</td>
+                    <td style="border: 1px solid #d1d5db; padding: 12px; color: #6b7280; font-size: 14px;">قبل البدء بيوم</td>
+                  </tr>
+                  <tr style="background-color: #dcfce7;">
+                    <td style="border: 1px solid #d1d5db; padding: 12px; color: #4b5563; font-size: 15px;">🏁 يوم ٠: بداية المخيم (أول بوست)</td>
+                    <td style="border: 1px solid #d1d5db; padding: 12px; color: #4b5563; font-weight: bold; font-size: 15px;">${formatDate(
+                      startDate
+                    )}</td>
+                    <td style="border: 1px solid #d1d5db; padding: 12px; color: #6b7280; font-size: 14px;">صباح اليوم الأول</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            ${
+              announcementMessage
+                ? `
+              <div style="background-color: #eff6ff; padding: 20px; border-radius: 10px; margin: 25px 0; border-right: 4px solid #3b82f6;">
+                <h4 style="color: #1e40af; margin-top: 0; margin-bottom: 10px; font-size: 16px; font-weight: bold;">📝 رسالة خاصة:</h4>
+                <p style="color: #1e3a8a; line-height: 1.8; margin: 0; font-size: 15px;">${announcementMessage}</p>
+              </div>
+            `
+                : ""
+            }
+            
+            <div style="text-align: center; margin: 35px 0 25px;">
+              <p style="color: #6b7280; font-size: 15px; line-height: 1.8; margin: 0;">
+                بالتوفيق! 💪
+              </p>
+            </div>
+          </div>
+          
+          <div style="background-color: #f9fafb; padding: 20px; text-align: center; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
+            <p style="color: #6b7280; margin: 0; font-size: 14px;">
+              فريق مشكاة الأحاديث
+            </p>
+          </div>
+        </div>
+      `;
+
+      return await this.sendMail(supervisorEmail, subject, "", html);
+    } catch (error) {
+      console.error("Error sending camp briefing email:", error);
+      throw error;
+    }
+  }
+}
 
 module.exports = new MailService();

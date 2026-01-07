@@ -54,9 +54,7 @@ class CertificateService {
           SUM(CASE WHEN completed = 1 THEN 1 ELSE 0 END) as completed_tasks
          FROM camp_task_progress ctp
          JOIN camp_daily_tasks cdt ON ctp.task_id = cdt.id
-         WHERE ctp.enrollment_id = ? AND cdt.camp_id = ?
-         AND cdt.is_optional = false
-         `,
+         WHERE ctp.enrollment_id = ? AND cdt.camp_id = ?`,
         [enrollmentId, campId]
       );
 
@@ -533,6 +531,35 @@ class CertificateService {
       throw error;
     }
   }
+
+  // TODO make this route to view the certificate throw cloudinary
+  // static async viewCertificate(certificateNumber) {
+  //   try {
+  //     const [certificates] = await db.query(
+  //       `SELECT c.*, u.username, qc.name as camp_name
+  //        FROM certificates c
+  //        JOIN users u ON c.user_id = u.id
+  //        JOIN quran_camps qc ON c.camp_id = qc.id
+  //        WHERE c.certificate_number = ?`,
+  //       [certificateNumber]
+  //     );
+  //     if (certificates.length === 0) {
+  //       return { success: false, message: "الشهادة غير موجودة" };
+  //     }
+
+  //     const publicUrl = `${
+  //       process.env.BACKEND_URL || "https://meshkah.app"
+  //     }/uploads/certificates/${certificates[0].certificate_number}`;
+
+  //     return {
+  //       success: true,
+  //       url: publicUrl,
+  //     };
+  //   } catch (error) {
+  //     console.error("[Certificate] Error viewing certificate:", error);
+  //     return { success: false, message: error.message };
+  //   }
+  // }
 
   /**
    * Get certificate by ID

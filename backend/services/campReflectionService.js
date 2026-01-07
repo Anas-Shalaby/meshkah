@@ -41,16 +41,7 @@ const toggleUpvoteReflection = async ({ progressId, userId }) => {
       };
     }
 
-    // منع التفاعل في المخيمات المنتهية
-    if (progress[0].camp_status === "completed") {
-      return {
-        status: 403,
-        body: {
-          success: false,
-          message: "لا يمكن التفاعل مع محتوى المخيمات المنتهية",
-        },
-      };
-    }
+   
 
     // Get the cohort number from the progress record
     const [progressEnrollment] = await db.query(
@@ -264,7 +255,7 @@ const toggleSaveReflection = async ({ progressId, userId }) => {
     // Check if reflection exists and user has access
     const [progress] = await db.query(
       `
-      SELECT ctp.*, ce.user_id as owner_id, ce.camp_id, cc.status as cohort_status
+      SELECT ctp.*, ce.user_id as owner_id, ce.camp_id, cc.status as camp_status
       FROM camp_task_progress ctp
       JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
       JOIN quran_camps qc ON ce.camp_id = qc.id
@@ -284,16 +275,7 @@ const toggleSaveReflection = async ({ progressId, userId }) => {
       };
     }
 
-    // منع التفاعل في المخيمات المنتهية
-    if (progress[0].cohort_status === "completed") {
-      return {
-        status: 403,
-        body: {
-          success: false,
-          message: "لا يمكن التفاعل مع محتوى المخيمات المنتهية",
-        },
-      };
-    }
+    
 
     // Get the cohort number from the progress record
     const [progressEnrollment] = await db.query(
@@ -587,14 +569,14 @@ const getSavedReflections = async ({
         FROM joint_step_pledges
         GROUP BY progress_id
       ) pledge_counts ON ctp.id = pledge_counts.progress_id
-      WHERE ce.user_id = ? AND ce.camp_id = ?
+      WHERE ce.user_id = ? AND ce.camp_id = ? AND ce.cohort_number = ?
         AND (
           (ctp.journal_entry IS NOT NULL AND ctp.journal_entry != '' AND TRIM(REPLACE(REPLACE(REPLACE(ctp.journal_entry, '<p>', ''), '</p>', ''), '&nbsp;', '')) != '')
           OR (ctp.notes IS NOT NULL AND ctp.notes != '' AND TRIM(ctp.notes) != '')
         )
       ORDER BY ctp.created_at DESC
       `,
-      [userId, userId, userId, userId, campId]
+      [userId, userId, userId, userId, campId, userCohortNumber]
     );
 
     // Get My Action Plan (User's action plan items) - Placeholder for now
@@ -691,16 +673,7 @@ const deleteReflection = async ({ progressId, userId }) => {
       };
     }
 
-    // منع الحذف في المخيمات المنتهية
-    if (reflection[0].camp_status === "completed") {
-      return {
-        status: 403,
-        body: {
-          success: false,
-          message: "لا يمكن حذف محتوى المخيمات المنتهية",
-        },
-      };
-    }
+  
 
     // التحقق من أن المستخدم هو صاحب التدبر
     if (reflection[0].user_id !== userId) {
@@ -824,16 +797,7 @@ const shareBenefit = async ({ benefitId, userId }) => {
       };
     }
 
-    // Check if camp is completed
-    if (progress[0].camp_status === "completed") {
-      return {
-        status: 403,
-        body: {
-          success: false,
-          message: "لا يمكن مشاركة محتوى المخيمات المنتهية",
-        },
-      };
-    }
+   
 
     // Update is_private to false
     await db.query(

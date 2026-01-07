@@ -1,4 +1,23 @@
 const CampNotificationService = require("../services/campNotificationService");
+const campUserService = require("../services/campUserService");
+const campParticipantService = require("../services/campParticipantService");
+const campAnalyticsService = require("../services/campAnalyticsService");
+const campResourceService = require("../services/campResourceService");
+const campQandAService = require("../services/campQandAService");
+const campHelpService = require("../services/campHelpService");
+const campSettingsService = require("../services/campSettingsService");
+const campTaskService = require("../services/campTaskService");
+const campManagementService = require("../services/campManagementService");
+const campDetailsService = require("../services/campDetailsService");
+const campProgressService = require("../services/campProgressService");
+const campReflectionService = require("../services/campReflectionService");
+const campTestService = require("../services/campTestService");
+const {
+  verifyAccess,
+  isAdmin,
+  hasSupervisorOrAdminAccess,
+  isSupervisor,
+} = require("../utils/permissionsHelper");
 const db = require("../config/database");
 const mailService = require("../services/mailService");
 const axios = require("axios");
@@ -8,6 +27,103 @@ require("dotenv").config();
 // Use puppeteer (with bundled Chromium) - this comes with Chromium built-in
 // If puppeteer is not available, fallback to puppeteer-core
 
+// ==================== HELPER FUNCTIONS ====================
+
+/**
+ * Get the current active cohort for a camp
+ * Returns the cohort_number of the active cohort (early_registration or active status)
+ * Falls back to the most recent cohort if no active one exists
+ */
+const getCurrentCohortNumber = async (campId) => {
+  try {
+    // First, try to get open cohort (is_open = 1)
+    const [openCohorts] = await db.query(
+      `SELECT cohort_number 
+       FROM camp_cohorts 
+       WHERE camp_id = ? 
+         AND is_open = 1
+       ORDER BY cohort_number DESC
+       LIMIT 1`,
+      [campId]
+    );
+
+    if (openCohorts.length > 0) {
+      return openCohorts[0].cohort_number;
+    }
+
+    // Second, try to get active cohort (strict: only one active cohort allowed)
+    const [activeCohorts] = await db.query(
+      `SELECT cohort_number 
+       FROM camp_cohorts 
+       WHERE camp_id = ? 
+         AND status = 'active'
+       ORDER BY cohort_number DESC
+       LIMIT 1`,
+      [campId]
+    );
+
+    if (activeCohorts.length > 0) {
+      // Verify only one active cohort exists (strict check)
+      const [allActiveCohorts] = await db.query(
+        `SELECT COUNT(*) as count FROM camp_cohorts 
+         WHERE camp_id = ? AND status = 'active'`,
+        [campId]
+      );
+      if (allActiveCohorts[0]?.count > 1) {
+        console.warn(
+          `Warning: Multiple active cohorts found for camp ${campId}. Using most recent.`
+        );
+      }
+      return activeCohorts[0].cohort_number;
+    }
+
+    // Third, try to get early_registration cohort
+    const [earlyRegCohorts] = await db.query(
+      `SELECT cohort_number 
+       FROM camp_cohorts 
+       WHERE camp_id = ? 
+         AND status = 'early_registration'
+       ORDER BY cohort_number DESC
+       LIMIT 1`,
+      [campId]
+    );
+
+    if (earlyRegCohorts.length > 0) {
+      return earlyRegCohorts[0].cohort_number;
+    }
+
+    // If no active cohort, get the most recent cohort
+    const [recentCohorts] = await db.query(
+      `SELECT cohort_number 
+       FROM camp_cohorts 
+       WHERE camp_id = ? 
+       ORDER BY cohort_number DESC
+       LIMIT 1`,
+      [campId]
+    );
+
+    if (recentCohorts.length > 0) {
+      return recentCohorts[0].cohort_number;
+    }
+
+    // Fallback to 1 if no cohorts exist
+    return 1;
+  } catch (error) {
+    console.error("Error getting current cohort:", error);
+    // Fallback: try to get from quran_camps table
+    try {
+      const [camps] = await db.query(
+        `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number 
+         FROM quran_camps WHERE id = ?`,
+        [campId]
+      );
+      return camps[0]?.current_cohort_number || 1;
+    } catch (e) {
+      return 1;
+    }
+  }
+};
+
 // ==================== USER APIs ====================
 
 // Get all Quran camps
@@ -16,40 +132,33 @@ const getAllCamps = async (req, res) => {
     const { status } = req.query;
     const userId = req.user?.id || null;
 
+    // Get basic camp info without dates (dates come from cohorts)
     let query = `
       SELECT 
-        qc.*,
+        qc.id,
+        qc.name,
+        qc.description,
+        qc.surah_number,
+        qc.surah_name,
+        qc.duration_days,
+        qc.banner_image,
         qc.tags,
-        DATE_FORMAT(qc.start_date, '%Y-%m-%d') as start_date_fmt,
-        DATE_FORMAT(DATE_ADD(qc.start_date, INTERVAL qc.duration_days DAY), '%Y-%m-%d') as end_date_fmt,
-        COUNT(DISTINCT ce.id) as enrolled_count,
-        CASE 
-          WHEN qc.status = 'early_registration' THEN 'قريباً'
-          WHEN qc.status = 'active' THEN 'نشط'
-          WHEN qc.status = 'completed' THEN 'منتهي'
-          WHEN qc.status = 'reopened' THEN 'مفتوح للاشتراك'
-        END as status_ar,
-        CASE 
-          WHEN ? IS NOT NULL AND EXISTS(
-            SELECT 1 FROM camp_enrollments ce_check 
-            WHERE ce_check.camp_id = qc.id AND ce_check.user_id = ?
-          ) THEN 1
-          ELSE 0
-        END as is_enrolled
+        qc.share_link,
+        qc.created_at,
+        qc.visibility_mode,
+        qc.max_participants,
+        qc.auto_start_camp,
+        qc.is_template
       FROM quran_camps qc
-      LEFT JOIN camp_enrollments ce ON qc.id = ce.camp_id
     `;
 
-    const params = [userId, userId];
+    const params = [];
     const isAdmin = req.user?.role === "admin";
 
     // Hide templates from public listing
     query += ` WHERE qc.is_template = 0`;
 
-    // Hide hidden camps (private/unlisted) from public listing completely
-    // Only show public camps (visibility_mode = 'public' or NULL)
-    // Hidden camps (private/unlisted) are completely excluded from the API response
-    // BUT: Admins can see all camps regardless of visibility_mode
+    // Hide hidden camps from non-admins
     if (!isAdmin) {
       query += ` AND (qc.visibility_mode = 'public' OR qc.visibility_mode IS NULL)`;
     }
@@ -59,21 +168,96 @@ const getAllCamps = async (req, res) => {
       params.push(status);
     }
 
-    query += ` GROUP BY qc.id ORDER BY qc.start_date DESC`;
+    query += ` ORDER BY qc.id DESC`;
 
     const [camps] = await db.query(query, params);
 
-    // Normalize dates to YYYY-MM-DD strings to avoid timezone shifts
-    // Convert is_enrolled to boolean, and ensure max_participants is a number or null
-    const normalized = camps.map((c) => ({
-      ...c,
-      start_date: c.start_date_fmt || c.start_date,
-      tags: c.tags ? c.tags.split(",").map((tag) => tag.trim()) : [],
-      end_date: c.end_date_fmt || c.end_date,
-      is_enrolled: Boolean(c.is_enrolled),
-      max_participants: c.max_participants ? Number(c.max_participants) : null,
-      auto_start_camp: Boolean(c.auto_start_camp),
-    }));
+    // Process each camp to get ACTIVE cohort info
+    const normalized = await Promise.all(
+      camps.map(async (c) => {
+        // Get current cohort number
+        const currentCohortNumber = await getCurrentCohortNumber(c.id);
+
+        // Get active cohort details (start_date, end_date)
+        const [cohorts] = await db.query(
+          `SELECT 
+            DATE_FORMAT(start_date, '%Y-%m-%d') as start_date,
+            DATE_FORMAT(end_date, '%Y-%m-%d') as end_date,
+            status,
+            is_open
+           FROM camp_cohorts 
+           WHERE camp_id = ? AND cohort_number = ?`,
+          [c.id, currentCohortNumber]
+        );
+
+        const cohortData = cohorts[0] || null;
+
+        // Helper function to translate status to Arabic
+        const getStatusAr = (status) => {
+          switch (status) {
+            case "scheduled":
+              return "قريباً";
+            case "early_registration":
+              return "قريباً";
+            case "active":
+              return "نشط";
+            case "completed":
+              return "منتهي";
+            case "cancelled":
+              return "ملغى";
+            default:
+              return status;
+          }
+        };
+
+        // Use cohort status as camp status
+        const cohortStatus = cohortData?.status || "completed";
+
+        // Get enrollment count for ACTIVE cohort only (exclude supervisors)
+        const [enrollCount] = await db.query(
+          `SELECT COUNT(*) as count 
+           FROM camp_enrollments ce
+           WHERE ce.camp_id = ? AND ce.cohort_number = ?
+           AND NOT EXISTS (
+             SELECT 1 FROM camp_supervisors cs 
+             WHERE cs.camp_id = ce.camp_id 
+             AND (cs.cohort_number = ce.cohort_number OR cs.cohort_number IS NULL)
+             AND cs.user_id = ce.user_id
+           )`,
+          [c.id, currentCohortNumber]
+        );
+
+        // Check if user is enrolled in current cohort
+        let isEnrolled = 0;
+        if (userId) {
+          const [enrollment] = await db.query(
+            `SELECT 1 FROM camp_enrollments 
+             WHERE camp_id = ? AND user_id = ? AND cohort_number = ? 
+             LIMIT 1`,
+            [c.id, userId, currentCohortNumber]
+          );
+          isEnrolled = enrollment.length > 0 ? 1 : 0;
+        }
+
+        return {
+          ...c,
+          current_cohort_number: currentCohortNumber,
+          status: cohortStatus, // Use cohort status instead of camp status
+          status_ar: getStatusAr(cohortStatus), // Translate cohort status
+          // Use cohort dates instead of camp dates
+          start_date: cohortData?.start_date || null,
+          end_date: cohortData?.end_date || null,
+          tags: c.tags ? c.tags.split(",").map((tag) => tag.trim()) : [],
+          is_enrolled: Boolean(isEnrolled),
+          // Enrollment count from ACTIVE cohort only
+          enrolled_count: enrollCount[0]?.count || 0,
+          max_participants: c.max_participants
+            ? Number(c.max_participants)
+            : null,
+          auto_start_camp: Boolean(c.auto_start_camp),
+        };
+      })
+    );
 
     res.json({
       success: true,
@@ -96,8 +280,16 @@ const deleteCamp = async (req, res) => {
     await db.query("START TRANSACTION");
 
     try {
-      // 1. حذف بيانات المهام اليومية المرتبطة بالمخيم
-      await db.query("DELETE FROM camp_daily_tasks WHERE camp_id = ?", [id]);
+      // 1. حذف joint_step_pledges المرتبطة بتقدم المهام في هذا المخيم
+      await db.query(
+        `
+        DELETE jsp FROM joint_step_pledges jsp
+        INNER JOIN camp_task_progress ctp ON jsp.progress_id = ctp.id
+        INNER JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
+        WHERE ce.camp_id = ?
+      `,
+        [id]
+      );
 
       // 2. حذف تقدم المهام للمشتركين (عبر enrollment_id)
       await db.query(
@@ -109,10 +301,13 @@ const deleteCamp = async (req, res) => {
         [id]
       );
 
-      // 3. حذف تسجيلات المشتركين في المخيم
+      // 3. حذف بيانات المهام اليومية المرتبطة بالمخيم
+      await db.query("DELETE FROM camp_daily_tasks WHERE camp_id = ?", [id]);
+
+      // 4. حذف تسجيلات المشتركين في المخيم
       await db.query("DELETE FROM camp_enrollments WHERE camp_id = ?", [id]);
 
-      // 4. حذف المخيم نفسه
+      // 5. حذف المخيم نفسه
       const [result] = await db.query("DELETE FROM quran_camps WHERE id = ?", [
         id,
       ]);
@@ -152,100 +347,13 @@ const getCampDetailsForAdmin = async (req, res) => {
   const { id } = req.params;
 
   try {
-    // 1. جلب تفاصيل المخيم مع حساب end_date
-    const [campRows] = await db.query(
-      `SELECT 
-        qc.*,
-        DATE_FORMAT(qc.start_date, '%Y-%m-%d') as start_date_fmt,
-        DATE_FORMAT(DATE_ADD(qc.start_date, INTERVAL qc.duration_days DAY), '%Y-%m-%d') as end_date_fmt
-      FROM quran_camps qc
-      WHERE qc.id = ?`,
-      [id]
-    );
-
-    if (campRows.length === 0) {
-      return res.status(404).json({
-        status: "error",
-        message: "المخيم غير موجود",
-      });
-    }
-
-    const camp = {
-      ...campRows[0],
-      start_date: campRows[0].start_date_fmt || campRows[0].start_date,
-      end_date: campRows[0].end_date_fmt || campRows[0].end_date,
-    };
-
-    // Get current cohort number
-    const currentCohortNumber = camp.current_cohort_number || 1;
-
-    // 2. جلب إحصائيات المخيم (للفوج الحالي فقط)
-    const [enrollmentsCount] = await db.query(
-      "SELECT COUNT(*) as count FROM camp_enrollments WHERE camp_id = ? AND cohort_number = ?",
-      [id, currentCohortNumber]
-    );
-
-    const [tasksCount] = await db.query(
-      "SELECT COUNT(*) as count FROM camp_daily_tasks WHERE camp_id = ?",
-      [id]
-    );
-
-    const [completedTasksCount] = await db.query(
-      "SELECT COUNT(*) as count FROM camp_task_progress ctp JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id WHERE ce.camp_id = ? AND ce.cohort_number = ? AND ctp.completed = 1",
-      [id, currentCohortNumber]
-    );
-
-    const [totalPoints] = await db.query(
-      "SELECT SUM(points) as total FROM camp_enrollments WHERE camp_id = ? AND cohort_number = ?",
-      [id, currentCohortNumber]
-    );
-
-    // 3. جلب قائمة المهام اليومية
-    const [dailyTasks] = await db.query(
-      "SELECT * FROM camp_daily_tasks WHERE camp_id = ? ORDER BY day_number",
-      [id]
-    );
-
-    const [dayChallenges] = await db.query(
-      `
-        SELECT day_number, title, description
-        FROM camp_day_challenges
-        WHERE camp_id = ?
-        ORDER BY day_number
-      `,
-      [id]
-    );
-
-    // 4. جلب قائمة المشتركين (للفوج الحالي فقط)
-    const [participants] = await db.query(
-      `
-      SELECT 
-        ce.*,
-        u.username,
-        u.email,
-        u.avatar_url,
-        u.hide_identity
-      FROM camp_enrollments ce
-      LEFT JOIN users u ON ce.user_id = u.id
-      WHERE ce.camp_id = ? AND ce.cohort_number = ?
-      ORDER BY ce.enrollment_date DESC
-    `,
-      [id, currentCohortNumber]
-    );
-
+    const result = await campDetailsService.getCampDetailsForAdmin({
+      campId: id,
+    });
     res.status(200).json({
       status: "success",
       data: {
-        camp,
-        statistics: {
-          enrollments: enrollmentsCount[0].count,
-          tasks: tasksCount[0].count,
-          completedTasks: completedTasksCount[0].count,
-          totalPoints: totalPoints[0].total || 0,
-        },
-        dailyTasks,
-        dayChallenges,
-        participants,
+        ...result,
       },
     });
   } catch (error) {
@@ -264,117 +372,15 @@ const getCampDetails = async (req, res) => {
     const { id } = req.params;
     const userId = req.user?.id || null; // السماح بالوصول بدون token
 
-    // دعم جلب التفاصيل عبر share_link أو id رقمي
-    const isShareLink = isNaN(Number(id));
-    const whereClause = isShareLink ? "qc.share_link = ?" : "qc.id = ?";
-
-    const [camps] = await db.query(
-      `
-  SELECT 
-    qc.*,
-    COALESCE(qc.current_cohort_number, 1) as current_cohort_number,
-    DATE_FORMAT(qc.start_date, '%Y-%m-%d') as start_date_fmt,
-    qc.tags,
-    DATE_FORMAT(DATE_ADD(qc.start_date, INTERVAL qc.duration_days DAY), '%Y-%m-%d') as end_date_fmt,
-    COUNT(CASE WHEN ce.cohort_number = COALESCE(qc.current_cohort_number, 1) THEN ce.id END) as enrolled_count,
-    CASE 
-      WHEN qc.status = 'early_registration' THEN 'قريباً'
-      WHEN qc.status = 'active' THEN 'نشط'
-      WHEN qc.status = 'completed' THEN 'منتهي'
-      WHEN qc.status = 'reopened' THEN 'مفتوح للاشتراك'
-    END as status_ar,
-    CASE 
-      WHEN ? IS NOT NULL AND EXISTS(SELECT 1 FROM camp_enrollments ce2 WHERE ce2.camp_id = qc.id AND ce2.user_id = ? AND ce2.cohort_number = COALESCE(qc.current_cohort_number, 1)) THEN 1
-      ELSE 0
-    END as is_enrolled,
-    CASE 
-      WHEN qc.status = 'completed' THEN 1
-      ELSE 0
-    END as is_read_only
-  FROM quran_camps qc
-  LEFT JOIN camp_enrollments ce ON qc.id = ce.camp_id AND ce.cohort_number = COALESCE(qc.current_cohort_number, 1)
-  WHERE ${whereClause}
-  GROUP BY qc.id
-  `,
-      [userId, userId, id]
-    );
-
-    if (camps.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المخيم غير موجود",
-      });
-    }
-
-    const camp = {
-      ...camps[0],
-      start_date: camps[0].start_date_fmt || camps[0].start_date,
-      tags: camps[0].tags
-        ? camps[0].tags.split(",").map((tag) => tag.trim())
-        : [],
-      end_date: camps[0].end_date_fmt || camps[0].end_date,
-    };
-    let joinedLate = false;
-    let missedDaysCount = 0;
-    let nowDayNumber = 1;
-
-    // حساب اليوم الحالي بالنسبة لبدء المخيم (1..duration_days)
-    try {
-      if (camp.start_date && camp.duration_days) {
-        const start = new Date(camp.start_date);
-        const today = new Date();
-        const msPerDay = 1000 * 60 * 60 * 24;
-        const daysSinceStart = Math.floor((today - start) / msPerDay) + 1; // اليوم الأول = 1
-        const clamped = Math.max(
-          1,
-          Math.min(daysSinceStart, Number(camp.duration_days))
-        );
-        nowDayNumber = isFinite(clamped) ? clamped : 1;
-      }
-    } catch (_) {
-      nowDayNumber = 1;
-    }
-
-    // إذا كان المستخدم مسجل، احسب إذا انضم متأخراً وعدد الأيام الفائتة
-    const currentCohortNumber = camp.current_cohort_number || 1;
-    if (userId && camp.is_enrolled && camp.status === "active") {
-      const [enrollment] = await db.query(
-        `
-        SELECT created_at, enrollment_date
-        FROM camp_enrollments 
-        WHERE user_id = ? AND camp_id = ? AND cohort_number = ?
-      `,
-        [userId, id, currentCohortNumber]
-      );
-
-      if (enrollment.length > 0) {
-        const enrollmentDate = new Date(
-          enrollment[0].enrollment_date || enrollment[0].created_at
-        );
-        const campStartDate = new Date(camp.start_date);
-        const enrollmentDateByMonthAndYear = enrollmentDate
-          .toISOString()
-          .slice(0, 10);
-        const campStartDateByMonthAndYear = campStartDate
-          .toISOString()
-          .slice(0, 10);
-
-        if (enrollmentDateByMonthAndYear > campStartDateByMonthAndYear) {
-          joinedLate = true;
-          const diffTime = enrollmentDate - campStartDate;
-          missedDaysCount = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        }
-      }
-    }
+    const result = await campDetailsService.getCampDetails({
+      campId: id,
+      userId,
+    });
 
     res.json({
       success: true,
       data: {
-        ...camp,
-        is_read_only: Boolean(camp.is_read_only),
-        joined_late: joinedLate,
-        missed_days_count: missedDaysCount,
-        now_day_number: nowDayNumber,
+        ...result,
       },
     });
   } catch (error) {
@@ -382,6 +388,7 @@ const getCampDetails = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "حدث خطأ في جلب تفاصيل المخيم",
+      error: error.message,
     });
   }
 };
@@ -390,247 +397,19 @@ const getCampDetails = async (req, res) => {
 const getCampDailyTasks = async (req, res) => {
   try {
     const { id } = req.params;
-    const { axisId } = req.query; // دعم التصفية حسب ID المحور
-    const userId = req.user?.id || null; // قد يكون null إذا لم يكن المستخدم مسجل الدخول
+    const { axisId, cohort_number } = req.query;
+    const userId = req.user?.id || null;
 
-    // Get current cohort number
-    const [camps] = await db.query(
-      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
-      [id]
-    );
-    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
-
-    // بناء استعلام SQL مع إمكانية التصفية حسب المحور
-    let whereClause = "WHERE cdt.camp_id = ?";
-    const queryParams = [id];
-
-    if (axisId) {
-      whereClause += " AND cdt.group_id = ?";
-      queryParams.push(axisId);
-    }
-
-    // جلب المهام الأساسية
-    const [tasks] = await db.query(
-      `
-      SELECT 
-        cdt.*,
-        CASE 
-          WHEN cdt.task_type = 'reading' THEN 'قراءة'
-          WHEN cdt.task_type = 'memorization' THEN 'حفظ'
-          WHEN cdt.task_type = 'prayer' THEN 'صلاة'
-          WHEN cdt.task_type = 'tafseer_tabari' THEN 'تفسير الطبري'
-          WHEN cdt.task_type = 'tafseer_kathir' THEN 'تفسير ابن كثير'
-          WHEN cdt.task_type = 'youtube' THEN 'فيديو'
-          WHEN cdt.task_type = 'journal' THEN 'يوميات'
-        END as task_type_ar,
-        ctg.id as group_id,
-        ctg.title as group_title,
-        ctg.description as group_description,
-        ctg.parent_group_id,
-        ctg.order_in_camp as group_order,
-       
-        COALESCE(completion_counts.completed_by_count, 0) as completed_by_count
-      FROM camp_daily_tasks cdt
-      LEFT JOIN camp_task_groups ctg ON cdt.group_id = ctg.id
-      LEFT JOIN (
-        SELECT 
-          task_id,
-          COUNT(*) as completed_by_count
-        FROM camp_task_progress ctp2
-        JOIN camp_enrollments ce2 ON ctp2.enrollment_id = ce2.id
-        WHERE ctp2.completed = true AND ce2.camp_id = ? AND ce2.cohort_number = ?
-        GROUP BY task_id
-      ) completion_counts ON cdt.id = completion_counts.task_id
-      ${whereClause}
-      ORDER BY 
-        COALESCE(ctg.order_in_camp, 999999),
-        cdt.day_number, 
-        COALESCE(cdt.order_in_group, cdt.order_in_day)
-    `,
-      [id, currentCohortNumber, ...queryParams]
-    );
-
-    // جلب تحديات الأيام للمخيم
-    const [challengeRows] = await db.query(
-      `
-        SELECT day_number, title, description
-        FROM camp_day_challenges
-        WHERE camp_id = ?
-      `,
-      [id]
-    );
-
-    const challengesByDay = challengeRows.reduce((acc, row) => {
-      acc[row.day_number] = {
-        title: row.title,
-        description: row.description,
-      };
-      return acc;
-    }, {});
-
-    // Parse JSON fields (additional_links and attachments) for each task
-    tasks.forEach((task) => {
-      task.day_challenge = challengesByDay[task.day_number] || null;
-      if (task.additional_links) {
-        try {
-          task.additional_links =
-            typeof task.additional_links === "string"
-              ? JSON.parse(task.additional_links)
-              : task.additional_links;
-          // Ensure it's an array
-          if (!Array.isArray(task.additional_links)) {
-            console.log(
-              `Task ${task.id} - additional_links is not an array, converting to []`
-            );
-            task.additional_links = [];
-          } else {
-          }
-        } catch (e) {
-          console.error(`Task ${task.id} - Error parsing additional_links:`, e);
-          task.additional_links = [];
-        }
-      } else {
-        task.additional_links = [];
-      }
-      if (task.attachments) {
-        try {
-          task.attachments =
-            typeof task.attachments === "string"
-              ? JSON.parse(task.attachments)
-              : task.attachments;
-          // Ensure it's an array
-          if (!Array.isArray(task.attachments)) {
-            task.attachments = [];
-          } else {
-          }
-        } catch (e) {
-          console.error(`Task ${task.id} - Error parsing attachments:`, e);
-          task.attachments = [];
-        }
-      } else {
-        task.attachments = [];
-      }
+    const result = await campTaskService.getCampDailyTasks({
+      campId: id,
+      axisId,
+      cohortNumber: cohort_number ? parseInt(cohort_number) : null,
+      userId,
     });
 
-    // إذا كان المستخدم مسجل الدخول، أضف معلومات الأصدقاء
-    if (userId) {
-      // 1. جلب قائمة IDs الأصدقاء من camp_friendships (في هذا المخيم والفوج الحالي فقط)
-      const [campFriendships] = await db.query(
-        `SELECT
-          CASE
-            WHEN user1_id = ? THEN user2_id
-            ELSE user1_id
-          END as friend_id
-        FROM camp_friendships
-        WHERE camp_id = ? AND cohort_number = ? AND (user1_id = ? OR user2_id = ?)`,
-        [userId, id, currentCohortNumber, userId, userId]
-      );
-
-      const friendIds = campFriendships.map((f) => f.friend_id);
-
-      if (friendIds.length > 0) {
-        // 2. جلب enrollment_ids للأصدقاء في هذا المخيم والفوج الحالي فقط
-        const placeholders = friendIds.map(() => "?").join(",");
-        const [friendEnrollments] = await db.query(
-          `SELECT id, user_id
-           FROM camp_enrollments
-           WHERE user_id IN (${placeholders}) AND camp_id = ? AND cohort_number = ?`,
-          [...friendIds, id, currentCohortNumber]
-        );
-
-        const friendEnrollmentIds = friendEnrollments.map((e) => e.id);
-
-        if (friendEnrollmentIds.length > 0) {
-          // 3. جلب كل task_progress للأصدقاء لمهام هذا المخيم (استعلام واحد لتحسين الأداء)
-          // التحقق من وجود tasks قبل تنفيذ الاستعلام
-          if (!tasks || !Array.isArray(tasks) || tasks.length === 0) {
-            // لا توجد مهام، لا حاجة لإضافة بيانات الأصدقاء
-            // المهام فارغة بالفعل أو سيتم إرجاعها فارغة
-          } else {
-            const taskIds = tasks.map((t) => t.id);
-
-            // التحقق من وجود taskIds قبل بناء SQL query
-            if (taskIds.length > 0) {
-              const taskPlaceholders = taskIds.map(() => "?").join(",");
-              const enrollmentPlaceholders = friendEnrollmentIds
-                .map(() => "?")
-                .join(",");
-
-              const [allFriendsProgress] = await db.query(
-                `SELECT 
-                  ctp.task_id,
-                  ctp.enrollment_id,
-                  u.id as user_id,
-                  u.username,
-                  u.avatar_url as profile_picture
-                FROM camp_task_progress ctp
-                JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
-                JOIN users u ON ce.user_id = u.id
-                WHERE ctp.task_id IN (${taskPlaceholders})
-                  AND ctp.enrollment_id IN (${enrollmentPlaceholders})
-                  AND ctp.completed = true`,
-                [...taskIds, ...friendEnrollmentIds]
-              );
-
-              // 4. تجميع البيانات حسب task_id
-              const friendsByTask = new Map();
-
-              allFriendsProgress.forEach((progress) => {
-                const taskId = progress.task_id;
-                if (!friendsByTask.has(taskId)) {
-                  friendsByTask.set(taskId, []);
-                }
-                friendsByTask.get(taskId).push({
-                  id: progress.user_id,
-                  username: progress.username,
-                  profile_picture: progress.profile_picture,
-                });
-              });
-
-              // 5. إضافة البيانات إلى كل مهمة
-              tasks.forEach((task) => {
-                const friendsWhoCompleted = friendsByTask.get(task.id) || [];
-                task.completed_by_friends = friendsWhoCompleted;
-              });
-            } else {
-              // لا توجد task IDs، تحديد completed_by_friends كـ []
-              tasks.forEach((task) => {
-                task.completed_by_friends = [];
-              });
-            }
-          }
-        } else {
-          // لا يوجد أصدقاء مسجلين في هذا المخيم
-          if (tasks && Array.isArray(tasks)) {
-            tasks.forEach((task) => {
-              task.completed_by_friends = [];
-            });
-          }
-        }
-      } else {
-        // لا يوجد أصدقاء
-        if (tasks && Array.isArray(tasks)) {
-          tasks.forEach((task) => {
-            task.completed_by_friends = [];
-          });
-        }
-      }
-    } else {
-      // المستخدم غير مسجل الدخول، لا توجد معلومات عن الأصدقاء
-      if (tasks && Array.isArray(tasks)) {
-        tasks.forEach((task) => {
-          task.completed_by_friends = [];
-        });
-      }
-    }
-
-    res.json({
-      success: true,
-      data: tasks,
-      dayChallenges: challengesByDay,
-    });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error fetching camp daily tasks:", error);
+    console.error("Error in getCampDailyTasks:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ في جلب المهام اليومية",
@@ -640,210 +419,19 @@ const getCampDailyTasks = async (req, res) => {
 
 // Enroll in a camp
 const enrollInCamp = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user.id;
-    const { hide_identity = false } = req.body;
+  const { id } = req.params;
+  const userId = req.user.id;
+  const { hide_identity = false, cohort_number, referral_code } = req.body;
 
-    // Check if camp exists and is open for enrollment
-    // السماح بالتسجيل في early_registration, active, reopened, و completed
-    const [camps] = await db.query(
-      `
-      SELECT *, COALESCE(current_cohort_number, 1) as current_cohort_number
-      FROM quran_camps 
-      WHERE id = ?
-    `,
-      [id]
-    );
+  const result = await campUserService.enrollUser({
+    campId: id,
+    userId,
+    hideIdentity: hide_identity,
+    cohortNumber: cohort_number,
+    referralCode: referral_code, // إضافة كود الإحالة
+  });
 
-    if (camps.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "المخيم غير موجود",
-      });
-    }
-
-    const camp = camps[0];
-    const currentCohortNumber = camp.current_cohort_number || 1;
-    const isReadOnly = camp.status === "completed";
-
-    // Capacity check (if max_participants is set) - check only for current cohort
-    if (camp.max_participants && Number(camp.max_participants) > 0) {
-      const [countRows] = await db.query(
-        "SELECT COUNT(*) AS count FROM camp_enrollments WHERE camp_id = ? AND cohort_number = ?",
-        [id, currentCohortNumber]
-      );
-      const currentEnrollments = Number(countRows?.[0]?.count || 0);
-      if (currentEnrollments >= Number(camp.max_participants)) {
-        return res.status(400).json({
-          success: false,
-          message: "عذراً، اكتمل العدد في هذا المخيم",
-          code: "CAMP_CAPACITY_REACHED",
-        });
-      }
-    }
-
-    // Check if user is already enrolled in current cohort
-    const [existingEnrollment] = await db.query(
-      `
-      SELECT * FROM camp_enrollments 
-      WHERE user_id = ? AND camp_id = ? AND cohort_number = ?
-    `,
-      [userId, id, currentCohortNumber]
-    );
-
-    if (existingEnrollment.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "أنت مسجل بالفعل في هذا المخيم",
-      });
-    }
-
-    // Generate unique friend code
-    const generateFriendCode = () => {
-      // استخدام تنسيق: FC-{camp_id}-{random}
-      // نستخدم timestamp + random للضمان التفرد
-      const timestamp = Date.now().toString(36).toUpperCase();
-      const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-      return `FC-${id}-${timestamp}-${random}`;
-    };
-
-    let friendCode = generateFriendCode();
-    let codeExists = true;
-    let attempts = 0;
-    const maxAttempts = 10;
-
-    // التأكد من تفرد الكود
-    while (codeExists && attempts < maxAttempts) {
-      const [existingCode] = await db.query(
-        `SELECT id FROM camp_enrollments WHERE friend_code = ? AND camp_id = ?`,
-        [friendCode, id]
-      );
-
-      if (existingCode.length === 0) {
-        codeExists = false;
-      } else {
-        friendCode = generateFriendCode();
-        attempts++;
-      }
-    }
-
-    if (codeExists) {
-      // في حالة فشل توليد كود فريد (نادر جداً)، نستخدم fallback
-      friendCode = `FC-${id}-${userId}-${Date.now()}`;
-    }
-
-    // Create enrollment with friend code and cohort number
-    const [enrollmentResult] = await db.query(
-      `
-      INSERT INTO camp_enrollments (user_id, camp_id, status, friend_code, cohort_number)
-      VALUES (?, ?, 'enrolled', ?, ?)
-    `,
-      [userId, id, friendCode, currentCohortNumber]
-    );
-
-    const enrollmentId = enrollmentResult.insertId;
-
-    // Create camp settings with hide_identity
-    await db.query(
-      `
-      INSERT INTO camp_settings (enrollment_id, hide_identity)
-      VALUES (?, ?)
-    `,
-      [enrollmentId, hide_identity]
-    );
-
-    // Send welcome notification only if camp is not completed
-    if (!isReadOnly) {
-      try {
-        await CampNotificationService.sendWelcomeNotification(
-          userId,
-          id,
-          camp.name
-        );
-      } catch (notificationError) {
-        console.error("Error sending welcome notification:", notificationError);
-        // Don't fail the enrollment if notification fails
-      }
-      const [user] = await db.query(
-        `
-        SELECT * FROM users WHERE id = ?
-      `,
-        [userId]
-      );
-      // Send welcome email
-      try {
-        await mailService.sendCampWelcomeEmail(
-          user[0].email,
-          user[0].username,
-          camp.name,
-          id
-        );
-      } catch (emailError) {
-        console.error("Error sending welcome email:", emailError);
-        // Don't fail the enrollment if email fails
-      }
-    }
-
-    res.json({
-      success: true,
-      message: isReadOnly
-        ? "تم التسجيل في المخيم المنتهي. يمكنك إكمال المهام لكن بدون تفاعل اجتماعي"
-        : "تم التسجيل في المخيم بنجاح",
-      data: {
-        read_only: isReadOnly,
-      },
-    });
-  } catch (error) {
-    console.error("Error enrolling in camp:", error);
-
-    // Handle duplicate entry error
-    if (error.code === "ER_DUP_ENTRY") {
-      const { id } = req.params;
-      const userId = req.user?.id;
-
-      if (userId) {
-        // Get current cohort number
-        try {
-          const [camps] = await db.query(
-            `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
-            [id]
-          );
-          const currentCohortNumber = camps[0]?.current_cohort_number || 1;
-
-          // Check if user is enrolled in current cohort
-          const [existingEnrollment] = await db.query(
-            `SELECT * FROM camp_enrollments 
-             WHERE user_id = ? AND camp_id = ? AND cohort_number = ?`,
-            [userId, id, currentCohortNumber]
-          );
-
-          if (existingEnrollment.length > 0) {
-            return res.status(400).json({
-              success: false,
-              message: "أنت مسجل بالفعل في هذا الفوج من المخيم",
-            });
-          }
-        } catch (checkError) {
-          console.error("Error checking existing enrollment:", checkError);
-        }
-      }
-
-      // Old constraint issue - user enrolled in different cohort
-      return res.status(400).json({
-        success: false,
-        message:
-          "يبدو أن هناك مشكلة في قاعدة البيانات. يرجى تشغيل migration script لإصلاح unique constraint.",
-        code: "CONSTRAINT_ISSUE",
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: "حدث خطأ في التسجيل",
-      error: error.message,
-    });
-  }
+  return res.status(result.status).json(result.body);
 };
 
 // Get user's progress in a camp
@@ -852,634 +440,17 @@ const getMyProgress = async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
 
-    // Get enrollment info for current cohort
-    const [camps] = await db.query(
-      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
-      [id]
-    );
-    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
-
-    const [enrollments] = await db.query(
-      `
-      SELECT 
-        ce.*,
-        qc.name as camp_name,
-        qc.surah_name,
-        qc.start_date as camp_start_date,
-        qc.duration_days
-      FROM camp_enrollments ce
-      JOIN quran_camps qc ON ce.camp_id = qc.id
-      WHERE ce.user_id = ? AND ce.camp_id = ? AND ce.cohort_number = ?
-    `,
-      [userId, id, currentCohortNumber]
-    );
-
-    if (enrollments.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "لست مسجلاً في هذا المخيم",
-      });
-    }
-
-    // Get all tasks for the camp with completion count
-    const [tasks] = await db.query(
-      `
-      SELECT 
-        cdt.*,
-        ctp.completed,
-        ctp.completed_at,
-        ctp.journal_entry,
-        ctp.notes,
-        COALESCE(completion_counts.completed_by_count, 0) as completed_by_count
-      FROM camp_daily_tasks cdt
-      LEFT JOIN camp_task_progress ctp ON cdt.id = ctp.task_id AND ctp.enrollment_id = ?
-      LEFT JOIN (
-      SELECT 
-        task_id,
-        COUNT(*) as completed_by_count
-        FROM camp_task_progress ctp2
-        JOIN camp_enrollments ce2 ON ctp2.enrollment_id = ce2.id
-        WHERE ctp2.completed = true AND ce2.camp_id = ? AND ce2.cohort_number = ?
-        GROUP BY task_id
-      ) completion_counts ON cdt.id = completion_counts.task_id
-      WHERE cdt.camp_id = ?
-      ORDER BY cdt.day_number, cdt.order_in_day
-    `,
-      [enrollments[0].id, id, currentCohortNumber, id]
-    );
-
-    // إضافة بيانات الأصدقاء (نفس المنطق من getCampDailyTasks)
-    // 1. جلب قائمة IDs الأصدقاء من camp_friendships (في هذا المخيم والفوج الحالي فقط)
-    const [campFriendships] = await db.query(
-      `SELECT
-        CASE
-          WHEN user1_id = ? THEN user2_id
-          ELSE user1_id
-        END as friend_id
-      FROM camp_friendships
-      WHERE camp_id = ? AND cohort_number = ? AND (user1_id = ? OR user2_id = ?)`,
-      [userId, id, currentCohortNumber, userId, userId]
-    );
-
-    const friendIds = campFriendships.map((f) => f.friend_id);
-
-    if (friendIds.length > 0) {
-      // 2. جلب enrollment_ids للأصدقاء في هذا المخيم والفوج الحالي فقط
-      const placeholders = friendIds.map(() => "?").join(",");
-      const [friendEnrollments] = await db.query(
-        `SELECT id, user_id
-         FROM camp_enrollments
-         WHERE user_id IN (${placeholders}) AND camp_id = ? AND cohort_number = ?`,
-        [...friendIds, id, currentCohortNumber]
-      );
-
-      const friendEnrollmentIds = friendEnrollments.map((e) => e.id);
-
-      if (friendEnrollmentIds.length > 0) {
-        // 3. جلب كل task_progress للأصدقاء لمهام هذا المخيم
-        // التحقق من وجود tasks قبل تنفيذ الاستعلام
-        if (!tasks || !Array.isArray(tasks) || tasks.length === 0) {
-          // لا توجد مهام، لا حاجة لإضافة بيانات الأصدقاء
-          // المهام فارغة بالفعل أو سيتم إرجاعها فارغة
-        } else {
-          const taskIds = tasks.map((t) => t.id);
-
-          // التحقق من وجود taskIds قبل بناء SQL query
-          if (taskIds.length > 0) {
-            const taskPlaceholders = taskIds.map(() => "?").join(",");
-            const enrollmentPlaceholders = friendEnrollmentIds
-              .map(() => "?")
-              .join(",");
-
-            const [allFriendsProgress] = await db.query(
-              `SELECT 
-                ctp.task_id,
-                ctp.enrollment_id,
-                u.id as user_id,
-                u.username,
-                u.avatar_url as profile_picture
-              FROM camp_task_progress ctp
-              JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
-              JOIN users u ON ce.user_id = u.id
-              WHERE ctp.task_id IN (${taskPlaceholders})
-                AND ctp.enrollment_id IN (${enrollmentPlaceholders})
-                AND ctp.completed = true`,
-              [...taskIds, ...friendEnrollmentIds]
-            );
-
-            // 4. تجميع البيانات حسب task_id
-            const friendsByTask = new Map();
-
-            allFriendsProgress.forEach((progress) => {
-              const taskId = progress.task_id;
-              if (!friendsByTask.has(taskId)) {
-                friendsByTask.set(taskId, []);
-              }
-              friendsByTask.get(taskId).push({
-                id: progress.user_id,
-                username: progress.username,
-                profile_picture: progress.profile_picture,
-              });
-            });
-
-            // 5. إضافة البيانات إلى كل مهمة
-            tasks.forEach((task) => {
-              const friendsWhoCompleted = friendsByTask.get(task.id) || [];
-              task.completed_by_friends = friendsWhoCompleted;
-            });
-          } else {
-            // لا توجد task IDs، تحديد completed_by_friends كـ []
-            tasks.forEach((task) => {
-              task.completed_by_friends = [];
-            });
-          }
-        }
-      } else {
-        // لا يوجد أصدقاء مسجلين في هذا المخيم
-        if (tasks && Array.isArray(tasks)) {
-          tasks.forEach((task) => {
-            task.completed_by_friends = [];
-          });
-        }
-      }
-    } else {
-      // لا يوجد أصدقاء
-      if (tasks && Array.isArray(tasks)) {
-        tasks.forEach((task) => {
-          task.completed_by_friends = [];
-        });
-      }
-    }
-
-    // Parse JSON fields (additional_links and attachments) for each task
-    tasks.forEach((task) => {
-      if (task.additional_links) {
-        try {
-          task.additional_links =
-            typeof task.additional_links === "string"
-              ? JSON.parse(task.additional_links)
-              : task.additional_links;
-          // Ensure it's an array
-          if (!Array.isArray(task.additional_links)) {
-            task.additional_links = [];
-          }
-        } catch (e) {
-          console.error(`Task ${task.id} - Error parsing additional_links:`, e);
-          task.additional_links = [];
-        }
-      } else {
-        task.additional_links = [];
-      }
-      if (task.attachments) {
-        try {
-          task.attachments =
-            typeof task.attachments === "string"
-              ? JSON.parse(task.attachments)
-              : task.attachments;
-          // Ensure it's an array
-          if (!Array.isArray(task.attachments)) {
-            task.attachments = [];
-          }
-        } catch (e) {
-          console.error(`Task ${task.id} - Error parsing attachments:`, e);
-          task.attachments = [];
-        }
-      } else {
-        task.attachments = [];
-      }
+    const result = await campProgressService.getUserProgress({
+      campId: id,
+      userId,
     });
 
-    // Calculate progress
-    const totalTasks = tasks.length;
-    const completedTasks = tasks.filter((task) => task.completed).length;
-    const progressPercentage =
-      totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-
-    // Get user's rank in the camp using DENSE_RANK to handle ties correctly
-    const [rankResult] = await db.query(
-      `
-      SELECT 
-        user_rank
-      FROM (
-        SELECT 
-          ce.user_id,
-          DENSE_RANK() OVER (ORDER BY ce.total_points DESC) as user_rank
-        FROM camp_enrollments ce
-        WHERE ce.camp_id = ?
-      ) ranked_users
-      WHERE ranked_users.user_id = ?
-      `,
-      [id, userId]
-    );
-
-    const userRank = rankResult[0]?.user_rank || 1;
-
-    res.json({
-      success: true,
-      data: {
-        enrollment: enrollments[0],
-        tasks,
-        progress: {
-          totalTasks,
-          completedTasks,
-          progressPercentage,
-          rank: userRank,
-        },
-      },
-    });
+    return res.status(result.status).json(result.body);
   } catch (error) {
     console.error("Error fetching user progress:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ في جلب التقدم",
-    });
-  }
-};
-
-// Complete a task
-const completeTask = async (req, res) => {
-  try {
-    const { taskId } = req.params;
-    const userId = req.user.id;
-    const { journal_entry, notes } = req.body;
-
-    // Validation: Check if benefits are provided
-    if (!notes || !notes.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "يرجى كتابة الفوائد المستخرجة من المهمة",
-      });
-    }
-
-    // Extract benefits from notes
-    const benefitsMatch = notes.match(
-      /الفوائد المستخرجة:\s*([\s\S]*?)(?:\n\n|$)/
-    );
-    const benefits = benefitsMatch ? benefitsMatch[1].trim() : "";
-
-    // Validation: Check minimum word count for benefits
-    const wordCount = benefits
-      .split(/\s+/)
-      .filter((word) => word.length > 0).length;
-    if (wordCount < 20) {
-      return res.status(400).json({
-        success: false,
-        message: "يرجى كتابة 20 كلمة على الأقل في الفوائد المستخرجة",
-      });
-    }
-
-    // Check if camp status allows task completion (must be active or reopened, not early_registration or completed)
-    const [campStatus] = await db.query(
-      `
-      SELECT qc.status, qc.name as camp_name FROM quran_camps qc
-      JOIN camp_daily_tasks cdt ON qc.id = cdt.camp_id
-      WHERE cdt.id = ?
-    `,
-      [taskId]
-    );
-
-    if (campStatus.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المهمة غير موجودة",
-      });
-    }
-
-    const campStatusValue = campStatus[0].status;
-    const isReadOnly = campStatusValue === "completed";
-
-    // منع إكمال المهام إذا كان المخيم في حالة "early_registration"
-    if (campStatusValue === "early_registration") {
-      return res.status(403).json({
-        success: false,
-        message: "المخيم لم يبدأ بعد. يرجى الانتظار حتى يبدأ الادمن المخيم.",
-      });
-    }
-
-    // منع إضافة ملاحظات/فوائد في المخيمات المنتهية
-    if (isReadOnly) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "لا يمكن إضافة ملاحظات أو فوائد في المخيمات المنتهية. يمكنك إكمال المهام فقط.",
-      });
-    }
-
-    // السماح فقط للمخيمات النشطة أو المفتوحة للاشتراك
-    if (campStatusValue !== "active" && campStatusValue !== "reopened") {
-      return res.status(403).json({
-        success: false,
-        message: "المخيم غير نشط حالياً. لا يمكنك إكمال المهام.",
-      });
-    }
-
-    // Get task details
-    const [tasks] = await db.query(
-      `
-      SELECT cdt.*, qc.id as camp_id
-      FROM camp_daily_tasks cdt
-      JOIN quran_camps qc ON cdt.camp_id = qc.id
-      WHERE cdt.id = ?
-    `,
-      [taskId]
-    );
-
-    if (tasks.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المهمة غير موجودة",
-      });
-    }
-
-    // Get user's enrollment
-    const [enrollments] = await db.query(
-      `
-      SELECT * FROM camp_enrollments 
-      WHERE user_id = ? AND camp_id = ?
-    `,
-      [userId, tasks[0].camp_id]
-    );
-
-    if (enrollments.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "لست مسجلاً في هذا المخيم",
-      });
-    }
-
-    // Use transaction with row locking to prevent race conditions
-    const connection = await db.getConnection();
-    try {
-      await connection.beginTransaction();
-
-      // Check if task is already completed with row lock (FOR UPDATE)
-      const [existingProgress] = await connection.query(
-        `
-        SELECT * FROM camp_task_progress 
-        WHERE enrollment_id = ? AND task_id = ?
-        FOR UPDATE
-      `,
-        [enrollments[0].id, taskId]
-      );
-
-      if (existingProgress.length > 0 && existingProgress[0].completed) {
-        await connection.rollback();
-        connection.release();
-        return res.status(200).json({
-          success: true,
-          message: "هذه المهمة مكتملة بالفعل",
-          alreadyCompleted: true,
-        });
-      }
-
-      // Update or create progress
-      let affectedRows = 0;
-      if (existingProgress.length > 0) {
-        const [updateResult] = await connection.query(
-          `
-          UPDATE camp_task_progress 
-          SET completed = true, completed_at = NOW(), journal_entry = ?, notes = ?
-          WHERE enrollment_id = ? AND task_id = ? AND completed = false
-        `,
-          [journal_entry, notes, enrollments[0].id, taskId]
-        );
-        affectedRows = updateResult.affectedRows || 0;
-      } else {
-        // Use INSERT to create new progress
-        try {
-          const [insertResult] = await connection.query(
-            `
-            INSERT INTO camp_task_progress (enrollment_id, task_id, completed, completed_at, journal_entry, notes)
-            VALUES (?, ?, true, NOW(), ?, ?)
-          `,
-            [enrollments[0].id, taskId, journal_entry, notes]
-          );
-          affectedRows = insertResult.affectedRows || 0;
-        } catch (insertError) {
-          // If duplicate key error, task was just completed by another request
-          if (
-            insertError.code === "ER_DUP_ENTRY" ||
-            insertError.errno === 1062
-          ) {
-            await connection.rollback();
-            connection.release();
-            return res.status(200).json({
-              success: true,
-              message: "هذه المهمة مكتملة بالفعل",
-              alreadyCompleted: true,
-            });
-          }
-          throw insertError;
-        }
-      }
-
-      // Update total points only if task was actually completed (not already completed) and camp is not completed
-      if (affectedRows > 0 && !isReadOnly) {
-        await connection.query(
-          `
-          UPDATE camp_enrollments 
-          SET total_points = total_points + ?
-          WHERE id = ?
-        `,
-          [tasks[0].points, enrollments[0].id]
-        );
-      }
-
-      await connection.commit();
-      connection.release();
-    } catch (transactionError) {
-      await connection.rollback();
-      connection.release();
-      throw transactionError;
-    }
-
-    // Update streak only if camp is not completed
-    if (!isReadOnly) {
-      const streakInfo = await updateStreak(enrollments[0].id);
-
-      // Send achievement notification
-      try {
-        await CampNotificationService.sendAchievementNotification(
-          userId,
-          tasks[0].camp_id,
-          tasks[0].name || "المخيم القرآني",
-          tasks[0].title,
-          tasks[0].points
-        );
-      } catch (notificationError) {
-        console.error(
-          "Error sending achievement notification:",
-          notificationError
-        );
-      }
-    }
-
-    // Check for milestones and send milestone notifications
-    try {
-      const [totalPointsResult] = await db.query(
-        `SELECT total_points FROM camp_enrollments WHERE id = ?`,
-        [enrollments[0].id]
-      );
-
-      const totalPoints = totalPointsResult[0].total_points;
-
-      // Check for milestone achievements
-      if (totalPoints >= 50 && totalPoints - tasks[0].points < 50) {
-        await CampNotificationService.sendMilestoneNotification(
-          userId,
-          tasks[0].camp_id,
-          tasks[0].name || "المخيم القرآني",
-          "50 نقطة",
-          totalPoints
-        );
-      } else if (totalPoints >= 100 && totalPoints - tasks[0].points < 100) {
-        await CampNotificationService.sendMilestoneNotification(
-          userId,
-          tasks[0].camp_id,
-          tasks[0].name || "المخيم القرآني",
-          "100 نقطة",
-          totalPoints
-        );
-      } else if (totalPoints >= 200 && totalPoints - tasks[0].points < 200) {
-        await CampNotificationService.sendMilestoneNotification(
-          userId,
-          tasks[0].camp_id,
-          tasks[0].name || "المخيم القرآني",
-          "200 نقطة",
-          totalPoints
-        );
-      }
-    } catch (milestoneError) {
-      console.error("Error sending milestone notification:", milestoneError);
-    }
-
-    // Clear leaderboard cache for this camp
-    try {
-      const redisClient = require("../utils/redisClient");
-      if (redisClient) {
-        const cachePattern = `leaderboard_${tasks[0].camp_id}_*`;
-        const keys = await redisClient.keys(cachePattern);
-        if (keys.length > 0) {
-          await redisClient.del(...keys);
-        }
-      }
-    } catch (redisError) {
-      console.log("Redis not available for cache clearing");
-    }
-
-    res.json({
-      success: true,
-      message: "تم إكمال المهمة بنجاح",
-      data: {
-        pointsEarned: tasks[0].points,
-        currentStreak: streakInfo.current,
-        longestStreak: streakInfo.longest,
-        wordCount: wordCount,
-      },
-    });
-  } catch (error) {
-    console.error("Error completing task:", error);
-    res.status(500).json({
-      success: false,
-      message: "حدث خطأ في إكمال المهمة",
-    });
-  }
-};
-
-// Track reading time for a task
-const trackReadingTime = async (req, res) => {
-  try {
-    const { taskId } = req.params;
-    const { readingTimeSeconds } = req.body; // Time in seconds
-    const userId = req.user.id;
-
-    if (!readingTimeSeconds || readingTimeSeconds < 0) {
-      return res.status(400).json({
-        success: false,
-        message: "وقت القراءة غير صحيح",
-      });
-    }
-
-    // Get task details
-    const [tasks] = await db.query(
-      `
-      SELECT cdt.*, qc.id as camp_id
-      FROM camp_daily_tasks cdt
-      JOIN quran_camps qc ON cdt.camp_id = qc.id
-      WHERE cdt.id = ?
-    `,
-      [taskId]
-    );
-
-    if (tasks.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المهمة غير موجودة",
-      });
-    }
-
-    // Get user's enrollment
-    const [enrollments] = await db.query(
-      `
-      SELECT * FROM camp_enrollments 
-      WHERE user_id = ? AND camp_id = ?
-    `,
-      [userId, tasks[0].camp_id]
-    );
-
-    if (enrollments.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "لست مسجلاً في هذا المخيم",
-      });
-    }
-
-    // Update or create progress with reading time
-    const [existingProgress] = await db.query(
-      `
-      SELECT * FROM camp_task_progress 
-      WHERE enrollment_id = ? AND task_id = ?
-    `,
-      [enrollments[0].id, taskId]
-    );
-
-    if (existingProgress.length > 0) {
-      // Update existing progress - add to existing time
-      const currentTime = existingProgress[0].actual_reading_time || 0;
-      const newTime = currentTime + readingTimeSeconds;
-
-      await db.query(
-        `
-        UPDATE camp_task_progress 
-        SET actual_reading_time = ?
-        WHERE enrollment_id = ? AND task_id = ?
-      `,
-        [newTime, enrollments[0].id, taskId]
-      );
-    } else {
-      // Create new progress record with reading time
-      await db.query(
-        `
-        INSERT INTO camp_task_progress (enrollment_id, task_id, actual_reading_time)
-        VALUES (?, ?, ?)
-        ON DUPLICATE KEY UPDATE actual_reading_time = actual_reading_time + ?
-      `,
-        [enrollments[0].id, taskId, readingTimeSeconds, readingTimeSeconds]
-      );
-    }
-
-    res.json({
-      success: true,
-      message: "تم حفظ وقت القراءة",
-      data: {
-        readingTimeSeconds: readingTimeSeconds,
-      },
-    });
-  } catch (error) {
-    console.error("Error tracking reading time:", error);
-    res.status(500).json({
-      success: false,
-      message: "حدث خطأ في حفظ وقت القراءة",
     });
   }
 };
@@ -1490,272 +461,13 @@ const markTaskComplete = async (req, res) => {
     const { taskId } = req.params;
     const userId = req.user.id;
 
-    // Get task details with camp status
-    const [tasks] = await db.query(
-      `
-      SELECT cdt.*, qc.id as camp_id, qc.status as camp_status, qc.name as camp_name
-      FROM camp_daily_tasks cdt
-      JOIN quran_camps qc ON cdt.camp_id = qc.id
-      WHERE cdt.id = ?
-    `,
-      [taskId]
-    );
-
-    if (tasks.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المهمة غير موجودة",
-      });
-    }
-
-    // Check if camp status allows task completion (must be active or reopened)
-    const campStatusValue = tasks[0].camp_status;
-    const isReadOnly = campStatusValue === "completed";
-
-    // منع إكمال المهام إذا كان المخيم في حالة "early_registration"
-    if (campStatusValue === "early_registration") {
-      return res.status(403).json({
-        success: false,
-        message: "المخيم لم يبدأ بعد. يرجى الانتظار حتى يبدأ الادمن المخيم.",
-      });
-    }
-
-    // السماح فقط للمخيمات النشطة أو المفتوحة للاشتراك أو المنتهية (للقراءة فقط)
-    if (
-      campStatusValue !== "active" &&
-      campStatusValue !== "reopened" &&
-      campStatusValue !== "completed"
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "المخيم غير نشط حالياً. لا يمكنك إكمال المهام.",
-      });
-    }
-
-    // Get user's enrollment
-    const [enrollments] = await db.query(
-      `
-      SELECT * FROM camp_enrollments 
-      WHERE user_id = ? AND camp_id = ?
-    `,
-      [userId, tasks[0].camp_id]
-    );
-
-    if (enrollments.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "لست مسجلاً في هذا المخيم",
-      });
-    }
-
-    // Use transaction with row locking to prevent race conditions
-    const connection = await db.getConnection();
-    try {
-      await connection.beginTransaction();
-
-      // Check if task is already completed with row lock (FOR UPDATE)
-      const [existingProgress] = await connection.query(
-        `
-        SELECT * FROM camp_task_progress 
-        WHERE enrollment_id = ? AND task_id = ?
-        FOR UPDATE
-      `,
-        [enrollments[0].id, taskId]
-      );
-
-      if (existingProgress.length > 0 && existingProgress[0].completed) {
-        await connection.rollback();
-        connection.release();
-        return res.status(200).json({
-          success: true,
-          message: "هذه المهمة مكتملة بالفعل",
-          alreadyCompleted: true,
-        });
-      }
-
-      // Update or create progress
-      let affectedRows = 0;
-      if (existingProgress.length > 0) {
-        const [updateResult] = await connection.query(
-          `
-          UPDATE camp_task_progress 
-          SET completed = true, completed_at = NOW()
-          WHERE enrollment_id = ? AND task_id = ? AND completed = false
-        `,
-          [enrollments[0].id, taskId]
-        );
-        affectedRows = updateResult.affectedRows || 0;
-      } else {
-        // Use INSERT IGNORE to prevent duplicate key errors
-        try {
-          const [insertResult] = await connection.query(
-            `
-            INSERT INTO camp_task_progress (enrollment_id, task_id, completed, completed_at)
-            VALUES (?, ?, true, NOW())
-          `,
-            [enrollments[0].id, taskId]
-          );
-          affectedRows = insertResult.affectedRows || 0;
-        } catch (insertError) {
-          // If duplicate key error, task was just completed by another request
-          if (
-            insertError.code === "ER_DUP_ENTRY" ||
-            insertError.errno === 1062
-          ) {
-            await connection.rollback();
-            connection.release();
-            return res.status(200).json({
-              success: true,
-              message: "هذه المهمة مكتملة بالفعل",
-              alreadyCompleted: true,
-            });
-          }
-          throw insertError;
-        }
-      }
-
-      // Update total points only if task was actually completed (not already completed) and camp is not completed
-      if (affectedRows > 0 && !isReadOnly) {
-        await connection.query(
-          `
-          UPDATE camp_enrollments 
-          SET total_points = total_points + ?
-          WHERE id = ?
-        `,
-          [tasks[0].points, enrollments[0].id]
-        );
-      }
-
-      await connection.commit();
-      connection.release();
-    } catch (transactionError) {
-      await connection.rollback();
-      connection.release();
-      throw transactionError;
-    }
-
-    // Update streak and send notification only if camp is not completed
-    if (!isReadOnly) {
-      const streakInfo = await updateStreak(enrollments[0].id);
-
-      // Send achievement notification
-      try {
-        await CampNotificationService.sendAchievementNotification(
-          userId,
-          tasks[0].camp_id,
-          tasks[0].camp_name,
-          tasks[0].title,
-          tasks[0].points
-        );
-      } catch (notificationError) {
-        console.error(
-          "Error sending achievement notification:",
-          notificationError
-        );
-      }
-
-      // تسجيل نشاط الـ Streak إذا وصل لرقم مميز (3, 5, 7 أيام)
-      if (streakInfo && streakInfo.current) {
-        const streakCount = streakInfo.current;
-        if ([3, 5, 7, 10, 14, 21, 30].includes(streakCount)) {
-          try {
-            const streakDetails = JSON.stringify({
-              streak_count: streakCount,
-            });
-            await db.query(
-              `INSERT INTO user_activity (user_id, camp_id, activity_type, details)
-               VALUES (?, ?, 'streak_achieved', ?)`,
-              [userId, tasks[0].camp_id, streakDetails]
-            );
-          } catch (streakActivityError) {
-            console.error(
-              "Error logging streak activity:",
-              streakActivityError
-            );
-            // لا نوقف العملية إذا فشل تسجيل النشاط
-          }
-        }
-      }
-    }
-
-    // Check for milestones and send milestone notifications
-    try {
-      const [totalPointsResult] = await db.query(
-        `SELECT total_points FROM camp_enrollments WHERE id = ?`,
-        [enrollments[0].id]
-      );
-
-      const totalPoints = totalPointsResult[0].total_points;
-
-      // Check for milestone achievements
-      if (totalPoints >= 50 && totalPoints - tasks[0].points < 50) {
-        await CampNotificationService.sendMilestoneNotification(
-          userId,
-          tasks[0].camp_id,
-          tasks[0].name || "المخيم القرآني",
-          "50 نقطة",
-          totalPoints
-        );
-      } else if (totalPoints >= 100 && totalPoints - tasks[0].points < 100) {
-        await CampNotificationService.sendMilestoneNotification(
-          userId,
-          tasks[0].camp_id,
-          tasks[0].name || "المخيم القرآني",
-          "100 نقطة",
-          totalPoints
-        );
-      } else if (totalPoints >= 200 && totalPoints - tasks[0].points < 200) {
-        await CampNotificationService.sendMilestoneNotification(
-          userId,
-          tasks[0].camp_id,
-          tasks[0].name || "المخيم القرآني",
-          "200 نقطة",
-          totalPoints
-        );
-      }
-    } catch (milestoneError) {
-      console.error("Error sending milestone notification:", milestoneError);
-    }
-
-    // تسجيل نشاط إكمال المهمة
-    try {
-      const details = JSON.stringify({
-        task_name: tasks[0].title,
-        day: tasks[0].day_number || null,
-        task_id: taskId,
-      });
-      await db.query(
-        `INSERT INTO user_activity (user_id, camp_id, activity_type, details)
-         VALUES (?, ?, 'task_completed', ?)`,
-        [userId, tasks[0].camp_id, details]
-      );
-    } catch (activityError) {
-      console.error("Error logging task completion activity:", activityError);
-      // لا نوقف العملية إذا فشل تسجيل النشاط
-    }
-
-    // Clear leaderboard cache for this camp
-    try {
-      const redisClient = require("../utils/redisClient");
-      if (redisClient) {
-        const cachePattern = `leaderboard_${tasks[0].camp_id}_*`;
-        const keys = await redisClient.keys(cachePattern);
-        if (keys.length > 0) {
-          await redisClient.del(...keys);
-        }
-      }
-    } catch (redisError) {
-      console.log("Redis not available for cache clearing");
-    }
-
-    res.json({
-      success: true,
-      message: "تم إكمال المهمة بنجاح",
-      data: {
-        task_id: taskId,
-        points_earned: tasks[0].points,
-      },
+    const result = await campProgressService.markTaskComplete({
+      taskId,
+      userId,
+      ...req.body,
     });
+
+    return res.status(result.status).json(result.body);
   } catch (error) {
     console.error("Error marking task complete:", error);
     res.status(500).json({
@@ -1773,215 +485,17 @@ const updateTaskBenefits = async (req, res) => {
     const { journal_entry, benefits, content_rich, is_private, proposed_step } =
       req.body;
 
-    // تنظيف journal_entry (تحويل null/undefined/empty string إلى null)
-    const cleanedJournalEntry =
-      journal_entry &&
-      typeof journal_entry === "string" &&
-      journal_entry.trim() !== ""
-        ? journal_entry.trim()
-        : null;
-
-    // قيمة is_private: true = شخصي، false = عام (يظهر في قاعة التدارس)
-    // إذا لم يتم إرسالها، نعتبرها true (شخصي) للتوافق العكسي
-    const isPrivate = is_private !== undefined ? Boolean(is_private) : true;
-
-    // Get task details with camp status
-    const [tasks] = await db.query(
-      `
-      SELECT cdt.*, qc.id as camp_id, qc.status as camp_status, qc.name as camp_name
-      FROM camp_daily_tasks cdt
-      JOIN quran_camps qc ON cdt.camp_id = qc.id
-      WHERE cdt.id = ?
-    `,
-      [taskId]
-    );
-
-    if (tasks.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المهمة غير موجودة",
-      });
-    }
-
-    // Check if camp status allows updating benefits (must be active or reopened)
-    const campStatusValue = tasks[0].camp_status;
-
-    // منع حفظ الفوائد إذا كان المخيم في حالة "early_registration"
-    if (campStatusValue === "early_registration") {
-      return res.status(403).json({
-        success: false,
-        message: "المخيم لم يبدأ بعد. يرجى الانتظار حتى يبدأ الادمن المخيم.",
-      });
-    }
-
-    // منع حفظ الفوائد إذا كان المخيم مكتملاً
-    if (campStatusValue === "completed") {
-      return res.status(400).json({
-        success: false,
-        message: "لا يمكن التفاعل مع مهام المخيمات المكتملة",
-      });
-    }
-
-    // السماح فقط للمخيمات النشطة أو المفتوحة للاشتراك
-    if (campStatusValue !== "active" && campStatusValue !== "reopened") {
-      return res.status(403).json({
-        success: false,
-        message: "المخيم غير نشط حالياً. لا يمكنك حفظ الفوائد.",
-      });
-    }
-
-    // Get user's enrollment
-    const [enrollments] = await db.query(
-      `
-      SELECT * FROM camp_enrollments 
-      WHERE user_id = ? AND camp_id = ?
-    `,
-      [userId, tasks[0].camp_id]
-    );
-
-    if (enrollments.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "لست مسجلاً في هذا المخيم",
-      });
-    }
-
-    // Check if task progress exists
-    const [existingProgress] = await db.query(
-      `
-      SELECT * FROM camp_task_progress 
-      WHERE enrollment_id = ? AND task_id = ?
-      `,
-      [enrollments[0].id, taskId]
-    );
-
-    // التحقق من حالة journal_entry قبل وبعد التحديث (لإدارة النقاط)
-    const hadJournalEntryBefore =
-      existingProgress.length > 0 &&
-      existingProgress[0].journal_entry !== null &&
-      existingProgress[0].journal_entry !== "" &&
-      typeof existingProgress[0].journal_entry === "string" &&
-      existingProgress[0].journal_entry.trim() !== "";
-
-    const hasJournalEntryAfter = cleanedJournalEntry !== null;
-
-    // Prepare notes with benefits (backward compatibility)
-    const updatedNotes = benefits ? `الفوائد المستخرجة:\n${benefits}` : "";
-
-    // Prepare content_rich as JSON string if provided
-    const contentRichJson = content_rich ? JSON.stringify(content_rich) : null;
-
-    // التحقق من أن الفائدة لم تكن عامة مسبقاً (لتجنب تسجيل النشاط مرتين)
-    const wasPrivateBefore =
-      existingProgress.length > 0
-        ? existingProgress[0].is_private !== false
-        : true;
-
-    // تحديد قيمة journal_entry للتحديث (null إذا كانت فارغة)
-    const journalEntryValue = cleanedJournalEntry;
-
-    if (existingProgress.length > 0) {
-      // Update existing progress with journal entry, benefits, rich content, privacy status, and proposed_step
-      await db.query(
-        `
-        UPDATE camp_task_progress 
-        SET journal_entry = ?, notes = ?, content_rich = ?, is_private = ?, proposed_step = ?
-        WHERE enrollment_id = ? AND task_id = ?
-      `,
-        [
-          journalEntryValue,
-          updatedNotes,
-          contentRichJson,
-          isPrivate,
-          proposed_step || null,
-          enrollments[0].id,
-          taskId,
-        ]
-      );
-    } else {
-      // Create new progress record with journal entry, benefits, rich content, privacy status, and proposed_step
-      await db.query(
-        `
-        INSERT INTO camp_task_progress (enrollment_id, task_id, completed, journal_entry, notes, content_rich, is_private, proposed_step)
-        VALUES (?, ?, false, ?, ?, ?, ?, ?)
-      `,
-        [
-          enrollments[0].id,
-          taskId,
-          journalEntryValue,
-          updatedNotes,
-          contentRichJson,
-          isPrivate,
-          proposed_step || null,
-        ]
-      );
-    }
-
-    // إدارة النقاط بناءً على حالة journal_entry
-    // القاعدة: 3 نقاط إضافية عند كتابة الفائدة لأول مرة، وحذفها عند حذف الفائدة
-    // لا تغيير في النقاط عند تعديل الفائدة فقط
-    const JOURNAL_BONUS_POINTS = 3;
-
-    if (!hadJournalEntryBefore && hasJournalEntryAfter) {
-      // إضافة 3 نقاط عند كتابة الفائدة لأول مرة
-      await db.query(
-        `
-        UPDATE camp_enrollments 
-        SET total_points = total_points + ?
-        WHERE id = ?
-      `,
-        [JOURNAL_BONUS_POINTS, enrollments[0].id]
-      );
-    } else if (hadJournalEntryBefore && !hasJournalEntryAfter) {
-      // حذف 3 نقاط عند حذف الفائدة
-      await db.query(
-        `
-        UPDATE camp_enrollments 
-        SET total_points = GREATEST(0, total_points - ?)
-        WHERE id = ?
-      `,
-        [JOURNAL_BONUS_POINTS, enrollments[0].id]
-      );
-    }
-    // إذا كانت journal_entry موجودة قبل وبعد: لا تغيير في النقاط (تعديل فقط)
-
-    // تسجيل نشاط مشاركة التدبر إذا كانت الفائدة عامة (is_private = false)
-    // وفقط إذا كانت الفائدة خاصة مسبقاً أو جديدة (لتجنب التسجيل المكرر)
-    if (!isPrivate && wasPrivateBefore) {
-      try {
-        // جلب ID الفائدة (camp_task_progress id)
-        const [progressRecord] = await db.query(
-          `SELECT id FROM camp_task_progress 
-           WHERE enrollment_id = ? AND task_id = ?`,
-          [enrollments[0].id, taskId]
-        );
-
-        if (progressRecord.length > 0) {
-          const details = JSON.stringify({
-            reflection_id: progressRecord[0].id,
-            task_name: tasks[0].title,
-            day: tasks[0].day_number || null,
-            task_id: taskId,
-          });
-          await db.query(
-            `INSERT INTO user_activity (user_id, camp_id, activity_type, details)
-             VALUES (?, ?, 'reflection_shared', ?)`,
-            [userId, tasks[0].camp_id, details]
-          );
-        }
-      } catch (activityError) {
-        console.error(
-          "Error logging reflection share activity:",
-          activityError
-        );
-        // لا نوقف العملية إذا فشل تسجيل النشاط
-      }
-    }
-
-    res.json({
-      success: true,
-      message: "تم حفظ التدبر والفوائد بنجاح",
+    const result = await campProgressService.updateTaskBenefits({
+      taskId,
+      userId,
+      journal_entry,
+      benefits,
+      content_rich,
+      is_private,
+      proposed_step,
     });
+
+    return res.status(result.status).json(result.body);
   } catch (error) {
     console.error("Error updating task benefits:", error);
     res.status(500).json({
@@ -1995,90 +509,30 @@ const updateTaskBenefits = async (req, res) => {
 const getCampParticipants = async (req, res) => {
   try {
     const { id } = req.params;
-    const { page = 1, limit = 50, status, search } = req.query;
+    const { page = 1, limit = 50, status, search, cohort_number } = req.query;
 
-    // Get current cohort number
-    const [camps] = await db.query(
-      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
-      [id]
-    );
-    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
-
-    // Get total tasks count once for performance
-    const [totalTasksResult] = await db.query(
-      "SELECT COUNT(*) as total FROM camp_daily_tasks WHERE camp_id = ?",
-      [id]
-    );
-    const totalTasks = totalTasksResult[0].total;
-
-    let query = `
-      SELECT 
-        ce.*,
-        u.username,
-        u.email,
-        COUNT(ctp.id) as completed_tasks,
-        ? as total_tasks,
-        ROUND((COUNT(ctp.id) / ?) * 100, 2) as progress_percentage
-      FROM camp_enrollments ce
-      JOIN users u ON ce.user_id = u.id
-      LEFT JOIN camp_task_progress ctp ON ce.id = ctp.enrollment_id AND ctp.completed = true
-      WHERE ce.camp_id = ? AND ce.cohort_number = ?
-    `;
-
-    const params = [totalTasks, totalTasks, id, currentCohortNumber];
-
-    // Add status filter
-    if (status && status !== "all") {
-      query += ` AND ce.status = ?`;
-      params.push(status);
+    // Verify admin access
+    if (!isAdmin(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: "ليس لديك صلاحية للوصول إلى هذه البيانات",
+      });
     }
 
-    if (search) {
-      query += ` AND (u.username LIKE ? OR u.email LIKE ?)`;
-      params.push(`%${search}%`, `%${search}%`);
-    }
+    const cohortNumber = cohort_number ? parseInt(cohort_number) : null;
 
-    query += ` GROUP BY ce.id ORDER BY ce.total_points DESC`;
-
-    // Add pagination
-    const offset = (page - 1) * limit;
-    query += ` LIMIT ? OFFSET ?`;
-    params.push(parseInt(limit), offset);
-
-    const [participants] = await db.query(query, params);
-
-    // Get total count for pagination
-    let countQuery = `
-      SELECT COUNT(*) as total
-      FROM camp_enrollments ce
-      JOIN users u ON ce.user_id = u.id
-      WHERE ce.camp_id = ? AND ce.cohort_number = ?
-    `;
-    const countParams = [id, currentCohortNumber];
-
-    // Add status filter
-    if (status && status !== "all") {
-      countQuery += ` AND ce.status = ?`;
-      countParams.push(status);
-    }
-
-    if (search) {
-      countQuery += ` AND (u.username LIKE ? OR u.email LIKE ?)`;
-      countParams.push(`%${search}%`, `%${search}%`);
-    }
-
-    const [countResult] = await db.query(countQuery, countParams);
-    const total = countResult[0].total;
+    const result = await campParticipantService.getParticipants({
+      campId: id,
+      cohortNumber,
+      filters: { status, search },
+      pagination: { page: parseInt(page), limit: parseInt(limit) },
+      includeSupervisors: false,
+    });
 
     res.json({
       success: true,
-      data: participants,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit),
-      },
+      data: result.participants,
+      pagination: result.pagination,
     });
   } catch (error) {
     console.error("Error fetching camp participants:", error);
@@ -2095,105 +549,16 @@ const getCampLeaderboard = async (req, res) => {
     const { id } = req.params;
     const { limit = 10 } = req.query;
 
-    // Get current cohort number
-    const [campInfo] = await db.query(
-      `SELECT status, COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
-      [id]
-    );
-
-    if (campInfo.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المخيم غير موجود",
-      });
-    }
-
-    const currentCohortNumber = campInfo[0].current_cohort_number || 1;
-
-    if (campInfo[0].status === "completed") {
-      return res.json({
-        success: true,
-        data: [],
-        cached: false,
-      });
-    }
-
-    const cacheKey = `leaderboard_${id}_${currentCohortNumber}_${limit}`;
-
-    // Try to get from cache first
-    let leaderboard = null;
-    try {
-      const redisClient = require("../utils/redisClient");
-      if (redisClient) {
-        const cached = await redisClient.get(cacheKey);
-        if (cached) {
-          leaderboard = JSON.parse(cached);
-        }
-      }
-    } catch (redisError) {
-      console.log("Redis not available, using database directly");
-    }
-
-    // If not in cache, fetch from database
-    if (!leaderboard) {
-      const [leaderboardData] = await db.query(
-        `
-        SELECT 
-          ce.total_points,
-          ce.user_id,
-          COALESCE(cs.hide_identity, false) as hide_identity,
-          COALESCE(cs.leaderboard_visibility, true) as leaderboard_visibility,
-          CASE 
-            WHEN COALESCE(cs.hide_identity, false) = true THEN 'مشارك مجهول'
-            ELSE u.username
-          END as display_name,
-          CASE 
-            WHEN COALESCE(cs.hide_identity, false) = true THEN NULL
-            ELSE u.avatar_url
-          END as avatar_url,
-          DENSE_RANK() OVER (ORDER BY ce.total_points DESC) as user_rank
-        FROM camp_enrollments ce
-        JOIN users u ON ce.user_id = u.id
-        LEFT JOIN camp_settings cs ON ce.id = cs.enrollment_id
-        WHERE ce.camp_id = ? 
-          AND ce.cohort_number = ?
-          AND COALESCE(cs.leaderboard_visibility, true) = true
-        ORDER BY ce.total_points DESC
-        LIMIT ?
-      `,
-        [id, currentCohortNumber, parseInt(limit)]
-      );
-
-      // Convert integer values to boolean for consistency and remove sensitive data
-      leaderboard = leaderboardData.map((user) => {
-        const isHidden = Boolean(user.hide_identity);
-        return {
-          total_points: user.total_points,
-          display_name: user.display_name,
-          avatar_url: user.avatar_url, // Already NULL if hidden
-          hide_identity: isHidden,
-          leaderboard_visibility: Boolean(user.leaderboard_visibility),
-          user_rank: user.user_rank,
-          // Do NOT include user_id or username to protect anonymity
-        };
-      });
-
-      // Cache the result for 5 minutes
-      try {
-        const redisClient = require("../utils/redisClient");
-        if (redisClient) {
-          await redisClient.setex(cacheKey, 300, JSON.stringify(leaderboard));
-        }
-      } catch (redisError) {
-        console.log("Redis not available for caching");
-      }
-    }
-
-    res.json({
-      success: true,
-      data: leaderboard,
-      cached: leaderboard ? true : false,
+    const result = await campParticipantService.getLeaderboard({
+      campId: id,
+      limit: parseInt(limit),
     });
+
+    if (result.status === 404) {
+      return res.status(404).json(result.body);
+    }
+
+    res.json(result.body);
   } catch (error) {
     console.error("Error fetching leaderboard:", error);
     res.status(500).json({
@@ -2302,6 +667,13 @@ const updateCamp = async (req, res) => {
     const updateFields = [];
     const values = [];
 
+    // Convert start_date from ISO string to MySQL DATE format
+    let formattedStartDate = start_date;
+    if (start_date) {
+      // Extract YYYY-MM-DD from ISO string or Date object
+      formattedStartDate = start_date.split("T")[0];
+    }
+
     if (name !== undefined) {
       updateFields.push("name = ?");
       values.push(name);
@@ -2318,9 +690,9 @@ const updateCamp = async (req, res) => {
       updateFields.push("surah_name = ?");
       values.push(surah_name);
     }
-    if (start_date !== undefined) {
+    if (formattedStartDate !== undefined) {
       updateFields.push("start_date = ?");
-      values.push(start_date);
+      values.push(formattedStartDate);
     }
     if (duration_days !== undefined) {
       updateFields.push("duration_days = ?");
@@ -2397,6 +769,19 @@ const updateCamp = async (req, res) => {
     `,
       values
     );
+
+    // إذا تم تقليل عدد الأيام، احذف المهام الزائدة
+    if (duration_days !== undefined) {
+      await db.query(
+        `DELETE FROM camp_daily_tasks 
+         WHERE camp_id = ? AND day_number > ?`,
+        [id, duration_days]
+      );
+
+      console.log(
+        `[UpdateCamp] Deleted tasks for days > ${duration_days} in camp ${id}`
+      );
+    }
 
     // التحقق من أن reopened_date تم تحديثه إذا كانت الحالة reopened
     if (status === "reopened" && reopenedDateValue) {
@@ -2576,64 +961,10 @@ const addDailyTasks = async (req, res) => {
     const { id } = req.params;
     const { tasks } = req.body;
 
-    if (!Array.isArray(tasks) || tasks.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "يجب إرسال قائمة بالمهام",
-      });
-    }
-
-    // Insert all tasks
-    for (const task of tasks) {
-      // Convert additional_links and attachments to JSON strings if they are arrays/objects
-      const additionalLinksJson = task.additional_links
-        ? typeof task.additional_links === "string"
-          ? task.additional_links
-          : JSON.stringify(task.additional_links)
-        : null;
-      const attachmentsJson = task.attachments
-        ? typeof task.attachments === "string"
-          ? task.attachments
-          : JSON.stringify(task.attachments)
-        : null;
-
-      await db.query(
-        `
-        INSERT INTO camp_daily_tasks (
-          camp_id, day_number, task_type, title, description,
-          verses_from, verses_to, tafseer_link, youtube_link,
-          additional_links, attachments,
-          order_in_day, is_optional, points, estimated_time, group_id, order_in_group
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `,
-        [
-          id,
-          task.day_number,
-          task.task_type,
-          task.title,
-          task.description,
-          task.verses_from,
-          task.verses_to,
-          task.tafseer_link,
-          task.youtube_link,
-          additionalLinksJson,
-          attachmentsJson,
-          task.order_in_day,
-          task.is_optional || false,
-          task.points || 3,
-          task.estimated_time || 30,
-          task.group_id || null,
-          task.order_in_group || null,
-        ]
-      );
-    }
-
-    res.json({
-      success: true,
-      message: "تم إضافة المهام اليومية بنجاح",
-    });
+    const result = await campTaskService.addDailyTasks({ campId: id, tasks });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error adding daily tasks:", error);
+    console.error("Error in addDailyTasks:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ في إضافة المهام",
@@ -2645,87 +976,13 @@ const addDailyTasks = async (req, res) => {
 const updateDailyTask = async (req, res) => {
   try {
     const { taskId } = req.params;
-    const {
-      day_number,
-      task_type,
-      title,
-      description,
-      verses_from,
-      verses_to,
-      tafseer_link,
-      youtube_link,
-      additional_links,
-      attachments,
-      order_in_day,
-      is_optional,
-      points,
-      estimated_time,
-      group_id,
-      order_in_group,
-    } = req.body;
-
-    // Convert additional_links and attachments to JSON strings if they are arrays/objects
-    const additionalLinksJson =
-      additional_links !== undefined
-        ? typeof additional_links === "string"
-          ? additional_links
-          : JSON.stringify(additional_links)
-        : null;
-    const attachmentsJson =
-      attachments !== undefined
-        ? typeof attachments === "string"
-          ? attachments
-          : JSON.stringify(attachments)
-        : null;
-
-    await db.query(
-      `
-      UPDATE camp_daily_tasks SET
-        day_number = COALESCE(?, day_number),
-        task_type = COALESCE(?, task_type),
-        title = COALESCE(?, title),
-        description = COALESCE(?, description),
-        verses_from = COALESCE(?, verses_from),
-        verses_to = COALESCE(?, verses_to),
-        tafseer_link = COALESCE(?, tafseer_link),
-        youtube_link = COALESCE(?, youtube_link),
-        additional_links = ?,
-        attachments = ?,
-        order_in_day = COALESCE(?, order_in_day),
-        is_optional = COALESCE(?, is_optional),
-        points = COALESCE(?, points),
-        estimated_time = COALESCE(?, estimated_time),
-        group_id = COALESCE(?, group_id),
-        order_in_group = COALESCE(?, order_in_group)
-      WHERE id = ?
-    `,
-      [
-        day_number,
-        task_type,
-        title,
-        description,
-        verses_from,
-        verses_to,
-        tafseer_link,
-        youtube_link,
-        additionalLinksJson,
-        attachmentsJson,
-        order_in_day,
-        is_optional,
-        points,
-        estimated_time,
-        group_id,
-        order_in_group,
-        taskId,
-      ]
-    );
-
-    res.json({
-      success: true,
-      message: "تم تحديث المهمة بنجاح",
+    const result = await campTaskService.updateDailyTask({
+      taskId,
+      ...req.body,
     });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error updating daily task:", error);
+    console.error("Error in updateDailyTask:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ في تحديث المهمة",
@@ -2738,22 +995,10 @@ const getCampDayChallenges = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const [rows] = await db.query(
-      `
-        SELECT day_number, title, description
-        FROM camp_day_challenges
-        WHERE camp_id = ?
-        ORDER BY day_number
-      `,
-      [id]
-    );
-
-    res.json({
-      success: true,
-      data: rows,
-    });
+    const result = await campTaskService.getCampDayChallenges({ campId: id });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error fetching day challenges:", error);
+    console.error("Error in getCampDayChallenges:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ في جلب تحديات الأيام",
@@ -2767,73 +1012,16 @@ const upsertCampDayChallenge = async (req, res) => {
     const { id } = req.params;
     const { day_number, title, description } = req.body;
 
-    const dayNumber = Number(day_number);
-    const trimmedTitle = typeof title === "string" ? title.trim() : "";
-    const trimmedDescription =
-      typeof description === "string" ? description.trim() : "";
-
-    if (!Number.isInteger(dayNumber) || dayNumber <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "رقم اليوم غير صحيح",
-      });
-    }
-
-    if (!trimmedTitle || !trimmedDescription) {
-      return res.status(400).json({
-        success: false,
-        message: "عنوان التحدي ووصفه مطلوبان",
-      });
-    }
-
-    const [camps] = await db.query(
-      "SELECT duration_days FROM quran_camps WHERE id = ?",
-      [id]
-    );
-
-    if (camps.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المخيم غير موجود",
-      });
-    }
-
-    const durationDays = Number(camps[0].duration_days) || 0;
-    if (durationDays > 0 && dayNumber > durationDays) {
-      return res.status(400).json({
-        success: false,
-        message: `رقم اليوم يجب أن يكون بين 1 و ${durationDays}`,
-      });
-    }
-
-    await db.query(
-      `
-        INSERT INTO camp_day_challenges (camp_id, day_number, title, description)
-        VALUES (?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-          title = VALUES(title),
-          description = VALUES(description),
-          updated_at = CURRENT_TIMESTAMP
-      `,
-      [id, dayNumber, trimmedTitle, trimmedDescription]
-    );
-
-    const [[challenge]] = await db.query(
-      `
-        SELECT day_number, title, description
-        FROM camp_day_challenges
-        WHERE camp_id = ? AND day_number = ?
-      `,
-      [id, dayNumber]
-    );
-
-    res.json({
-      success: true,
-      message: "تم حفظ التحدي اليومي بنجاح",
-      data: challenge,
+    const result = await campTaskService.upsertCampDayChallenge({
+      campId: id,
+      dayNumber: day_number,
+      title,
+      description,
     });
+
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error saving day challenge:", error);
+    console.error("Error in upsertCampDayChallenge:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ في حفظ التحدي اليومي",
@@ -2845,36 +1033,15 @@ const upsertCampDayChallenge = async (req, res) => {
 const deleteCampDayChallenge = async (req, res) => {
   try {
     const { id, dayNumber } = req.params;
-    const dayNum = Number(dayNumber);
 
-    if (!Number.isInteger(dayNum) || dayNum <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "رقم اليوم غير صحيح",
-      });
-    }
-
-    const [result] = await db.query(
-      `
-        DELETE FROM camp_day_challenges
-        WHERE camp_id = ? AND day_number = ?
-      `,
-      [id, dayNum]
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "لا يوجد تحدي لهذا اليوم",
-      });
-    }
-
-    res.json({
-      success: true,
-      message: "تم حذف التحدي اليومي بنجاح",
+    const result = await campTaskService.deleteCampDayChallenge({
+      campId: id,
+      dayNumber,
     });
+
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error deleting day challenge:", error);
+    console.error("Error in deleteCampDayChallenge:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ في حذف التحدي اليومي",
@@ -2886,152 +1053,19 @@ const deleteCampDayChallenge = async (req, res) => {
 const getCampAnalytics = async (req, res) => {
   try {
     const { id } = req.params;
+    const { cohort_number } = req.query;
 
-    // Get basic stats
-    const [enrollments] = await db.query(
-      `
-      SELECT 
-        COUNT(*) as total_enrollments,
-        COUNT(*) as active_enrollments,
-        COUNT(*) as completed_enrollments,
-        COALESCE(AVG(total_points), 0) as average_points
-      FROM camp_enrollments 
-      WHERE camp_id = ?
-    `,
-      [id]
-    );
-
-    // Get average progress
-    const [progressStats] = await db.query(
-      `
-      SELECT 
-        COALESCE(AVG(
-          (SELECT COUNT(*) FROM camp_task_progress ctp 
-           WHERE ctp.enrollment_id = ce.id AND ctp.completed = true) * 100.0 / 
-          NULLIF((SELECT COUNT(*) FROM camp_daily_tasks cdt WHERE cdt.camp_id = ?), 0)
-        ), 0) as average_progress
-      FROM camp_enrollments ce
-      WHERE ce.camp_id = ?
-    `,
-      [id, id]
-    );
-
-    // Get daily progress (last 30 days)
-    const [dailyProgress] = await db.query(
-      `
-      SELECT 
-        DATE(ctp.completed_at) as date,
-        COUNT(*) as completed_tasks,
-        0 as new_enrollments
-      FROM camp_task_progress ctp
-      JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
-      WHERE ce.camp_id = ? AND ctp.completed = true AND ctp.completed_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-      GROUP BY DATE(ctp.completed_at)
-      ORDER BY DATE(ctp.completed_at) ASC
-    `,
-      [id]
-    );
-
-    // Get enrollment growth over time
-    const [enrollmentGrowth] = await db.query(
-      `
-      SELECT 
-        DATE(ce.enrollment_date) as date,
-        COUNT(*) as new_enrollments
-      FROM camp_enrollments ce
-      WHERE ce.camp_id = ? 
-      GROUP BY DATE(ce.enrollment_date)
-      ORDER BY DATE(ce.enrollment_date) ASC
-    `,
-      [id]
-    );
-
-    // Merge daily progress with enrollment growth
-    const dailyProgressWithEnrollments = dailyProgress.map((day) => {
-      const enrollmentDay = enrollmentGrowth.find((e) => e.date === day.date);
-      return {
-        ...day,
-        new_enrollments: enrollmentDay?.new_enrollments || 0,
-      };
+    const result = await campAnalyticsService.getCampAnalytics({
+      campId: id,
+      cohortNumber: cohort_number,
     });
 
-    // Get retention data (daily active users)
-    const [retentionData] = await db.query(
-      `
-      SELECT 
-        DATE(ctp.completed_at) as date,
-        COUNT(DISTINCT ctp.enrollment_id) as active_users
-      FROM camp_task_progress ctp
-      JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
-      WHERE ce.camp_id = ? AND ctp.completed = true
-      GROUP BY DATE(ctp.completed_at)
-      ORDER BY DATE(ctp.completed_at) ASC
-    `,
-      [id]
-    );
-
-    // Get task completion rates
-    const [taskCompletion] = await db.query(
-      `
-      SELECT 
-        cdt.task_type,
-        COUNT(ctp.id) as total_attempts,
-        COUNT(CASE WHEN ctp.completed = true THEN 1 END) as completed_attempts,
-        COALESCE((COUNT(CASE WHEN ctp.completed = true THEN 1 END) * 100.0 / NULLIF(COUNT(ctp.id), 0)), 0) as completion_rate
-      FROM camp_daily_tasks cdt
-      LEFT JOIN camp_task_progress ctp ON cdt.id = ctp.task_id
-      WHERE cdt.camp_id = ?
-      GROUP BY cdt.task_type
-    `,
-      [id]
-    );
-
-    // Get top performers
-    const [topPerformers] = await db.query(
-      `
-      SELECT 
-        u.username,
-        ce.total_points,
-        COALESCE(ROUND(
-          (SELECT COUNT(*) FROM camp_task_progress ctp 
-           WHERE ctp.enrollment_id = ce.id AND ctp.completed = true) * 100.0 / 
-          NULLIF((SELECT COUNT(*) FROM camp_daily_tasks cdt WHERE cdt.camp_id = ?), 0),
-          2
-        ), 0) as progress_percentage
-      FROM camp_enrollments ce
-      JOIN users u ON ce.user_id = u.id
-      WHERE ce.camp_id = ?
-      ORDER BY ce.total_points DESC
-      LIMIT 10
-    `,
-      [id, id]
-    );
-
-    const responseData = {
-      totalEnrollments: enrollments[0]?.total_enrollments || 0,
-      activeEnrollments: enrollments[0]?.active_enrollments || 0,
-      completedEnrollments: enrollments[0]?.completed_enrollments || 0,
-      averageProgress: progressStats[0]?.average_progress || 0,
-      averagePoints: enrollments[0]?.average_points || 0,
-      dailyProgress: dailyProgressWithEnrollments || [],
-      taskCompletion: taskCompletion || [],
-      topPerformers: topPerformers || [],
-      enrollmentGrowth: enrollmentGrowth || [],
-      retentionData: retentionData || [],
-    };
-
-    res.json({
-      success: true,
-      data: responseData,
-    });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error fetching camp analytics:", error);
-    console.error("Error details:", error.message);
-    console.error("Stack trace:", error.stack);
+    console.error("Error in getCampAnalytics:", error);
     res.status(500).json({
       success: false,
-      message: "حدث خطأ في جلب التحليلات",
-      error: error.message,
+      message: "حدث خطأ في جلب الإحصائيات",
     });
   }
 };
@@ -3275,23 +1309,10 @@ const updateCampStatus = async (req, res) => {
 // Get admin stats
 const getAdminStats = async (req, res) => {
   try {
-    const [stats] = await db.query(`
-      SELECT 
-        COUNT(*) as total_camps,
-        COUNT(CASE WHEN status = 'early_registration' THEN 1 END) as upcoming_camps,
-        COUNT(CASE WHEN status = 'active' THEN 1 END) as active_camps,
-        COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_camps,
-        (SELECT COUNT(*) FROM camp_enrollments) as total_enrollments,
-        (SELECT COUNT(DISTINCT user_id) FROM camp_enrollments) as unique_users
-      FROM quran_camps
-    `);
-
-    res.json({
-      success: true,
-      data: stats[0],
-    });
+    const result = await campAnalyticsService.getAdminStats();
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error fetching admin stats:", error);
+    console.error("Error in getAdminStats:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ في جلب الإحصائيات",
@@ -3404,50 +1425,14 @@ const getMyStreak = async (req, res) => {
     const { campId } = req.params;
     const userId = req.user.id;
 
-    const connection = await db.getConnection();
-
-    // Get current cohort number
-    const [camps] = await connection.execute(
-      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
-      [campId]
-    );
-    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
-
-    // جلب enrollment for current cohort
-    const [enrollments] = await connection.execute(
-      `SELECT id, current_streak, longest_streak, last_activity_date
-       FROM camp_enrollments 
-       WHERE user_id = ? AND camp_id = ? AND cohort_number = ?`,
-      [userId, campId, currentCohortNumber]
-    );
-
-    if (!enrollments.length) {
-      connection.release();
-      return res
-        .status(404)
-        .json({ success: false, message: "لم يتم العثور على التسجيل" });
-    }
-
-    const enrollment = enrollments[0];
-
-    // حساب الـ streak المحدث
-    const streakInfo = await calculateStreak(enrollment.id);
-
-    connection.release();
-
-    res.json({
-      success: true,
-      data: {
-        currentStreak: streakInfo.current,
-        longestStreak: streakInfo.longest,
-        lastActivityDate: enrollment.last_activity_date,
-      },
-    });
+    const result = await campProgressService.getMyStreak({ campId, userId });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error getting streak:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "خطأ في جلب معلومات الـ Streak" });
+    console.error("Error in getMyStreak:", error);
+    res.status(500).json({
+      success: false,
+      message: "خطأ في جلب معلومات الـ Streak",
+    });
   }
 };
 
@@ -3548,98 +1533,14 @@ const getMyStats = async (req, res) => {
     const { campId } = req.params;
     const userId = req.user.id;
 
-    const connection = await db.getConnection();
-
-    // Get current cohort number
-    const [camps] = await connection.execute(
-      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
-      [campId]
-    );
-    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
-
-    // جلب معلومات الـ enrollment for current cohort
-    const [enrollments] = await connection.execute(
-      `SELECT id, total_points, current_streak, longest_streak, last_activity_date
-       FROM camp_enrollments 
-       WHERE user_id = ? AND camp_id = ? AND cohort_number = ?`,
-      [userId, campId, currentCohortNumber]
-    );
-
-    if (!enrollments.length) {
-      connection.release();
-      return res
-        .status(404)
-        .json({ success: false, message: "لم يتم العثور على التسجيل" });
-    }
-
-    const enrollment = enrollments[0];
-
-    // جلب إحصائيات المهام
-    const [taskStats] = await connection.execute(
-      `SELECT 
-        COUNT(*) as total_tasks,
-        SUM(CASE WHEN completed = 1 THEN 1 ELSE 0 END) as completed_tasks,
-        AVG(CASE WHEN completed = 1 THEN LENGTH(notes) ELSE 0 END) as avg_words_per_task
-       FROM camp_task_progress 
-       WHERE enrollment_id = ?`,
-      [enrollment.id]
-    );
-
-    // جلب أفضل يوم (اليوم الذي أكمل فيه أكثر مهام)
-    const [bestDay] = await connection.execute(
-      `SELECT 
-        DATE(completed_at) as completion_date,
-        COUNT(*) as tasks_completed
-       FROM camp_task_progress 
-       WHERE enrollment_id = ? AND completed = 1
-       GROUP BY DATE(completed_at)
-       ORDER BY tasks_completed DESC
-       LIMIT 1`,
-      [enrollment.id]
-    );
-
-    // حساب الوقت المستغرق (تقريبي)
-    const [timeStats] = await connection.execute(
-      `SELECT 
-        MIN(completed_at) as first_completion,
-        MAX(completed_at) as last_completion
-       FROM camp_task_progress 
-       WHERE enrollment_id = ? AND completed = 1`,
-      [enrollment.id]
-    );
-
-    let totalTimeSpent = 0;
-    if (
-      timeStats.length > 0 &&
-      timeStats[0].first_completion &&
-      timeStats[0].last_completion
-    ) {
-      const firstDate = new Date(timeStats[0].first_completion);
-      const lastDate = new Date(timeStats[0].last_completion);
-      totalTimeSpent = Math.ceil(
-        (lastDate - firstDate) / (1000 * 60 * 60 * 24)
-      ); // أيام
-    }
-
-    connection.release();
-
-    res.json({
-      success: true,
-      data: {
-        totalTimeSpent: totalTimeSpent,
-        averageWordsPerTask: Math.round(taskStats[0].avg_words_per_task || 0),
-        bestDay: bestDay.length > 0 ? bestDay[0].completion_date : null,
-        currentStreak: enrollment.current_streak || 0,
-        longestStreak: enrollment.longest_streak || 0,
-        totalTasksCompleted: taskStats[0].completed_tasks || 0,
-        totalTasks: taskStats[0].total_tasks || 0,
-        totalPoints: enrollment.total_points || 0,
-        lastActivityDate: enrollment.last_activity_date,
-      },
-    });
+    const result = await campProgressService.getMyStats({ campId, userId });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error getting user stats:", error);
-    res.status(500).json({ success: false, message: "خطأ في جلب الإحصائيات" });
+    console.error("Error in getMyStats:", error);
+    res.status(500).json({
+      success: false,
+      message: "خطأ في جلب الإحصائيات",
+    });
   }
 };
 
@@ -3659,379 +1560,19 @@ const getStudyHallContent = async (req, res) => {
     } = req.query;
     const userId = req.user.id;
 
-    // Validate pagination parameters
-    const pageNum = Math.max(1, parseInt(page)) || 1;
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit))) || 20; // Max 100 items per page
-    const offset = (pageNum - 1) * limitNum;
-
-    // Get camp details with current cohort
-    const [camps] = await db.query(
-      `SELECT *, COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
-      [id]
-    );
-
-    if (camps.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المخيم غير موجود",
-      });
-    }
-
-    const camp = camps[0];
-    const currentCohortNumber = camp.current_cohort_number || 1;
-
-    // Get user's enrollment for current cohort
-    const [enrollments] = await db.query(
-      `SELECT * FROM camp_enrollments WHERE user_id = ? AND camp_id = ? AND cohort_number = ?`,
-      [userId, id, currentCohortNumber]
-    );
-
-    if (enrollments.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "لست مسجلاً في هذا المخيم",
-      });
-    }
-
-    // Get user's completed tasks with their journal entries and notes
-    let query = `
-      SELECT 
-        cdt.id as task_id,
-        cdt.title,
-        cdt.description,
-        cdt.day_number,
-        cdt.points,
-        ctp.id as progress_id,
-        ctp.journal_entry,
-        ctp.notes,
-        ctp.is_private,
-        ctp.proposed_step,
-        ctp.completed_at,
-        ctp.created_at,
-        ctp.upvote_count,
-        ctp.save_count,
-        COALESCE(pledge_counts.pledge_count, 0) as pledge_count,
-        CASE 
-          WHEN EXISTS(SELECT 1 FROM reflection_upvotes ru WHERE ru.user_id = ? AND ru.progress_id = ctp.id) THEN 1
-          ELSE 0
-        END as is_upvoted_by_user,
-        CASE 
-          WHEN EXISTS(SELECT 1 FROM user_saved_reflections usr WHERE usr.user_id = ? AND usr.progress_id = ctp.id) THEN 1
-          ELSE 0
-        END as is_saved_by_user,
-        CASE 
-          WHEN EXISTS(SELECT 1 FROM joint_step_pledges jsp WHERE jsp.progress_id = ctp.id AND jsp.pledger_user_id = ?) THEN 1
-          ELSE 0
-        END as is_pledged_by_user
-      FROM camp_daily_tasks cdt
-      LEFT JOIN camp_task_progress ctp ON cdt.id = ctp.task_id 
-        AND ctp.enrollment_id = ? 
-        AND ctp.completed = 1
-      LEFT JOIN (
-        SELECT progress_id, COUNT(*) as pledge_count
-        FROM joint_step_pledges
-        GROUP BY progress_id
-      ) pledge_counts ON ctp.id = pledge_counts.progress_id
-      WHERE cdt.camp_id = ?
-    `;
-
-    const params = [userId, userId, userId, enrollments[0].id, id];
-
-    // Filter by day if specified
-    if (day) {
-      query += ` AND cdt.day_number = ?`;
-      params.push(day);
-    }
-
-    query += ` ORDER BY cdt.day_number DESC, ctp.completed_at DESC`;
-
-    const [tasks] = await db.query(query, params);
-
-    // Get shared content from other users (anonymized)
-    // IMPORTANT: Never fetch real username/avatar if hide_identity is true
-    // IMPORTANT: Only fetch public content (is_private = false or NULL for backward compatibility)
-    let sharedQuery = `
-      SELECT 
-        cdt.title,
-        cdt.description,
-        cdt.day_number,
-        cdt.points,
-        ctp.id as progress_id,
-        ctp.journal_entry,
-        ctp.notes,
-        ctp.proposed_step,
-        ctp.completed_at,
-        ctp.upvote_count,
-        ctp.save_count,
-        cs.hide_identity,
-        COALESCE(pledge_counts.pledge_count, 0) as pledge_count,
-        CASE 
-          WHEN COALESCE(cs.hide_identity, false) = true THEN CONCAT('مشارك مجهول')
-          ELSE u.username
-        END as author_name,
-        CASE 
-          WHEN COALESCE(cs.hide_identity, false) = true THEN NULL
-          ELSE u.avatar_url
-        END as avatar_url,
-        CASE 
-          WHEN EXISTS(SELECT 1 FROM reflection_upvotes ru WHERE ru.user_id = ? AND ru.progress_id = ctp.id) THEN 1
-          ELSE 0
-        END as is_upvoted_by_user,
-        CASE 
-          WHEN EXISTS(SELECT 1 FROM user_saved_reflections usr WHERE usr.user_id = ? AND usr.progress_id = ctp.id) THEN 1
-          ELSE 0
-        END as is_saved_by_user,
-        CASE 
-          WHEN EXISTS(SELECT 1 FROM joint_step_pledges jsp WHERE jsp.progress_id = ctp.id AND jsp.pledger_user_id = ?) THEN 1
-          ELSE 0
-        END as is_pledged_by_user
-      FROM camp_daily_tasks cdt
-      JOIN camp_task_progress ctp ON cdt.id = ctp.task_id 
-      JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
-      LEFT JOIN camp_settings cs ON ce.id = cs.enrollment_id
-      JOIN users u ON ce.user_id = u.id
-      LEFT JOIN (
-        SELECT progress_id, COUNT(*) as pledge_count
-        FROM joint_step_pledges
-        GROUP BY progress_id
-      ) pledge_counts ON ctp.id = pledge_counts.progress_id
-      WHERE cdt.camp_id = ? 
-        AND ce.cohort_number = ?
-        AND ctp.completed = 1
-        AND ctp.journal_entry IS NOT NULL 
-        AND ctp.journal_entry != ''
-        AND ce.user_id != ?
-        AND (ctp.is_private IS NULL OR ctp.is_private = false)
-    `;
-
-    const sharedParams = [
-      userId,
-      userId,
-      userId,
+    const result = await campProgressService.getStudyHallContent({
       id,
-      currentCohortNumber,
+      day,
+      page,
+      limit,
+      sort,
+      author_filter,
+      date_from,
+      date_to,
+      search,
       userId,
-    ];
-
-    if (day) {
-      sharedQuery += ` AND cdt.day_number = ?`;
-      sharedParams.push(day);
-    }
-
-    // Filter by author (username search)
-    if (author_filter && author_filter.trim() !== "") {
-      sharedQuery += ` AND (u.username LIKE ? OR u.username = ?)`;
-      const authorPattern = `%${author_filter.trim()}%`;
-      sharedParams.push(authorPattern, author_filter.trim());
-    }
-
-    // Filter by date range
-    if (date_from) {
-      sharedQuery += ` AND DATE(ctp.completed_at) >= ?`;
-      sharedParams.push(date_from);
-    }
-    if (date_to) {
-      sharedQuery += ` AND DATE(ctp.completed_at) <= ?`;
-      sharedParams.push(date_to);
-    }
-
-    // Search in content
-    if (search && search.trim() !== "") {
-      sharedQuery += ` AND (
-        ctp.journal_entry LIKE ? OR 
-        ctp.notes LIKE ? OR 
-        cdt.title LIKE ?
-      )`;
-      const searchPattern = `%${search.trim()}%`;
-      sharedParams.push(searchPattern, searchPattern, searchPattern);
-    }
-
-    // Apply sorting
-    let orderByClause = "ctp.completed_at DESC"; // Default: newest first
-    if (sort === "helpful") {
-      orderByClause = "ctp.upvote_count DESC, ctp.completed_at DESC";
-    } else if (sort === "saved") {
-      orderByClause = "ctp.save_count DESC, ctp.completed_at DESC";
-    }
-
-    sharedQuery += ` ORDER BY ${orderByClause}`;
-
-    // Remove LIMIT 10 to get all shared content for proper pagination
-    const [sharedContent] = await db.query(sharedQuery, sharedParams);
-
-    // Format the content
-    const studyHallContent = [];
-
-    // Get current user info and check if they want to hide identity
-    const [userInfo] = await db.query(
-      `
-      SELECT 
-        u.username, 
-        u.avatar_url,
-        COALESCE(cs.hide_identity, false) as hide_identity
-      FROM users u
-      LEFT JOIN camp_settings cs ON cs.enrollment_id = ?
-      WHERE u.id = ?
-      `,
-      [enrollments[0].id, userId]
-    );
-
-    const currentUser = userInfo[0] || {};
-    const isCurrentUserHidden = Boolean(currentUser.hide_identity);
-
-    // Add user's own content
-    // Use display name based on hide_identity setting
-    const displayName = isCurrentUserHidden
-      ? "أنت"
-      : currentUser.username || "أنت";
-    const displayAvatar = isCurrentUserHidden ? null : currentUser.avatar_url;
-
-    tasks.forEach((task) => {
-      // فقط أضف التدبرات غير الشخصية في قاعة التدارس
-      // is_private قد يكون null أو 0 (false) أو 1 (true) من MySQL
-      const isPrivate =
-        task.is_private === 1 ||
-        task.is_private === true ||
-        task.is_private === "1";
-
-      if (task.journal_entry && !isPrivate) {
-        studyHallContent.push({
-          id: `user-${task.task_id}`,
-          progress_id: task.progress_id,
-          type: "user_reflection",
-          title: `تدبر: ${task.title}`,
-          content: task.journal_entry,
-          day: task.day_number,
-          points: task.points,
-          completed_at: task.completed_at,
-          is_own: true,
-          is_private: false, // التدبرات في قاعة التدارس دائماً غير شخصية
-          userName: displayName,
-          avatar_url: displayAvatar,
-          upvote_count: task.upvote_count || 0,
-          save_count: task.save_count || 0,
-          is_upvoted_by_user: task.is_upvoted_by_user || 0,
-          is_saved_by_user: task.is_saved_by_user || 0,
-          pledge_count:
-            task.pledge_count !== undefined && task.pledge_count !== null
-              ? task.pledge_count
-              : 0,
-          is_pledged_by_user: task.is_pledged_by_user || 0,
-          proposed_step: task.proposed_step || null,
-        });
-      }
-
-      // فقط أضف الفوائد غير الشخصية في قاعة التدارس
-      if (task.notes && !isPrivate) {
-        studyHallContent.push({
-          id: `user-notes-${task.task_id}`,
-          progress_id: task.progress_id,
-          type: "user_benefits",
-          title: `فوائد: ${task.title}`,
-          content: task.notes,
-          day: task.day_number,
-          points: task.points,
-          completed_at: task.completed_at,
-          is_own: true,
-          is_private: false, // الفوائد في قاعة التدارس دائماً غير شخصية
-          userName: displayName,
-          avatar_url: displayAvatar,
-          upvote_count: task.upvote_count || 0,
-          save_count: task.save_count || 0,
-          is_upvoted_by_user: task.is_upvoted_by_user || 0,
-          is_saved_by_user: task.is_saved_by_user || 0,
-          pledge_count:
-            task.pledge_count !== undefined && task.pledge_count !== null
-              ? task.pledge_count
-              : 0,
-          is_pledged_by_user: task.is_pledged_by_user || 0,
-          proposed_step: task.proposed_step || null,
-        });
-      }
     });
-
-    // Add shared content from other users
-    // IMPORTANT: Only use author_name and avatar_url (already sanitized in query)
-    sharedContent.forEach((content, index) => {
-      studyHallContent.push({
-        id: `shared-${index}`,
-        progress_id: content.progress_id,
-        type: "shared_reflection",
-        title: `تدبر من ${content.author_name}: ${content.title}`,
-        content: content.journal_entry,
-        day: content.day_number,
-        points: content.points,
-        completed_at: content.completed_at,
-        is_own: false,
-        is_private: false, // المحتوى المشترك دائماً غير شخصي
-        userName: content.author_name, // Already sanitized (مشارك مجهول if hidden)
-        avatar_url: content.avatar_url, // Already NULL if hidden
-        upvote_count: content.upvote_count || 0,
-        save_count: content.save_count || 0,
-        is_upvoted_by_user: content.is_upvoted_by_user || 0,
-        is_saved_by_user: content.is_saved_by_user || 0,
-        pledge_count:
-          content.pledge_count !== undefined && content.pledge_count !== null
-            ? content.pledge_count
-            : 0,
-        is_pledged_by_user: content.is_pledged_by_user || 0,
-        proposed_step: content.proposed_step || null,
-      });
-    });
-
-    // Sort by completion date or other criteria
-    if (sort === "newest") {
-      studyHallContent.sort(
-        (a, b) => new Date(b.completed_at || 0) - new Date(a.completed_at || 0)
-      );
-    } else if (sort === "helpful") {
-      studyHallContent.sort((a, b) => {
-        if (b.upvote_count !== a.upvote_count) {
-          return b.upvote_count - a.upvote_count;
-        }
-        return new Date(b.completed_at || 0) - new Date(a.completed_at || 0);
-      });
-    } else if (sort === "saved") {
-      studyHallContent.sort((a, b) => {
-        if (b.save_count !== a.save_count) {
-          return b.save_count - a.save_count;
-        }
-        return new Date(b.completed_at || 0) - new Date(a.completed_at || 0);
-      });
-    }
-
-    // Get total count before pagination
-    const totalItems = studyHallContent.length;
-    const userContentCount = studyHallContent.filter(
-      (item) => item.is_own
-    ).length;
-    const sharedContentCount = studyHallContent.filter(
-      (item) => !item.is_own
-    ).length;
-
-    // Apply pagination
-    const paginatedContent = studyHallContent.slice(offset, offset + limitNum);
-
-    res.json({
-      success: true,
-      data: {
-        camp_id: camp.id,
-        camp_name: camp.name,
-        surah_name: camp.surah_name,
-        day: day || null,
-        content: paginatedContent,
-        pagination: {
-          page: pageNum,
-          limit: limitNum,
-          total_items: totalItems,
-          total_pages: Math.ceil(totalItems / limitNum),
-          has_next: offset + limitNum < totalItems,
-          has_prev: pageNum > 1,
-        },
-        user_content_count: userContentCount,
-        shared_content_count: sharedContentCount,
-      },
-    });
+    return res.status(result.status).json(result.body);
   } catch (error) {
     console.error("Error getting study hall content:", error);
     res.status(500).json({
@@ -4045,295 +1586,58 @@ const getStudyHallContent = async (req, res) => {
 const removeUserFromCamp = async (req, res) => {
   const { campId, userId } = req.params;
 
-  try {
-    // بدء معاملة قاعدة البيانات
-    await db.query("START TRANSACTION");
-
-    try {
-      // 1. حذف بيانات المستخدم من المخيم المحدد فقط
-      await db.query(
-        "DELETE FROM camp_enrollments WHERE camp_id = ? AND user_id = ?",
-        [campId, userId]
-      );
-
-      // 2. حذف تقدم المهام للمستخدم في هذا المخيم
-      await db.query(
-        `
-        DELETE ctp FROM camp_task_progress ctp
-        INNER JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
-        WHERE ce.camp_id = ? AND ce.user_id = ?
-      `,
-        [campId, userId]
-      );
-
-      // 3. تنظيف طلبات الصداقة المعلقة المرتبطة بهذا المخيم لهذا المستخدم
-      await db.query(
-        `DELETE fr FROM friend_requests fr
-         WHERE fr.status = 'pending'
-           AND (fr.sender_id = ? OR fr.receiver_id = ?)
-           AND (
-             fr.sender_id IN (SELECT user_id FROM camp_enrollments WHERE camp_id = ?)
-             OR fr.receiver_id IN (SELECT user_id FROM camp_enrollments WHERE camp_id = ?)
-           )`,
-        [userId, userId, campId, campId]
-      );
-
-      // تأكيد المعاملة
-      await db.query("COMMIT");
-
-      res.status(200).json({
-        status: "success",
-        message: "تم حذف المستخدم من المخيم بنجاح",
-      });
-    } catch (error) {
-      // إلغاء المعاملة في حالة الخطأ
-      await db.query("ROLLBACK");
-      throw error;
-    }
-  } catch (error) {
-    console.error("Error removing user from camp:", error);
-    res.status(500).json({
-      status: "error",
-      message: "حدث خطأ أثناء حذف المستخدم من المخيم",
-      error: error.message,
-    });
-  }
+  const result = await campUserService.removeUserFromCamp({ campId, userId });
+  return res.status(result.status).json(result.body);
 };
 
 const leaveCamp = async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
 
-  try {
-    // بدء transaction لضمان حذف جميع البيانات بشكل آمن
-    await db.query("START TRANSACTION");
-
-    // 1. الحصول على enrollment_id للمستخدم في هذا المخيم
-    const [enrollments] = await db.query(
-      "SELECT id FROM camp_enrollments WHERE camp_id = ? AND user_id = ?",
-      [id, userId]
-    );
-
-    if (enrollments.length === 0) {
-      await db.query("ROLLBACK");
-      return res.status(404).json({
-        status: "error",
-        message: "لست مسجلاً في هذا المخيم",
-      });
-    }
-
-    const enrollmentId = enrollments[0].id;
-
-    // 2. حذف تقدم المستخدم في المهام (camp_task_progress)
-    await db.query("DELETE FROM camp_task_progress WHERE enrollment_id = ?", [
-      enrollmentId,
-    ]);
-
-    // 3. حذف إشعارات المستخدم المرتبطة بالمخيم
-    await db.query(
-      "DELETE FROM camp_notifications WHERE camp_id = ? AND user_id = ?",
-      [id, userId]
-    );
-
-    // 4. حذف إحصائيات الإشعارات للمستخدم في هذا المخيم
-    await db.query("DELETE FROM camp_notification_stats WHERE user_id = ?", [
-      userId,
-    ]);
-
-    // 5. حذف إعدادات المستخدم في المخيم (camp_settings)
-    await db.query("DELETE FROM camp_settings WHERE enrollment_id = ?", [
-      enrollmentId,
-    ]);
-
-    // 6. حذف تسجيل المستخدم في المخيم (camp_enrollments)
-    await db.query(
-      "DELETE FROM camp_enrollments WHERE camp_id = ? AND user_id = ?",
-      [id, userId]
-    );
-
-    // 7. تنظيف طلبات الصداقة المعلقة المرتبطة بهذا المخيم
-    // نحذف أي طلب صداقة معلق حيث المستخدم طرف فيه والطرف الآخر ما زال مسجلاً في نفس المخيم
-    await db.query(
-      `DELETE fr FROM friend_requests fr
-       WHERE fr.status = 'pending'
-         AND (fr.sender_id = ? OR fr.receiver_id = ?)
-         AND (
-           fr.sender_id IN (SELECT user_id FROM camp_enrollments WHERE camp_id = ?)
-           OR fr.receiver_id IN (SELECT user_id FROM camp_enrollments WHERE camp_id = ?)
-         )`,
-      [userId, userId, id, id]
-    );
-
-    // تأكيد التغييرات
-    await db.query("COMMIT");
-
-    res.status(200).json({
-      status: "success",
-      message: "تم ترك المخيم بنجاح وحذف جميع البيانات المرتبطة",
-    });
-  } catch (error) {
-    // في حالة حدوث خطأ، التراجع عن جميع التغييرات
-    await db.query("ROLLBACK");
-
-    console.error("Error leaving camp:", error);
-    res.status(500).json({
-      status: "error",
-      message: "حدث خطأ أثناء ترك المخيم",
-      error: error.message,
-    });
-  }
+  const result = await campUserService.leaveCamp({ campId: id, userId });
+  return res.status(result.status).json(result.body);
 };
 
 // Get user's camp settings
 const getCampSettings = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user.id;
+  const { id } = req.params;
+  const userId = req.user.id;
+  const userRole = req.user.role;
 
-    // Get user's enrollment and settings
-    const [enrollments] = await db.query(
-      `
-            SELECT
-              ce.*,
-              COALESCE(cs.hide_identity, false) as hide_identity,
-              COALESCE(cs.notifications_enabled, true) as notifications_enabled,
-              COALESCE(cs.daily_reminders, true) as daily_reminders,
-              COALESCE(cs.achievement_notifications, true) as achievement_notifications,
-              COALESCE(cs.leaderboard_visibility, true) as leaderboard_visibility
-            FROM camp_enrollments ce
-            LEFT JOIN camp_settings cs ON ce.id = cs.enrollment_id
-            WHERE ce.camp_id = ? AND ce.user_id = ?
-          `,
-      [id, userId]
-    );
+  const result = await campUserService.getCampSettings({
+    campId: id,
+    userId,
+    userRole,
+  });
 
-    if (enrollments.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "لست مسجلاً في هذا المخيم",
-      });
-    }
-
-    const settings = {
-      hide_identity: Boolean(enrollments[0].hide_identity),
-      notifications_enabled: Boolean(enrollments[0].notifications_enabled),
-      daily_reminders: Boolean(enrollments[0].daily_reminders),
-      achievement_notifications: Boolean(
-        enrollments[0].achievement_notifications
-      ),
-      leaderboard_visibility: Boolean(enrollments[0].leaderboard_visibility),
-    };
-
-    res.json({
-      success: true,
-      data: settings,
-    });
-  } catch (error) {
-    console.error("Error fetching camp settings:", error);
-    res.status(500).json({
-      success: false,
-      message: "حدث خطأ في جلب الإعدادات",
-      error: error.message,
-    });
-  }
+  return res.status(result.status).json(result.body);
 };
 
 // Update user's camp settings
 const updateCampSettings = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user.id;
-    const {
-      hide_identity,
-      notifications_enabled,
-      daily_reminders,
-      achievement_notifications,
-      leaderboard_visibility,
-    } = req.body;
+  const { id } = req.params;
+  const userId = req.user.id;
+  const userRole = req.user.role;
+  const {
+    hide_identity,
+    notifications_enabled,
+    daily_reminders,
+    achievement_notifications,
+    leaderboard_visibility,
+  } = req.body;
 
-    // Get user's enrollment
-    const [enrollments] = await db.query(
-      "SELECT id FROM camp_enrollments WHERE camp_id = ? AND user_id = ?",
-      [id, userId]
-    );
+  const result = await campUserService.updateCampSettings({
+    campId: id,
+    userId,
+    userRole,
+    hide_identity,
+    notifications_enabled,
+    daily_reminders,
+    achievement_notifications,
+    leaderboard_visibility,
+  });
 
-    if (enrollments.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "لست مسجلاً في هذا المخيم",
-      });
-    }
-
-    const enrollmentId = enrollments[0].id;
-
-    // Start transaction
-    await db.query("START TRANSACTION");
-
-    try {
-      // Update or create camp settings
-      await db.query(
-        `
-              INSERT INTO camp_settings (
-                enrollment_id, hide_identity, notifications_enabled,
-                daily_reminders, achievement_notifications, leaderboard_visibility
-              ) VALUES (?, ?, ?, ?, ?, ?)
-              ON DUPLICATE KEY UPDATE
-                hide_identity = VALUES(hide_identity),
-                notifications_enabled = VALUES(notifications_enabled),
-                daily_reminders = VALUES(daily_reminders),
-                achievement_notifications = VALUES(achievement_notifications),
-                leaderboard_visibility = VALUES(leaderboard_visibility),
-                updated_at = CURRENT_TIMESTAMP
-            `,
-        [
-          enrollmentId,
-          hide_identity,
-          notifications_enabled,
-          daily_reminders,
-          achievement_notifications,
-          leaderboard_visibility,
-        ]
-      );
-
-      await db.query("COMMIT");
-
-      // Clear leaderboard cache when settings are updated
-      try {
-        const redisClient = require("../utils/redisClient");
-        if (redisClient) {
-          const cacheKey = `leaderboard_${id}_*`;
-          const keys = await redisClient.keys(cacheKey);
-          if (keys.length > 0) {
-            await redisClient.del(...keys);
-          }
-        }
-      } catch (redisError) {
-        console.log("Redis not available for cache clearing");
-      }
-
-      res.json({
-        success: true,
-        message: "تم تحديث الإعدادات بنجاح",
-        data: {
-          hide_identity: Boolean(hide_identity),
-          notifications_enabled: Boolean(notifications_enabled),
-          daily_reminders: Boolean(daily_reminders),
-          achievement_notifications: Boolean(achievement_notifications),
-          leaderboard_visibility: Boolean(leaderboard_visibility),
-        },
-      });
-    } catch (error) {
-      await db.query("ROLLBACK");
-      throw error;
-    }
-  } catch (error) {
-    console.error("Error updating camp settings:", error);
-    res.status(500).json({
-      success: false,
-      message: "حدث خطأ في تحديث الإعدادات",
-      error: error.message,
-    });
-  }
+  return res.status(result.status).json(result.body);
 };
 
 // Get admin camp settings (admin only)
@@ -4341,70 +1645,15 @@ const getAdminCampSettings = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Get camp basic info
-    const [camps] = await db.query("SELECT * FROM quran_camps WHERE id = ?", [
-      id,
-    ]);
-
-    if (camps.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المخيم غير موجود",
-      });
-    }
-
-    const camp = camps[0];
-
-    // Get admin settings from camp table or default values
-    const settings = {
-      enable_leaderboard:
-        camp.enable_leaderboard !== null
-          ? Boolean(camp.enable_leaderboard)
-          : true,
-      enable_study_hall:
-        camp.enable_study_hall !== null
-          ? Boolean(camp.enable_study_hall)
-          : true,
-      enable_public_enrollment:
-        camp.enable_public_enrollment !== null
-          ? Boolean(camp.enable_public_enrollment)
-          : true,
-      auto_start_camp:
-        camp.auto_start_camp !== null ? Boolean(camp.auto_start_camp) : false,
-      max_participants: camp.max_participants || null,
-      enable_notifications:
-        camp.enable_notifications !== null
-          ? Boolean(camp.enable_notifications)
-          : true,
-      enable_daily_reminders:
-        camp.enable_daily_reminders !== null
-          ? Boolean(camp.enable_daily_reminders)
-          : true,
-      enable_achievement_notifications:
-        camp.enable_achievement_notifications !== null
-          ? Boolean(camp.enable_achievement_notifications)
-          : true,
-      visibility_mode: camp.visibility_mode || "public", // public, private, unlisted
-      allow_user_content:
-        camp.allow_user_content !== null
-          ? Boolean(camp.allow_user_content)
-          : true,
-      enable_interactions:
-        camp.enable_interactions !== null
-          ? Boolean(camp.enable_interactions)
-          : true, // upvotes, saves
-    };
-
-    res.json({
-      success: true,
-      data: settings,
+    const result = await campSettingsService.getAdminCampSettings({
+      campId: id,
     });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error fetching admin camp settings:", error);
+    console.error("Error in getAdminCampSettings:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ في جلب إعدادات المخيم",
-      error: error.message,
     });
   }
 };
@@ -4427,102 +1676,40 @@ const updateAdminCampSettings = async (req, res) => {
       enable_interactions,
     } = req.body;
 
-    // Check if camp exists
-    const [camps] = await db.query("SELECT id FROM quran_camps WHERE id = ?", [
-      id,
-    ]);
-
-    if (camps.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المخيم غير موجود",
-      });
-    }
-
-    // Validate visibility_mode
-    const validVisibilityModes = ["public", "private", "unlisted"];
-    if (visibility_mode && !validVisibilityModes.includes(visibility_mode)) {
-      return res.status(400).json({
-        success: false,
-        message: "وضع الرؤية غير صحيح",
-      });
-    }
-
-    // Build update query dynamically
-    const updateFields = [];
-    const updateValues = [];
-
-    if (enable_leaderboard !== undefined) {
-      updateFields.push("enable_leaderboard = ?");
-      updateValues.push(enable_leaderboard ? 1 : 0);
-    }
-    if (enable_study_hall !== undefined) {
-      updateFields.push("enable_study_hall = ?");
-      updateValues.push(enable_study_hall ? 1 : 0);
-    }
-    if (enable_public_enrollment !== undefined) {
-      updateFields.push("enable_public_enrollment = ?");
-      updateValues.push(enable_public_enrollment ? 1 : 0);
-    }
-    if (auto_start_camp !== undefined) {
-      updateFields.push("auto_start_camp = ?");
-      updateValues.push(auto_start_camp ? 1 : 0);
-    }
-    if (max_participants !== undefined) {
-      updateFields.push("max_participants = ?");
-      updateValues.push(max_participants || null);
-    }
-    if (enable_notifications !== undefined) {
-      updateFields.push("enable_notifications = ?");
-      updateValues.push(enable_notifications ? 1 : 0);
-    }
-    if (enable_daily_reminders !== undefined) {
-      updateFields.push("enable_daily_reminders = ?");
-      updateValues.push(enable_daily_reminders ? 1 : 0);
-    }
-    if (enable_achievement_notifications !== undefined) {
-      updateFields.push("enable_achievement_notifications = ?");
-      updateValues.push(enable_achievement_notifications ? 1 : 0);
-    }
-    if (visibility_mode !== undefined) {
-      updateFields.push("visibility_mode = ?");
-      updateValues.push(visibility_mode);
-    }
-    if (allow_user_content !== undefined) {
-      updateFields.push("allow_user_content = ?");
-      updateValues.push(allow_user_content ? 1 : 0);
-    }
-    if (enable_interactions !== undefined) {
-      updateFields.push("enable_interactions = ?");
-      updateValues.push(enable_interactions ? 1 : 0);
-    }
-
-    if (updateFields.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "لم يتم إرسال أي إعدادات للتحديث",
-      });
-    }
-
-    updateFields.push("updated_at = CURRENT_TIMESTAMP");
-    updateValues.push(id);
-
-    // Update camp settings
-    await db.query(
-      `UPDATE quran_camps SET ${updateFields.join(", ")} WHERE id = ?`,
-      updateValues
-    );
-
-    res.json({
-      success: true,
-      message: "تم تحديث إعدادات المخيم بنجاح",
+    const result = await campSettingsService.updateAdminCampSettings({
+      campId: id,
+      enable_leaderboard,
+      enable_study_hall,
+      enable_public_enrollment,
+      auto_start_camp,
+      max_participants,
+      enable_notifications,
+      enable_daily_reminders,
+      enable_achievement_notifications,
+      visibility_mode,
+      allow_user_content,
+      enable_interactions,
     });
+
+    // Send email notifications if camp was opened
+    if (result.body.publicEnrollmentChanged) {
+      try {
+        const campNotificationController = require("./campNotificationController");
+        await campNotificationController.sendCampOpenedNotification(
+          result.body.campId,
+          result.body.campName
+        );
+      } catch (emailListError) {
+        console.error("Error sending camp opened emails:", emailListError);
+      }
+    }
+
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error updating admin camp settings:", error);
+    console.error("Error in updateAdminCampSettings:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ في تحديث إعدادات المخيم",
-      error: error.message,
     });
   }
 };
@@ -4604,8 +1791,17 @@ const getUserDetails = async (req, res) => {
 const getUserCampProgress = async (req, res) => {
   try {
     const { campId, userId } = req.params;
+    const { cohort_number } = req.query;
 
-    // Verify user is enrolled in the camp
+    // Get cohort number from query or use current cohort
+    let cohortNumber;
+    if (cohort_number) {
+      cohortNumber = parseInt(cohort_number);
+    } else {
+      cohortNumber = await getCurrentCohortNumber(campId);
+    }
+
+    // Verify user is enrolled in the camp and cohort
     const [enrollments] = await db.query(
       `
       SELECT 
@@ -4616,15 +1812,15 @@ const getUserCampProgress = async (req, res) => {
       FROM camp_enrollments ce
       JOIN quran_camps qc ON ce.camp_id = qc.id
       JOIN users u ON ce.user_id = u.id
-      WHERE ce.user_id = ? AND ce.camp_id = ?
+      WHERE ce.user_id = ? AND ce.camp_id = ? AND ce.cohort_number = ?
       `,
-      [userId, campId]
+      [userId, campId, cohortNumber]
     );
 
     if (enrollments.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "المستخدم غير مسجل في هذا المخيم",
+        message: "المستخدم غير مسجل في هذا المخيم والفوج",
       });
     }
 
@@ -4697,16 +1893,34 @@ const getUserCampProgress = async (req, res) => {
 // Get user notifications
 const getUserNotifications = async (req, res) => {
   try {
+    // التحقق من وجود المستخدم
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: "يجب تسجيل الدخول لعرض الإشعارات",
+      });
+    }
+
     const userId = req.user.id;
-    const { limit = 20, offset = 0 } = req.query;
+    const { limit = 20, offset, page } = req.query;
+
+    // Support both offset and page parameters
+    let calculatedOffset = 0;
+    if (offset !== undefined) {
+      calculatedOffset = parseInt(offset);
+    } else if (page !== undefined) {
+      calculatedOffset = (parseInt(page) - 1) * parseInt(limit);
+    }
 
     const notifications = await CampNotificationService.getUserNotifications(
-      userId,
+      userId || null,
       parseInt(limit),
-      parseInt(offset)
+      calculatedOffset
     );
 
-    const unreadCount = await CampNotificationService.getUnreadCount(userId);
+    const unreadCount = await CampNotificationService.getUnreadCount(
+      userId || null
+    );
 
     res.json({
       success: true,
@@ -4715,7 +1929,10 @@ const getUserNotifications = async (req, res) => {
         unreadCount,
         pagination: {
           limit: parseInt(limit),
-          offset: parseInt(offset),
+          offset: calculatedOffset,
+          page: page
+            ? parseInt(page)
+            : Math.floor(calculatedOffset / parseInt(limit)) + 1,
           hasMore: notifications.length === parseInt(limit),
         },
       },
@@ -4778,10 +1995,13 @@ const getMyActionPlan = async (req, res) => {
     const { id } = req.params; // camp_id
     const userId = req.user.id;
 
-    // Verify user is enrolled in the camp
+    // Get current cohort number
+    const currentCohortNumber = await getCurrentCohortNumber(id);
+
+    // Verify user is enrolled in the camp (current cohort)
     const [enrollment] = await db.query(
-      "SELECT * FROM camp_enrollments WHERE user_id = ? AND camp_id = ?",
-      [userId, id]
+      "SELECT * FROM camp_enrollments WHERE user_id = ? AND camp_id = ? AND cohort_number = ?",
+      [userId, id, currentCohortNumber]
     );
 
     if (enrollment.length === 0) {
@@ -4894,10 +2114,13 @@ const createOrUpdateActionPlan = async (req, res) => {
     // تحويل إلى JSON string للتخزين
     const actionDetailsJson = JSON.stringify(actionDetails);
 
-    // Verify user is enrolled in the camp
+    // Get current cohort number
+    const currentCohortNumber = await getCurrentCohortNumber(id);
+
+    // Verify user is enrolled in the camp (current cohort)
     const [enrollment] = await db.query(
-      "SELECT * FROM camp_enrollments WHERE user_id = ? AND camp_id = ?",
-      [userId, id]
+      "SELECT * FROM camp_enrollments WHERE user_id = ? AND camp_id = ? AND cohort_number = ?",
+      [userId, id, currentCohortNumber]
     );
 
     if (enrollment.length === 0) {
@@ -5020,21 +2243,27 @@ const createOrUpdateActionPlan = async (req, res) => {
         );
         const completedCount = completedRows[0]?.completed || 0;
         if (totalTasks > 0 && completedCount >= totalTasks) {
+          // جلب الفوج الحالي
+          const campNotificationService = require("../services/campNotificationService");
+          const cohortNumber =
+            await campNotificationService.getCurrentCohortNumber(id);
+
           const [existingNotif] = await db.query(
             `SELECT id FROM camp_notifications 
-             WHERE user_id = ? AND camp_id = ? AND type = 'achievement' AND title LIKE ? LIMIT 1`,
-            [userId, id, `%أتممت رحلتك%`]
+             WHERE user_id = ? AND camp_id = ? AND type = 'achievement' AND title LIKE ? AND cohort_number = ? LIMIT 1`,
+            [userId, id, `%أتممت رحلتك%`, cohortNumber]
           );
           if (existingNotif.length === 0) {
             await db.query(
-              `INSERT INTO camp_notifications (user_id, camp_id, type, title, message)
-               VALUES (?, ?, 'achievement', ?, ?)`,
+              `INSERT INTO camp_notifications (user_id, camp_id, type, title, message, cohort_number, sent_at)
+               VALUES (?, ?, 'achievement', ?, ?, ?, NOW())`,
               [
                 userId,
                 id,
                 `🎉 أتممت رحلتك في المخيم!`,
                 `مبارك! لقد أكملت جميع مهام مخيمك. تم حفظ خطة عملك بنجاح. استمر في التطبيق العملي.
                 `,
+                cohortNumber,
               ]
             );
             const [userRows] = await db.query(
@@ -5088,333 +2317,15 @@ const getMySummary = async (req, res) => {
     const { id } = req.params; // camp_id
     const userId = req.user.id;
 
-    // Get current cohort number from camp
-    const [camps] = await db.query(
-      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
-      [id]
-    );
-    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
-
-    // Verify user is enrolled in the camp (current cohort)
-    const [enrollments] = await db.query(
-      `
-      SELECT 
-        ce.*,
-        qc.name as camp_name,
-        u.username as user_name
-      FROM camp_enrollments ce
-      JOIN quran_camps qc ON ce.camp_id = qc.id
-      JOIN users u ON ce.user_id = u.id
-      WHERE ce.user_id = ? AND ce.camp_id = ? AND ce.cohort_number = ?
-      `,
-      [userId, id, currentCohortNumber]
-    );
-
-    if (enrollments.length === 0) {
-      return res.status(403).json({
-        success: false,
-        message: "يجب عليك الاشتراك في المخيم أولاً",
-      });
-    }
-
-    const enrollment = enrollments[0];
-
-    // Get total tasks for the camp (actual total)
-    const [totalTasksResult] = await db.query(
-      "SELECT COUNT(*) as total FROM camp_daily_tasks WHERE camp_id = ?",
-      [id]
-    );
-    const totalTasksForCamp = totalTasksResult[0]?.total || 0;
-
-    // Get completed tasks count
-    const [completedTasksResult] = await db.query(
-      `
-      SELECT COUNT(*) as completed
-      FROM camp_task_progress ctp
-      WHERE ctp.enrollment_id = ? AND ctp.completed = true
-      `,
-      [enrollment.id]
-    );
-    const completedTasks = completedTasksResult[0]?.completed || 0;
-
-    // Calculate incomplete tasks
-    const incompleteTasks = Math.max(0, totalTasksForCamp - completedTasks);
-
-    // Get days completed (unique days with completed tasks)
-    const [daysCompletedResult] = await db.query(
-      `
-      SELECT COUNT(DISTINCT cdt.day_number) as days_completed
-      FROM camp_task_progress ctp
-      JOIN camp_daily_tasks cdt ON ctp.task_id = cdt.id
-      WHERE ctp.enrollment_id = ? AND ctp.completed = true
-      `,
-      [enrollment.id]
-    );
-    const daysCompleted = daysCompletedResult[0]?.days_completed || 0;
-
-    // Get reflections written (journal_entry OR notes)
-    const [reflectionsWrittenResult] = await db.query(
-      `
-      SELECT COUNT(*) as count
-      FROM camp_task_progress ctp
-      WHERE ctp.enrollment_id = ? 
-        AND (ctp.journal_entry IS NOT NULL AND ctp.journal_entry != '' 
-             OR ctp.notes IS NOT NULL AND ctp.notes != '')
-      `,
-      [enrollment.id]
-    );
-    const reflectionsWritten = reflectionsWrittenResult[0]?.count || 0;
-    const userCohortNumber = enrollment.cohort_number || currentCohortNumber;
-
-    // Get reflections saved (count of reflections the user saved from others)
-    const [reflectionsSavedResult] = await db.query(
-      `
-      SELECT COUNT(DISTINCT usr.progress_id) as count
-      FROM user_saved_reflections usr
-      JOIN camp_task_progress ctp ON usr.progress_id = ctp.id
-      JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
-      WHERE usr.user_id = ? AND ce.camp_id = ? AND ce.cohort_number = ?
-      `,
-      [userId, id, userCohortNumber]
-    );
-    const reflectionsSaved = reflectionsSavedResult[0]?.count || 0;
-
-    // Get upvotes received (total upvotes on user's reflections)
-    const [upvotesReceivedResult] = await db.query(
-      `
-      SELECT COALESCE(SUM(ctp.upvote_count), 0) as total
-      FROM camp_task_progress ctp
-      WHERE ctp.enrollment_id = ?
-        AND (ctp.journal_entry IS NOT NULL AND ctp.journal_entry != '' 
-             OR ctp.notes IS NOT NULL AND ctp.notes != '')
-      `,
-      [enrollment.id]
-    );
-    const upvotesReceived = upvotesReceivedResult[0]?.total || 0;
-
-    // Get total points
-    const totalPoints = enrollment.total_points || enrollment.points || 0;
-
-    // Get action plan
-    const [actionPlanResult] = await db.query(
-      `
-      SELECT action_details
-      FROM user_action_plans
-      WHERE user_id = ? AND camp_id = ?
-      `,
-      [userId, id]
-    );
-
-    // get camp duration days
-    const [campDurationDaysResult] = await db.query(
-      `
-      SELECT duration_days
-      FROM quran_camps
-      WHERE id = ?
-      `,
-      [id]
-    );
-
-    // Parse action_details JSON
-    let actionPlanDetails = null;
-    if (actionPlanResult[0]?.action_details) {
-      actionPlanDetails =
-        typeof actionPlanResult[0].action_details === "string"
-          ? JSON.parse(actionPlanResult[0].action_details)
-          : actionPlanResult[0].action_details;
-    }
-
-    // Get total camp days
-    const totalCampDays = campDurationDaysResult[0].duration_days || 0;
-
-    // Get longest streak from enrollment
-    const longestStreak = enrollment.longest_streak || 0;
-
-    // Get user's cohort number and total points for percentile calculation
-    const userTotalPoints = enrollment.total_points || enrollment.points || 0;
-
-    // Get upvotes given by user (count of upvotes the user gave to others in this camp)
-    const [upvotesGivenResult] = await db.query(
-      `
-      SELECT COUNT(*) as count
-      FROM reflection_upvotes ru
-      JOIN camp_task_progress ctp ON ru.progress_id = ctp.id
-      JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
-      WHERE ru.user_id = ? AND ce.camp_id = ? AND ce.cohort_number = ?
-      `,
-      [userId, id, userCohortNumber]
-    );
-    const upvotesGiven = upvotesGivenResult[0]?.count || 0;
-
-    // Get user's rank and percentile
-    // Percentile: percentage of users the current user outperformed or tied with
-    // Use cohort_number to filter enrollments to the same cohort
-
-    const [percentileResult] = await db.query(
-      `
-      SELECT 
-        (SELECT COUNT(*) FROM camp_enrollments WHERE camp_id = ? AND cohort_number = ?) as total_participants,
-        (
-          SELECT COUNT(*) 
-          FROM camp_enrollments ce2
-          WHERE ce2.camp_id = ? 
-          AND ce2.cohort_number = ?
-          AND ce2.total_points < ?
-        ) as users_below,
-        (
-          SELECT COUNT(*) 
-          FROM camp_enrollments ce3
-          WHERE ce3.camp_id = ? 
-          AND ce3.cohort_number = ?
-          AND ce3.total_points = ?
-        ) as users_tied
-      `,
-      [
-        id,
-        userCohortNumber, // total_participants
-        id,
-        userCohortNumber,
-        userTotalPoints, // users_below
-        id,
-        userCohortNumber,
-        userTotalPoints, // users_tied
-      ]
-    );
-
-    const usersBelow = percentileResult[0]?.users_below || 0;
-    const usersTied = percentileResult[0]?.users_tied || 0;
-    const totalParticipants = percentileResult[0]?.total_participants || 1;
-
-    // Calculate percentile: (users with fewer points + 0.5 * tied users) / total participants * 100
-    let percentile = null;
-
-    if (totalParticipants > 0) {
-      // Special case: if only one participant, they are at 100 percentile
-      if (totalParticipants === 1) {
-        percentile = 100;
-      } else {
-        // Include tied users in percentile calculation for better accuracy
-        percentile = Math.round(
-          ((usersBelow + (usersTied - 1) * 0.5) / totalParticipants) * 100
-        );
-        percentile = Math.max(0, Math.min(100, percentile)); // Ensure between 0-100
-
-        // If user is tied with others at the top and percentile is too low, adjust it
-        if (percentile === 0 && usersBelow === 0 && usersTied > 1) {
-          // User is tied at the top with others - show higher percentile
-          percentile = Math.min(
-            99,
-            Math.round(100 - (usersTied * 100) / totalParticipants)
-          );
-        }
-      }
-    }
-
-    // Get top reflection (reflection with most upvotes)
-    const [topReflectionResult] = await db.query(
-      `
-      SELECT 
-        COALESCE(ctp.journal_entry, ctp.notes) as reflection_text,
-        ctp.upvote_count
-      FROM camp_task_progress ctp
-      WHERE ctp.enrollment_id = ?
-        AND (ctp.journal_entry IS NOT NULL AND ctp.journal_entry != '' 
-             OR ctp.notes IS NOT NULL AND ctp.notes != '')
-        AND ctp.upvote_count > 0
-      ORDER BY ctp.upvote_count DESC
-      LIMIT 1
-      `,
-      [enrollment.id]
-    );
-    const topReflection =
-      topReflectionResult.length > 0
-        ? {
-            text: topReflectionResult[0].reflection_text,
-            upvotes: topReflectionResult[0].upvote_count,
-          }
-        : null;
-
-    // Get best performance day (day with most completed tasks)
-    const [bestDayResult] = await db.query(
-      `
-      SELECT 
-        cdt.day_number,
-        COUNT(*) as tasks_completed
-      FROM camp_task_progress ctp
-      JOIN camp_daily_tasks cdt ON ctp.task_id = cdt.id
-      WHERE ctp.enrollment_id = ? AND ctp.completed = true
-      GROUP BY cdt.day_number
-      ORDER BY tasks_completed DESC
-      LIMIT 1
-      `,
-      [enrollment.id]
-    );
-    const bestDay =
-      bestDayResult.length > 0
-        ? {
-            day: bestDayResult[0].day_number,
-            tasksCompleted: bestDayResult[0].tasks_completed,
-          }
-        : null;
-
-    // Calculate productivity rate (points per day)
-    const productivityRate =
-      daysCompleted > 0
-        ? Math.round((totalPoints / daysCompleted) * 100) / 100
-        : 0;
-
-    // Calculate attendance rate (percentage of days with activity)
-    const attendanceRate =
-      totalCampDays > 0 ? Math.round((daysCompleted / totalCampDays) * 100) : 0;
-
-    // Get total participants count (for display only - no identities) - current cohort only
-    const [totalParticipantsResult] = await db.query(
-      `SELECT COUNT(*) as count FROM camp_enrollments WHERE camp_id = ? AND cohort_number = ?`,
-      [id, userCohortNumber]
-    );
-    const totalParticipantsCount = totalParticipantsResult[0]?.count || 0;
-
-    // Calculate user's rank (position only, no other user info)
-    // Get count of users with more points (users above) - current cohort only
-    const [rankResult] = await db.query(
-      `
-      SELECT COUNT(*) as users_above
-      FROM camp_enrollments ce2
-      WHERE ce2.camp_id = ?
-      AND ce2.cohort_number = ?
-      AND ce2.total_points > ?
-      `,
-      [id, userCohortNumber, userTotalPoints]
-    );
-    const usersAbove = rankResult[0]?.users_above || 0;
-    // User's rank = users above + 1
-    const userRank = usersAbove + 1;
-
-    res.json({
-      success: true,
+    const result = await campProgressService.getMySummary({
+      id,
+      userId,
+    });
+    return res.status(result.status).json({
+      success: result.success,
+      message: result.message,
       data: {
-        campName: enrollment.camp_name,
-        userName: enrollment.user_name,
-        daysCompleted: daysCompleted,
-        totalCampDays: totalCampDays,
-        totalTasks: completedTasks, // عدد المهام المكتملة
-        totalTasksForCamp: totalTasksForCamp, // إجمالي المهام في المخيم
-        incompleteTasks: incompleteTasks, // عدد المهام غير المكتملة
-        reflectionsWritten: reflectionsWritten,
-        reflectionsSaved: reflectionsSaved,
-        upvotesReceived: upvotesReceived,
-        upvotesGiven: upvotesGiven,
-        totalPoints: totalPoints,
-        actionPlan: actionPlanDetails,
-        longestStreak: longestStreak,
-        percentile: percentile,
-        topReflection: topReflection,
-        // New statistics
-        bestDay: bestDay,
-        productivityRate: productivityRate,
-        attendanceRate: attendanceRate,
-        totalParticipants: totalParticipantsCount,
-        userRank: userRank, // Position only, respects privacy
+        ...result.data,
       },
     });
   } catch (error) {
@@ -5432,89 +2343,12 @@ const toggleUpvoteReflection = async (req, res) => {
     const { progressId } = req.params;
     const userId = req.user.id;
 
-    // Check if reflection exists and user has access
-    const [progress] = await db.query(
-      `
-      SELECT ctp.*, ce.user_id as owner_id, ce.camp_id, qc.status as camp_status
-      FROM camp_task_progress ctp
-      JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
-      JOIN quran_camps qc ON ce.camp_id = qc.id
-      WHERE ctp.id = ? AND (ctp.journal_entry IS NOT NULL OR ctp.notes IS NOT NULL)
-      `,
-      [progressId]
-    );
+    const result = await campReflectionService.toggleUpvoteReflection({
+      progressId,
+      userId,
+    });
 
-    if (progress.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "التدبر غير موجود",
-      });
-    }
-
-    // منع التفاعل في المخيمات المنتهية
-    if (progress[0].camp_status === "completed") {
-      return res.status(403).json({
-        success: false,
-        message: "لا يمكن التفاعل مع محتوى المخيمات المنتهية",
-      });
-    }
-
-    // Check if user is enrolled in the same camp
-    const [enrollment] = await db.query(
-      "SELECT * FROM camp_enrollments WHERE user_id = ? AND camp_id = ?",
-      [userId, progress[0].camp_id]
-    );
-
-    if (enrollment.length === 0) {
-      return res.status(403).json({
-        success: false,
-        message: "غير مسموح لك بالتصويت على هذا التدبر",
-      });
-    }
-
-    // Check if user already upvoted
-    const [existingUpvote] = await db.query(
-      "SELECT * FROM reflection_upvotes WHERE user_id = ? AND progress_id = ?",
-      [userId, progressId]
-    );
-
-    if (existingUpvote.length > 0) {
-      // Remove upvote
-      await db.query(
-        "DELETE FROM reflection_upvotes WHERE user_id = ? AND progress_id = ?",
-        [userId, progressId]
-      );
-
-      // Decrease upvote count
-      await db.query(
-        "UPDATE camp_task_progress SET upvote_count = upvote_count - 1 WHERE id = ?",
-        [progressId]
-      );
-
-      res.json({
-        success: true,
-        message: "تم إلغاء التصويت",
-        upvoted: false,
-      });
-    } else {
-      // Add upvote
-      await db.query(
-        "INSERT INTO reflection_upvotes (user_id, progress_id) VALUES (?, ?)",
-        [userId, progressId]
-      );
-
-      // Increase upvote count
-      await db.query(
-        "UPDATE camp_task_progress SET upvote_count = upvote_count + 1 WHERE id = ?",
-        [progressId]
-      );
-
-      res.json({
-        success: true,
-        message: "تم التصويت بنجاح",
-        upvoted: true,
-      });
-    }
+    return res.status(result.status).json(result.body);
   } catch (error) {
     console.error("Error toggling upvote:", error);
     res.status(500).json({
@@ -5530,89 +2364,12 @@ const toggleSaveReflection = async (req, res) => {
     const { progressId } = req.params;
     const userId = req.user.id;
 
-    // Check if reflection exists and user has access
-    const [progress] = await db.query(
-      `
-      SELECT ctp.*, ce.user_id as owner_id, ce.camp_id, qc.status as camp_status
-      FROM camp_task_progress ctp
-      JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
-      JOIN quran_camps qc ON ce.camp_id = qc.id
-      WHERE ctp.id = ? AND (ctp.journal_entry IS NOT NULL OR ctp.notes IS NOT NULL)
-      `,
-      [progressId]
-    );
+    const result = await campReflectionService.toggleSaveReflection({
+      progressId,
+      userId,
+    });
 
-    if (progress.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "التدبر غير موجود",
-      });
-    }
-
-    // منع التفاعل في المخيمات المنتهية
-    if (progress[0].camp_status === "completed") {
-      return res.status(403).json({
-        success: false,
-        message: "لا يمكن التفاعل مع محتوى المخيمات المنتهية",
-      });
-    }
-
-    // Check if user is enrolled in the same camp
-    const [enrollment] = await db.query(
-      "SELECT * FROM camp_enrollments WHERE user_id = ? AND camp_id = ?",
-      [userId, progress[0].camp_id]
-    );
-
-    if (enrollment.length === 0) {
-      return res.status(403).json({
-        success: false,
-        message: "غير مسموح لك بحفظ هذا التدبر",
-      });
-    }
-
-    // Check if user already saved
-    const [existingSave] = await db.query(
-      "SELECT * FROM user_saved_reflections WHERE user_id = ? AND progress_id = ?",
-      [userId, progressId]
-    );
-
-    if (existingSave.length > 0) {
-      // Remove save
-      await db.query(
-        "DELETE FROM user_saved_reflections WHERE user_id = ? AND progress_id = ?",
-        [userId, progressId]
-      );
-
-      // Decrease save count
-      await db.query(
-        "UPDATE camp_task_progress SET save_count = save_count - 1 WHERE id = ?",
-        [progressId]
-      );
-
-      res.json({
-        success: true,
-        message: "تم إلغاء الحفظ",
-        saved: false,
-      });
-    } else {
-      // Add save
-      await db.query(
-        "INSERT INTO user_saved_reflections (user_id, progress_id) VALUES (?, ?)",
-        [userId, progressId]
-      );
-
-      // Increase save count
-      await db.query(
-        "UPDATE camp_task_progress SET save_count = save_count + 1 WHERE id = ?",
-        [progressId]
-      );
-
-      res.json({
-        success: true,
-        message: "تم الحفظ بنجاح",
-        saved: true,
-      });
-    }
+    return res.status(result.status).json(result.body);
   } catch (error) {
     console.error("Error toggling save:", error);
     res.status(500).json({
@@ -5629,192 +2386,20 @@ const getSavedReflections = async (req, res) => {
     const { campId } = req.params;
     const { page = 1, limit = 10, sort = "newest" } = req.query;
 
-    const offset = (page - 1) * limit;
-
-    // Get current cohort number from camp
-    const [camps] = await db.query(
-      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
-      [campId]
-    );
-    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
-
-    // Check if user is enrolled in the camp (current cohort)
-    const [enrollment] = await db.query(
-      "SELECT * FROM camp_enrollments WHERE user_id = ? AND camp_id = ? AND cohort_number = ?",
-      [userId, campId, currentCohortNumber]
-    );
-
-    if (enrollment.length === 0) {
-      return res.status(403).json({
-        success: false,
-        message: "غير مسموح لك بالوصول لهذا المخيم",
-      });
-    }
-
-    let orderBy = "usr.created_at DESC";
-    if (sort === "oldest") {
-      orderBy = "usr.created_at ASC";
-    } else if (sort === "most_upvoted") {
-      orderBy = "ctp.upvote_count DESC";
-    } else if (sort === "most_saved") {
-      orderBy = "ctp.save_count DESC";
-    }
-
-    const [savedReflections] = await db.query(
-      `
-      SELECT 
-        ctp.id,
-        ctp.id as progress_id,
-        ctp.journal_entry,
-        ctp.notes,
-        ctp.content_rich,
-        ctp.is_private,
-        ctp.proposed_step,
-        ctp.upvote_count,
-        ctp.save_count,
-        ctp.created_at,
-        cdt.title as task_title,
-        cdt.day_number,
-        cdt.task_type,
-        u.username as author_name,
-        u.avatar_url as author_avatar,
-        cs.hide_identity,
-        usr.created_at as saved_at,
-        COALESCE(pledge_counts.pledge_count, 0) as pledge_count,
-        CASE 
-          WHEN EXISTS(SELECT 1 FROM reflection_upvotes ru WHERE ru.user_id = ? AND ru.progress_id = ctp.id) THEN 1
-          ELSE 0
-        END as is_upvoted_by_user,
-        CASE 
-          WHEN EXISTS(SELECT 1 FROM user_saved_reflections usr2 WHERE usr2.user_id = ? AND usr2.progress_id = ctp.id) THEN 1
-          ELSE 0
-        END as is_saved_by_user,
-        CASE 
-          WHEN EXISTS(SELECT 1 FROM joint_step_pledges jsp WHERE jsp.progress_id = ctp.id AND jsp.pledger_user_id = ?) THEN 1
-          ELSE 0
-        END as is_pledged_by_user
-      FROM user_saved_reflections usr
-      JOIN camp_task_progress ctp ON usr.progress_id = ctp.id
-      JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
-      JOIN camp_settings cs ON ce.id = cs.enrollment_id
-      JOIN users u ON ce.user_id = u.id
-      JOIN camp_daily_tasks cdt ON ctp.task_id = cdt.id
-      LEFT JOIN (
-        SELECT progress_id, COUNT(*) as pledge_count
-        FROM joint_step_pledges
-        GROUP BY progress_id
-      ) pledge_counts ON ctp.id = pledge_counts.progress_id
-      WHERE usr.user_id = ? AND ce.camp_id = ? AND ce.cohort_number = ?
-        AND (ctp.journal_entry IS NOT NULL OR ctp.notes IS NOT NULL)
-      ORDER BY ${orderBy}
-      LIMIT ? OFFSET ?
-      `,
-      [
-        userId,
-        userId,
-        userId,
-        userId,
-        campId,
-        currentCohortNumber,
-        parseInt(limit),
-        offset,
-      ]
-    );
-
-    // Get total count
-    const [countResult] = await db.query(
-      `
-      SELECT COUNT(*) as total
-      FROM user_saved_reflections usr
-      JOIN camp_task_progress ctp ON usr.progress_id = ctp.id
-      JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
-      WHERE usr.user_id = ? AND ce.camp_id = ? AND ce.cohort_number = ?
-        AND (ctp.journal_entry IS NOT NULL OR ctp.notes IS NOT NULL)
-      `,
-      [userId, campId, currentCohortNumber]
-    );
-
-    // Get user's own reflections (myReflections)
-    const [myReflections] = await db.query(
-      `
-      SELECT 
-        ctp.id,
-        ctp.id as progress_id,
-        ctp.journal_entry,
-        ctp.notes,
-        ctp.content_rich,
-        ctp.is_private,
-        ctp.proposed_step,
-        ctp.upvote_count,
-        ctp.save_count,
-        ctp.created_at,
-        ctp.completed_at,
-        cdt.title as task_title,
-        cdt.day_number,
-        cdt.task_type,
-        CASE 
-          WHEN EXISTS(SELECT 1 FROM reflection_upvotes ru WHERE ru.user_id = ? AND ru.progress_id = ctp.id) THEN 1
-          ELSE 0
-        END as is_upvoted_by_user,
-        CASE 
-          WHEN EXISTS(SELECT 1 FROM user_saved_reflections usr WHERE usr.user_id = ? AND usr.progress_id = ctp.id) THEN 1
-          ELSE 0
-        END as is_saved_by_user
-      FROM camp_task_progress ctp
-      JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
-      JOIN camp_daily_tasks cdt ON ctp.task_id = cdt.id
-      WHERE ce.user_id = ? AND ce.camp_id = ? AND ce.cohort_number = ?
-        AND ctp.completed = 1
-        AND (ctp.journal_entry IS NOT NULL OR ctp.notes IS NOT NULL)
-      ORDER BY ctp.completed_at DESC
-      `,
-      [userId, userId, userId, campId, currentCohortNumber]
-    );
-
-    // Get user's action plan for this camp
-    const [actionPlans] = await db.query(
-      `
-      SELECT 
-        id,
-        user_id,
-        camp_id,
-        action_details,
-        follow_up_sent,
-        created_at,
-        updated_at
-      FROM user_action_plans
-      WHERE user_id = ? AND camp_id = ?
-      `,
-      [userId, campId]
-    );
-
-    let myActionPlan = null;
-    if (actionPlans.length > 0 && actionPlans[0].action_details) {
-      myActionPlan =
-        typeof actionPlans[0].action_details === "string"
-          ? JSON.parse(actionPlans[0].action_details)
-          : actionPlans[0].action_details;
-    }
-
-    res.json({
-      success: true,
-      data: {
-        myReflections: myReflections || [],
-        savedReflections: savedReflections || [],
-        myActionPlan: myActionPlan,
-      },
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total: countResult[0].total,
-        pages: Math.ceil(countResult[0].total / limit),
-      },
+    const result = await campReflectionService.getSavedReflections({
+      userId,
+      campId,
+      page,
+      limit,
+      sort,
     });
+
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error fetching saved reflections:", error);
+    console.error("Error getting saved reflections:", error);
     res.status(500).json({
       success: false,
-      message: "حدث خطأ في جلب التدبرات المحفوظة",
+      message: "حدث خطأ في جلب الفوائد المحفوظة",
     });
   }
 };
@@ -5825,81 +2410,12 @@ const deleteReflection = async (req, res) => {
     const { progressId } = req.params;
     const userId = req.user.id;
 
-    // التحقق من وجود التدبر
-    const [reflection] = await db.query(
-      `
-      SELECT ctp.*, ce.user_id, ce.camp_id, ce.id as enrollment_id, qc.status as camp_status
-      FROM camp_task_progress ctp
-      JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
-      JOIN quran_camps qc ON ce.camp_id = qc.id
-      WHERE ctp.id = ?
-      `,
-      [progressId]
-    );
-
-    if (reflection.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "التدبر غير موجود",
-      });
-    }
-
-    // منع الحذف في المخيمات المنتهية
-    if (reflection[0].camp_status === "completed") {
-      return res.status(403).json({
-        success: false,
-        message: "لا يمكن حذف محتوى المخيمات المنتهية",
-      });
-    }
-
-    // التحقق من أن المستخدم هو صاحب التدبر
-    if (reflection[0].user_id !== userId) {
-      return res.status(403).json({
-        success: false,
-        message: "غير مسموح لك بحذف هذا التدبر",
-      });
-    }
-
-    // التحقق من وجود journal_entry قبل الحذف (لإدارة النقاط)
-    const hadJournalEntry =
-      reflection[0].journal_entry !== null &&
-      reflection[0].journal_entry !== "" &&
-      reflection[0].journal_entry.trim() !== "";
-
-    // حذف من جداول التفاعل أولاً (لضمان سلامة البيانات)
-    // 1. حذف التصويتات
-    await db.query("DELETE FROM reflection_upvotes WHERE progress_id = ?", [
+    const result = await campReflectionService.deleteReflection({
       progressId,
-    ]);
-
-    // 2. حذف الحفظات
-    await db.query("DELETE FROM user_saved_reflections WHERE progress_id = ?", [
-      progressId,
-    ]);
-
-    // 3. حذف التدبر نفسه (سيحذف journal_entry و notes)
-    await db.query(
-      "UPDATE camp_task_progress SET journal_entry = NULL, notes = NULL WHERE id = ?",
-      [progressId]
-    );
-
-    // 4. حذف 3 نقاط عند حذف الفائدة (إذا كانت موجودة)
-    if (hadJournalEntry) {
-      const JOURNAL_BONUS_POINTS = 3;
-      await db.query(
-        `
-        UPDATE camp_enrollments 
-        SET total_points = GREATEST(0, total_points - ?)
-        WHERE id = ?
-      `,
-        [JOURNAL_BONUS_POINTS, reflection[0].enrollment_id]
-      );
-    }
-
-    res.json({
-      success: true,
-      message: "تم حذف التدبر بنجاح",
+      userId,
     });
+
+    return res.status(result.status).json(result.body);
   } catch (error) {
     console.error("Error deleting reflection:", error);
     res.status(500).json({
@@ -6178,19 +2694,37 @@ const sendCampNotification = async (req, res) => {
 
     const camp = camps[0];
 
-    // Get participants based on target_type
+    // Get current cohort number - try to get from camp_cohorts if not in quran_camps
+    let currentCohortNumber = camp.current_cohort_number || null;
+
+    if (!currentCohortNumber) {
+      // Try to get from camp_cohorts table
+      const campNotificationService = require("../services/campNotificationService");
+      currentCohortNumber =
+        await campNotificationService.getCurrentCohortNumber(id);
+    }
+
+    if (!currentCohortNumber) {
+      return res.status(400).json({
+        success: false,
+        message: "لا يوجد فوج نشط حالياً. يرجى إنشاء فوج أو تفعيل فوج موجود.",
+      });
+    }
+
+    // Get participants based on target_type - only from active cohort
     let query = `
-      SELECT DISTINCT ce.user_id, u.username, u.email
+      SELECT DISTINCT ce.user_id, u.username, u.email, ce.total_points
       FROM camp_enrollments ce
       JOIN users u ON ce.user_id = u.id
       WHERE ce.camp_id = ?
+      AND ce.cohort_number = ?
     `;
-    const params = [id];
+    const params = [id, currentCohortNumber];
 
     if (target_type === "active") {
-      query += ` AND ce.completion_percentage < 100`;
+      query += ` AND ce.total_points < 100`;
     } else if (target_type === "completed") {
-      query += ` AND ce.completion_percentage >= 100`;
+      query += ` AND ce.total_points >= 100`;
     } else if (target_type === "specific") {
       if (
         !target_user_ids ||
@@ -6236,9 +2770,9 @@ const sendCampNotification = async (req, res) => {
 
         // Insert notification in database (always save, even if user disabled notifications)
         await db.query(
-          `INSERT INTO camp_notifications (user_id, camp_id, type, title, message) 
-           VALUES (?, ?, 'admin_message', ?, ?)`,
-          [participant.user_id, id, title, message]
+          `INSERT INTO camp_notifications (user_id, camp_id, type, title, message, cohort_number, sent_at) 
+           VALUES (?, ?, 'admin_message', ?, ?, ?, NOW())`,
+          [participant.user_id, id, title, message, currentCohortNumber]
         );
 
         // Send email if user has email and wants notifications
@@ -6323,73 +2857,10 @@ const getCampResources = async (req, res) => {
   try {
     const { id: campId } = req.params;
 
-    // Get all categories with their resources
-    const [categories] = await db.query(
-      `
-      SELECT 
-        crc.id,
-        crc.title,
-        crc.display_order,
-        COUNT(cr.id) as resource_count
-      FROM camp_resource_categories crc
-      LEFT JOIN camp_resources cr ON cr.category_id = crc.id
-      WHERE crc.camp_id = ?
-      GROUP BY crc.id, crc.title, crc.display_order
-      ORDER BY crc.display_order ASC, crc.created_at ASC
-      `,
-      [campId]
-    );
-
-    // Get resources for each category
-    const categoriesWithResources = await Promise.all(
-      categories.map(async (category) => {
-        const [resources] = await db.query(
-          `
-          SELECT 
-            id, title, url, resource_type, display_order, created_at
-          FROM camp_resources
-          WHERE category_id = ?
-          ORDER BY display_order ASC, created_at ASC
-          `,
-          [category.id]
-        );
-        return {
-          id: category.id,
-          title: category.title,
-          display_order: category.display_order,
-          resources: resources,
-        };
-      })
-    );
-
-    // Get resources without category
-    const [uncategorizedResources] = await db.query(
-      `
-      SELECT 
-        id, title, url, resource_type, display_order, created_at
-      FROM camp_resources
-      WHERE camp_id = ? AND category_id IS NULL
-      ORDER BY display_order ASC, created_at ASC
-      `,
-      [campId]
-    );
-
-    // Add uncategorized section if there are resources
-    if (uncategorizedResources.length > 0) {
-      categoriesWithResources.push({
-        id: null,
-        title: "موارد أخرى",
-        display_order: 999999,
-        resources: uncategorizedResources,
-      });
-    }
-
-    res.json({
-      success: true,
-      data: categoriesWithResources,
-    });
+    const result = await campResourceService.getCampResources({ campId });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error fetching camp resources:", error);
+    console.error("Error in getCampResources:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء جلب الموارد",
@@ -6404,81 +2875,13 @@ const getCampHelpGuide = async (req, res) => {
   try {
     const { id: campId } = req.params;
 
-    // Check if camp exists
-    const [camps] = await db.query(
-      `SELECT id, name FROM quran_camps WHERE id = ?`,
-      [campId]
-    );
-
-    if (camps.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المخيم غير موجود",
-      });
-    }
-
-    // Fetch articles from database grouped by section
-    const [articles] = await db.query(
-      `SELECT 
-        id,
-        title,
-        content,
-        section_id,
-        display_order,
-        created_at,
-        updated_at
-      FROM camp_help_articles
-      WHERE camp_id = ?
-      ORDER BY section_id, display_order ASC, created_at ASC`,
-      [campId]
-    );
-
-    // Group articles by section
-    const sectionsMap = new Map();
-    articles.forEach((article) => {
-      const sectionId = article.section_id || "general";
-      if (!sectionsMap.has(sectionId)) {
-        sectionsMap.set(sectionId, {
-          id: sectionId,
-          title: getSectionTitle(sectionId),
-          articles: [],
-        });
-      }
-      sectionsMap.get(sectionId).articles.push({
-        id: article.id,
-        title: article.title,
-        content: article.content,
-        display_order: article.display_order,
-        created_at: article.created_at,
-        updated_at: article.updated_at,
-      });
-    });
-
-    // Convert map to array
-    const sections = Array.from(sectionsMap.values());
-
-    // If no articles found, return default sections structure (for backward compatibility)
-    if (sections.length === 0) {
-      return res.json({
-        success: true,
-        data: {
-          sections: [],
-        },
-      });
-    }
-
-    res.json({
-      success: true,
-      data: {
-        sections: sections,
-      },
-    });
+    const result = await campHelpService.getCampHelpGuide({ campId });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error fetching help guide:", error);
+    console.error("Error in getCampHelpGuide:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء جلب دليل المساعدة",
-      error: error.message,
     });
   }
 };
@@ -6501,66 +2904,15 @@ const getSectionTitle = (sectionId) => {
 const getCampHelpFAQ = async (req, res) => {
   try {
     const { id: campId } = req.params;
-    const { category } = req.query; // Optional category filter
+    const { category } = req.query;
 
-    // Check if camp exists
-    const [camps] = await db.query(
-      `SELECT id, name FROM quran_camps WHERE id = ?`,
-      [campId]
-    );
-
-    if (camps.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المخيم غير موجود",
-      });
-    }
-
-    // Build query with optional category filter
-    let query = `
-      SELECT 
-        id,
-        question,
-        answer,
-        category,
-        display_order,
-        created_at,
-        updated_at
-      FROM camp_help_faq
-      WHERE camp_id = ?
-    `;
-    const params = [campId];
-
-    if (category) {
-      query += ` AND category = ?`;
-      params.push(category);
-    }
-
-    query += ` ORDER BY display_order ASC, created_at ASC`;
-
-    const [faqItems] = await db.query(query, params);
-
-    // Format response
-    const faqContent = faqItems.map((item) => ({
-      id: item.id,
-      question: item.question,
-      answer: item.answer,
-      category: item.category || null,
-      display_order: item.display_order,
-      created_at: item.created_at,
-      updated_at: item.updated_at,
-    }));
-
-    res.json({
-      success: true,
-      data: faqContent,
-    });
+    const result = await campHelpService.getCampHelpFAQ({ campId, category });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error fetching FAQ:", error);
+    console.error("Error in getCampHelpFAQ:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء جلب الأسئلة الشائعة",
-      error: error.message,
     });
   }
 };
@@ -6572,60 +2924,19 @@ const submitHelpFeedback = async (req, res) => {
     const userId = req.user?.id;
     const { feedback, rating, category } = req.body;
 
-    if (!feedback || feedback.trim().length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "يرجى إدخال الملاحظات",
-      });
-    }
-
-    // Validate rating if provided (should be 1-5)
-    if (rating !== undefined && (rating < 1 || rating > 5)) {
-      return res.status(400).json({
-        success: false,
-        message: "التقييم يجب أن يكون بين 1 و 5",
-      });
-    }
-
-    // Check if camp exists
-    const [camps] = await db.query(`SELECT id FROM quran_camps WHERE id = ?`, [
+    const result = await campHelpService.submitHelpFeedback({
       campId,
-    ]);
-
-    if (camps.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المخيم غير موجود",
-      });
-    }
-
-    // Save feedback to database
-    const [result] = await db.query(
-      `INSERT INTO camp_help_feedback 
-       (camp_id, user_id, feedback, rating, category, status) 
-       VALUES (?, ?, ?, ?, ?, 'pending')`,
-      [
-        campId,
-        userId || null,
-        feedback.trim(),
-        rating || null,
-        category || null,
-      ]
-    );
-
-    res.json({
-      success: true,
-      message: "شكراً لك على ملاحظاتك!",
-      data: {
-        feedback_id: result.insertId,
-      },
+      userId,
+      feedback,
+      rating,
+      category,
     });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error submitting feedback:", error);
+    console.error("Error in submitHelpFeedback:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء إرسال الملاحظات",
-      error: error.message,
     });
   }
 };
@@ -6636,56 +2947,18 @@ const submitHelpFeedback = async (req, res) => {
 const getCampHelpArticles = async (req, res) => {
   try {
     const { id: campId } = req.params;
-    const { section_id } = req.query; // Optional section filter
+    const { section_id } = req.query;
 
-    // Check if camp exists
-    const [camps] = await db.query(
-      `SELECT id, name FROM quran_camps WHERE id = ?`,
-      [campId]
-    );
-
-    if (camps.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المخيم غير موجود",
-      });
-    }
-
-    // Build query
-    let query = `
-      SELECT 
-        id,
-        camp_id,
-        title,
-        content,
-        section_id,
-        display_order,
-        created_at,
-        updated_at
-      FROM camp_help_articles
-      WHERE camp_id = ?
-    `;
-    const params = [campId];
-
-    if (section_id) {
-      query += ` AND section_id = ?`;
-      params.push(section_id);
-    }
-
-    query += ` ORDER BY section_id, display_order ASC, created_at ASC`;
-
-    const [articles] = await db.query(query, params);
-
-    res.json({
-      success: true,
-      data: articles,
+    const result = await campHelpService.getCampHelpArticles({
+      campId,
+      sectionId: section_id,
     });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error fetching help articles:", error);
+    console.error("Error in getCampHelpArticles:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء جلب مقالات المساعدة",
-      error: error.message,
     });
   }
 };
@@ -6696,64 +2969,19 @@ const createCampHelpArticle = async (req, res) => {
     const { id: campId } = req.params;
     const { title, content, section_id, display_order } = req.body;
 
-    // Validation
-    if (!title || title.trim().length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "عنوان المقال مطلوب",
-      });
-    }
-
-    if (!content || content.trim().length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "محتوى المقال مطلوب",
-      });
-    }
-
-    // Check if camp exists
-    const [camps] = await db.query(`SELECT id FROM quran_camps WHERE id = ?`, [
+    const result = await campHelpService.createCampHelpArticle({
       campId,
-    ]);
-
-    if (camps.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المخيم غير موجود",
-      });
-    }
-
-    // Insert article
-    const [result] = await db.query(
-      `INSERT INTO camp_help_articles 
-       (camp_id, title, content, section_id, display_order) 
-       VALUES (?, ?, ?, ?, ?)`,
-      [
-        campId,
-        title.trim(),
-        content.trim(),
-        section_id || null,
-        display_order || 0,
-      ]
-    );
-
-    // Fetch created article
-    const [newArticle] = await db.query(
-      `SELECT * FROM camp_help_articles WHERE id = ?`,
-      [result.insertId]
-    );
-
-    res.status(201).json({
-      success: true,
-      message: "تم إنشاء المقال بنجاح",
-      data: newArticle[0],
+      title,
+      content,
+      sectionId: section_id,
+      displayOrder: display_order,
     });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error creating help article:", error);
+    console.error("Error in createCampHelpArticle:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء إنشاء المقال",
-      error: error.message,
     });
   }
 };
@@ -6764,88 +2992,20 @@ const updateCampHelpArticle = async (req, res) => {
     const { id: campId, articleId } = req.params;
     const { title, content, section_id, display_order } = req.body;
 
-    // Check if article exists and belongs to this camp
-    const [articles] = await db.query(
-      `SELECT id FROM camp_help_articles WHERE id = ? AND camp_id = ?`,
-      [articleId, campId]
-    );
-
-    if (articles.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المقال غير موجود",
-      });
-    }
-
-    // Build update query dynamically
-    const updates = [];
-    const params = [];
-
-    if (title !== undefined) {
-      if (title.trim().length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: "عنوان المقال لا يمكن أن يكون فارغاً",
-        });
-      }
-      updates.push("title = ?");
-      params.push(title.trim());
-    }
-
-    if (content !== undefined) {
-      if (content.trim().length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: "محتوى المقال لا يمكن أن يكون فارغاً",
-        });
-      }
-      updates.push("content = ?");
-      params.push(content.trim());
-    }
-
-    if (section_id !== undefined) {
-      updates.push("section_id = ?");
-      params.push(section_id || null);
-    }
-
-    if (display_order !== undefined) {
-      updates.push("display_order = ?");
-      params.push(display_order || 0);
-    }
-
-    if (updates.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "لا توجد بيانات للتحديث",
-      });
-    }
-
-    params.push(articleId, campId);
-
-    await db.query(
-      `UPDATE camp_help_articles 
-       SET ${updates.join(", ")} 
-       WHERE id = ? AND camp_id = ?`,
-      params
-    );
-
-    // Fetch updated article
-    const [updatedArticle] = await db.query(
-      `SELECT * FROM camp_help_articles WHERE id = ?`,
-      [articleId]
-    );
-
-    res.json({
-      success: true,
-      message: "تم تحديث المقال بنجاح",
-      data: updatedArticle[0],
+    const result = await campHelpService.updateCampHelpArticle({
+      campId,
+      articleId,
+      title,
+      content,
+      sectionId: section_id,
+      displayOrder: display_order,
     });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error updating help article:", error);
+    console.error("Error in updateCampHelpArticle:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء تحديث المقال",
-      error: error.message,
     });
   }
 };
@@ -6855,34 +3015,16 @@ const deleteCampHelpArticle = async (req, res) => {
   try {
     const { id: campId, articleId } = req.params;
 
-    // Check if article exists and belongs to this camp
-    const [articles] = await db.query(
-      `SELECT id FROM camp_help_articles WHERE id = ? AND camp_id = ?`,
-      [articleId, campId]
-    );
-
-    if (articles.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المقال غير موجود",
-      });
-    }
-
-    await db.query(
-      `DELETE FROM camp_help_articles WHERE id = ? AND camp_id = ?`,
-      [articleId, campId]
-    );
-
-    res.json({
-      success: true,
-      message: "تم حذف المقال بنجاح",
+    const result = await campHelpService.deleteCampHelpArticle({
+      campId,
+      articleId,
     });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error deleting help article:", error);
+    console.error("Error in deleteCampHelpArticle:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء حذف المقال",
-      error: error.message,
     });
   }
 };
@@ -6891,56 +3033,18 @@ const deleteCampHelpArticle = async (req, res) => {
 const getCampHelpFAQAdmin = async (req, res) => {
   try {
     const { id: campId } = req.params;
-    const { category } = req.query; // Optional category filter
+    const { category } = req.query;
 
-    // Check if camp exists
-    const [camps] = await db.query(
-      `SELECT id, name FROM quran_camps WHERE id = ?`,
-      [campId]
-    );
-
-    if (camps.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المخيم غير موجود",
-      });
-    }
-
-    // Build query
-    let query = `
-      SELECT 
-        id,
-        camp_id,
-        question,
-        answer,
-        category,
-        display_order,
-        created_at,
-        updated_at
-      FROM camp_help_faq
-      WHERE camp_id = ?
-    `;
-    const params = [campId];
-
-    if (category) {
-      query += ` AND category = ?`;
-      params.push(category);
-    }
-
-    query += ` ORDER BY category, display_order ASC, created_at ASC`;
-
-    const [faqItems] = await db.query(query, params);
-
-    res.json({
-      success: true,
-      data: faqItems,
+    const result = await campHelpService.getCampHelpFAQAdmin({
+      campId,
+      category,
     });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error fetching FAQ:", error);
+    console.error("Error in getCampHelpFAQAdmin:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء جلب الأسئلة الشائعة",
-      error: error.message,
     });
   }
 };
@@ -6951,64 +3055,19 @@ const createCampHelpFAQ = async (req, res) => {
     const { id: campId } = req.params;
     const { question, answer, category, display_order } = req.body;
 
-    // Validation
-    if (!question || question.trim().length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "السؤال مطلوب",
-      });
-    }
-
-    if (!answer || answer.trim().length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "الإجابة مطلوبة",
-      });
-    }
-
-    // Check if camp exists
-    const [camps] = await db.query(`SELECT id FROM quran_camps WHERE id = ?`, [
+    const result = await campHelpService.createCampHelpFAQ({
       campId,
-    ]);
-
-    if (camps.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المخيم غير موجود",
-      });
-    }
-
-    // Insert FAQ
-    const [result] = await db.query(
-      `INSERT INTO camp_help_faq 
-       (camp_id, question, answer, category, display_order) 
-       VALUES (?, ?, ?, ?, ?)`,
-      [
-        campId,
-        question.trim(),
-        answer.trim(),
-        category || null,
-        display_order || 0,
-      ]
-    );
-
-    // Fetch created FAQ
-    const [newFAQ] = await db.query(
-      `SELECT * FROM camp_help_faq WHERE id = ?`,
-      [result.insertId]
-    );
-
-    res.status(201).json({
-      success: true,
-      message: "تم إنشاء السؤال الشائع بنجاح",
-      data: newFAQ[0],
+      question,
+      answer,
+      category,
+      displayOrder: display_order,
     });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error creating FAQ:", error);
+    console.error("Error in createCampHelpFAQ:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء إنشاء السؤال الشائع",
-      error: error.message,
     });
   }
 };
@@ -7019,88 +3078,20 @@ const updateCampHelpFAQ = async (req, res) => {
     const { id: campId, faqId } = req.params;
     const { question, answer, category, display_order } = req.body;
 
-    // Check if FAQ exists and belongs to this camp
-    const [faqs] = await db.query(
-      `SELECT id FROM camp_help_faq WHERE id = ? AND camp_id = ?`,
-      [faqId, campId]
-    );
-
-    if (faqs.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "السؤال الشائع غير موجود",
-      });
-    }
-
-    // Build update query dynamically
-    const updates = [];
-    const params = [];
-
-    if (question !== undefined) {
-      if (question.trim().length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: "السؤال لا يمكن أن يكون فارغاً",
-        });
-      }
-      updates.push("question = ?");
-      params.push(question.trim());
-    }
-
-    if (answer !== undefined) {
-      if (answer.trim().length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: "الإجابة لا يمكن أن تكون فارغة",
-        });
-      }
-      updates.push("answer = ?");
-      params.push(answer.trim());
-    }
-
-    if (category !== undefined) {
-      updates.push("category = ?");
-      params.push(category || null);
-    }
-
-    if (display_order !== undefined) {
-      updates.push("display_order = ?");
-      params.push(display_order || 0);
-    }
-
-    if (updates.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "لا توجد بيانات للتحديث",
-      });
-    }
-
-    params.push(faqId, campId);
-
-    await db.query(
-      `UPDATE camp_help_faq 
-       SET ${updates.join(", ")} 
-       WHERE id = ? AND camp_id = ?`,
-      params
-    );
-
-    // Fetch updated FAQ
-    const [updatedFAQ] = await db.query(
-      `SELECT * FROM camp_help_faq WHERE id = ?`,
-      [faqId]
-    );
-
-    res.json({
-      success: true,
-      message: "تم تحديث السؤال الشائع بنجاح",
-      data: updatedFAQ[0],
+    const result = await campHelpService.updateCampHelpFAQ({
+      campId,
+      faqId,
+      question,
+      answer,
+      category,
+      displayOrder: display_order,
     });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error updating FAQ:", error);
+    console.error("Error in updateCampHelpFAQ:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء تحديث السؤال الشائع",
-      error: error.message,
     });
   }
 };
@@ -7110,34 +3101,13 @@ const deleteCampHelpFAQ = async (req, res) => {
   try {
     const { id: campId, faqId } = req.params;
 
-    // Check if FAQ exists and belongs to this camp
-    const [faqs] = await db.query(
-      `SELECT id FROM camp_help_faq WHERE id = ? AND camp_id = ?`,
-      [faqId, campId]
-    );
-
-    if (faqs.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "السؤال الشائع غير موجود",
-      });
-    }
-
-    await db.query(`DELETE FROM camp_help_faq WHERE id = ? AND camp_id = ?`, [
-      faqId,
-      campId,
-    ]);
-
-    res.json({
-      success: true,
-      message: "تم حذف السؤال الشائع بنجاح",
-    });
+    const result = await campHelpService.deleteCampHelpFAQ({ campId, faqId });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error deleting FAQ:", error);
+    console.error("Error in deleteCampHelpFAQ:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء حذف السؤال الشائع",
-      error: error.message,
     });
   }
 };
@@ -7149,49 +3119,19 @@ const createCampResource = async (req, res) => {
     const adminId = req.user.id;
     const { title, url, resource_type, category_id, display_order } = req.body;
 
-    // If category_id is provided, verify it belongs to this camp
-    if (category_id) {
-      const [categoryCheck] = await db.query(
-        `SELECT id FROM camp_resource_categories WHERE id = ? AND camp_id = ?`,
-        [category_id, campId]
-      );
-      if (categoryCheck.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: "الفئة المحددة غير موجودة أو لا تنتمي لهذا المخيم",
-        });
-      }
-    }
-
-    // Get max display_order for this category (or null category)
-    let order = display_order;
-    if (order === undefined || order === null) {
-      const [maxOrder] = await db.query(
-        `
-        SELECT COALESCE(MAX(display_order), -1) + 1 as next_order
-        FROM camp_resources
-        WHERE camp_id = ? AND (category_id = ? OR (category_id IS NULL AND ? IS NULL))
-        `,
-        [campId, category_id || null, category_id || null]
-      );
-      order = maxOrder[0].next_order;
-    }
-
-    const [result] = await db.query(
-      `
-      INSERT INTO camp_resources (camp_id, title, url, resource_type, category_id, display_order, created_by_admin_id) 
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-      `,
-      [campId, title, url, resource_type, category_id || null, order, adminId]
-    );
-
-    res.status(201).json({
-      success: true,
-      message: "تمت إضافة المورد بنجاح",
-      data: { id: result.insertId },
+    const result = await campResourceService.createCampResource({
+      campId,
+      adminId,
+      title,
+      url,
+      resourceType: resource_type,
+      categoryId: category_id,
+      displayOrder: display_order,
     });
+
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error creating camp resource:", error);
+    console.error("Error in createCampResource:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء إضافة المورد",
@@ -7205,83 +3145,18 @@ const updateCampResource = async (req, res) => {
     const { resourceId } = req.params;
     const { title, url, resource_type, category_id, display_order } = req.body;
 
-    // Get current resource to check camp_id
-    const [currentResource] = await db.query(
-      `SELECT camp_id FROM camp_resources WHERE id = ?`,
-      [resourceId]
-    );
-
-    if (currentResource.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المورد غير موجود",
-      });
-    }
-
-    const campId = currentResource[0].camp_id;
-
-    // If category_id is provided, verify it belongs to this camp
-    if (category_id !== undefined && category_id !== null) {
-      const [categoryCheck] = await db.query(
-        `SELECT id FROM camp_resource_categories WHERE id = ? AND camp_id = ?`,
-        [category_id, campId]
-      );
-      if (categoryCheck.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: "الفئة المحددة غير موجودة أو لا تنتمي لهذا المخيم",
-        });
-      }
-    }
-
-    const updateFields = [];
-    const updateValues = [];
-
-    if (title !== undefined) {
-      updateFields.push("title = ?");
-      updateValues.push(title);
-    }
-    if (url !== undefined) {
-      updateFields.push("url = ?");
-      updateValues.push(url);
-    }
-    if (resource_type !== undefined) {
-      updateFields.push("resource_type = ?");
-      updateValues.push(resource_type);
-    }
-    if (category_id !== undefined) {
-      updateFields.push("category_id = ?");
-      updateValues.push(category_id || null);
-    }
-    if (display_order !== undefined) {
-      updateFields.push("display_order = ?");
-      updateValues.push(display_order);
-    }
-
-    updateValues.push(resourceId);
-
-    const [result] = await db.query(
-      `
-      UPDATE camp_resources 
-      SET ${updateFields.join(", ")} 
-      WHERE id = ?
-      `,
-      updateValues
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المورد غير موجود",
-      });
-    }
-
-    res.json({
-      success: true,
-      message: "تم تحديث المورد بنجاح",
+    const result = await campResourceService.updateCampResource({
+      resourceId,
+      title,
+      url,
+      resourceType: resource_type,
+      categoryId: category_id,
+      displayOrder: display_order,
     });
+
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error updating camp resource:", error);
+    console.error("Error in updateCampResource:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء تحديث المورد",
@@ -7294,22 +3169,10 @@ const deleteCampResource = async (req, res) => {
   try {
     const { resourceId } = req.params;
 
-    const [result] = await db.query(`DELETE FROM camp_resources WHERE id = ?`, [
-      resourceId,
-    ]);
-
-    if (result.affectedRows === 0) {
-      return res
-        .status(404)
-        .json({ success: false, message: "المورد غير موجود" });
-    }
-
-    res.json({
-      success: true,
-      message: "تم حذف المورد بنجاح",
-    });
+    const result = await campResourceService.deleteCampResource({ resourceId });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error deleting camp resource:", error);
+    console.error("Error in deleteCampResource:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء حذف المورد",
@@ -7324,28 +3187,12 @@ const getCampResourceCategories = async (req, res) => {
   try {
     const { id: campId } = req.params;
 
-    const [categories] = await db.query(
-      `
-      SELECT 
-        crc.id,
-        crc.title,
-        crc.display_order,
-        COUNT(cr.id) as resource_count
-      FROM camp_resource_categories crc
-      LEFT JOIN camp_resources cr ON cr.category_id = crc.id
-      WHERE crc.camp_id = ?
-      GROUP BY crc.id, crc.title, crc.display_order
-      ORDER BY crc.display_order ASC, crc.created_at ASC
-      `,
-      [campId]
-    );
-
-    res.json({
-      success: true,
-      data: categories,
+    const result = await campResourceService.getCampResourceCategories({
+      campId,
     });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error fetching camp resource categories:", error);
+    console.error("Error in getCampResourceCategories:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء جلب الفئات",
@@ -7359,33 +3206,14 @@ const createCampResourceCategory = async (req, res) => {
     const { id: campId } = req.params;
     const { title } = req.body;
 
-    // Get max display_order
-    const [maxOrder] = await db.query(
-      `
-      SELECT COALESCE(MAX(display_order), -1) + 1 as next_order
-      FROM camp_resource_categories
-      WHERE camp_id = ?
-      `,
-      [campId]
-    );
-
-    const displayOrder = maxOrder[0].next_order;
-
-    const [result] = await db.query(
-      `
-      INSERT INTO camp_resource_categories (camp_id, title, display_order)
-      VALUES (?, ?, ?)
-      `,
-      [campId, title, displayOrder]
-    );
-
-    res.status(201).json({
-      success: true,
-      message: "تمت إضافة الفئة بنجاح",
-      data: { id: result.insertId },
+    const result = await campResourceService.createCampResourceCategory({
+      campId,
+      title,
     });
+
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error creating camp resource category:", error);
+    console.error("Error in createCampResourceCategory:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء إضافة الفئة",
@@ -7399,28 +3227,14 @@ const updateCampResourceCategory = async (req, res) => {
     const { categoryId } = req.params;
     const { title } = req.body;
 
-    const [result] = await db.query(
-      `
-      UPDATE camp_resource_categories 
-      SET title = ? 
-      WHERE id = ?
-      `,
-      [title, categoryId]
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "الفئة غير موجودة",
-      });
-    }
-
-    res.json({
-      success: true,
-      message: "تم تحديث الفئة بنجاح",
+    const result = await campResourceService.updateCampResourceCategory({
+      categoryId,
+      title,
     });
+
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error updating camp resource category:", error);
+    console.error("Error in updateCampResourceCategory:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء تحديث الفئة",
@@ -7434,46 +3248,13 @@ const deleteCampResourceCategory = async (req, res) => {
   try {
     const { categoryId } = req.params;
 
-    // Start transaction
-    await db.query("START TRANSACTION");
+    const result = await campResourceService.deleteCampResourceCategory({
+      categoryId,
+    });
 
-    try {
-      // Move resources to uncategorized
-      await db.query(
-        `
-        UPDATE camp_resources 
-        SET category_id = NULL 
-        WHERE category_id = ?
-        `,
-        [categoryId]
-      );
-
-      // Delete the category
-      const [result] = await db.query(
-        `DELETE FROM camp_resource_categories WHERE id = ?`,
-        [categoryId]
-      );
-
-      if (result.affectedRows === 0) {
-        await db.query("ROLLBACK");
-        return res.status(404).json({
-          success: false,
-          message: "الفئة غير موجودة",
-        });
-      }
-
-      await db.query("COMMIT");
-
-      res.json({
-        success: true,
-        message: "تم حذف الفئة بنجاح، تم نقل الموارد إلى قسم 'موارد أخرى'",
-      });
-    } catch (error) {
-      await db.query("ROLLBACK");
-      throw error;
-    }
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error deleting camp resource category:", error);
+    console.error("Error in deleteCampResourceCategory:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء حذف الفئة",
@@ -7485,43 +3266,16 @@ const deleteCampResourceCategory = async (req, res) => {
 const updateCategoryOrder = async (req, res) => {
   try {
     const { id: campId } = req.params;
-    const { categoryIds } = req.body; // Array of category IDs in desired order
+    const { categoryIds } = req.body;
 
-    if (!Array.isArray(categoryIds)) {
-      return res.status(400).json({
-        success: false,
-        message: "يجب إرسال قائمة بمعرفات الفئات",
-      });
-    }
+    const result = await campResourceService.updateCategoryOrder({
+      campId,
+      categoryIds,
+    });
 
-    // Start transaction
-    await db.query("START TRANSACTION");
-
-    try {
-      // Update display_order for each category
-      for (let i = 0; i < categoryIds.length; i++) {
-        await db.query(
-          `
-          UPDATE camp_resource_categories 
-          SET display_order = ? 
-          WHERE id = ? AND camp_id = ?
-          `,
-          [i, categoryIds[i], campId]
-        );
-      }
-
-      await db.query("COMMIT");
-
-      res.json({
-        success: true,
-        message: "تم تحديث ترتيب الفئات بنجاح",
-      });
-    } catch (error) {
-      await db.query("ROLLBACK");
-      throw error;
-    }
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error updating category order:", error);
+    console.error("Error in updateCategoryOrder:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء تحديث ترتيب الفئات",
@@ -7532,43 +3286,16 @@ const updateCategoryOrder = async (req, res) => {
 // Update resource order within a category (admin only)
 const updateResourceOrder = async (req, res) => {
   try {
-    const { categoryId, resourceIds } = req.body; // categoryId can be null for uncategorized
+    const { categoryId, resourceIds } = req.body;
 
-    if (!Array.isArray(resourceIds)) {
-      return res.status(400).json({
-        success: false,
-        message: "يجب إرسال قائمة بمعرفات الموارد",
-      });
-    }
+    const result = await campResourceService.updateResourceOrder({
+      categoryId,
+      resourceIds,
+    });
 
-    // Start transaction
-    await db.query("START TRANSACTION");
-
-    try {
-      // Update display_order for each resource
-      for (let i = 0; i < resourceIds.length; i++) {
-        await db.query(
-          `
-          UPDATE camp_resources 
-          SET display_order = ? 
-          WHERE id = ? AND (category_id = ? OR (category_id IS NULL AND ? IS NULL))
-          `,
-          [i, resourceIds[i], categoryId || null, categoryId || null]
-        );
-      }
-
-      await db.query("COMMIT");
-
-      res.json({
-        success: true,
-        message: "تم تحديث ترتيب الموارد بنجاح",
-      });
-    } catch (error) {
-      await db.query("ROLLBACK");
-      throw error;
-    }
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error updating resource order:", error);
+    console.error("Error in updateResourceOrder:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء تحديث ترتيب الموارد",
@@ -7582,39 +3309,16 @@ const updateResourceOrder = async (req, res) => {
 const getCampQuestions = async (req, res) => {
   try {
     const { id: campId } = req.params;
+    const { cohort_number } = req.query;
 
-    // Get current cohort number
-    const [camps] = await db.query(
-      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
-      [campId]
-    );
-    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
+    const result = await campQandAService.getCampQuestions({
+      campId,
+      cohortNumber: cohort_number,
+    });
 
-    const [qanda] = await db.query(
-      `
-      SELECT 
-        q.id, q.question, q.answer, q.is_answered, q.created_at, q.answered_at,
-        CASE 
-          WHEN COALESCE(cs.hide_identity, false) = true THEN 'مشارك مجهول'
-          ELSE u.username
-        END as author,
-        CASE 
-          WHEN COALESCE(cs.hide_identity, false) = true THEN NULL
-          ELSE u.avatar_url
-        END as avatar_url,
-        COALESCE(cs.hide_identity, false) as hide_identity
-      FROM camp_qanda q
-      JOIN users u ON q.user_id = u.id
-      LEFT JOIN camp_enrollments ce ON ce.user_id = u.id AND ce.camp_id = q.camp_id AND ce.cohort_number = q.cohort_number
-      LEFT JOIN camp_settings cs ON cs.enrollment_id = ce.id
-      WHERE q.camp_id = ? AND q.cohort_number = ?
-      ORDER BY q.created_at DESC
-      `,
-      [campId, currentCohortNumber]
-    );
-    res.json({ success: true, data: qanda });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error fetching camp Q&A:", error);
+    console.error("Error in getCampQuestions:", error);
     res
       .status(500)
       .json({ success: false, message: "حدث خطأ أثناء جلب الأسئلة والأجوبة" });
@@ -7628,25 +3332,15 @@ const askCampQuestion = async (req, res) => {
     const userId = req.user.id;
     const { question } = req.body;
 
-    // Get current cohort number
-    const [camps] = await db.query(
-      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
-      [campId]
-    );
-    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
-
-    const [result] = await db.query(
-      `INSERT INTO camp_qanda (camp_id, user_id, question, cohort_number) VALUES (?, ?, ?, ?)`,
-      [campId, userId, question, currentCohortNumber]
-    );
-
-    res.status(201).json({
-      success: true,
-      message: "تم إرسال سؤالك بنجاح",
-      data: { id: result.insertId },
+    const result = await campQandAService.askCampQuestion({
+      campId,
+      userId,
+      question,
     });
+
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error asking camp question:", error);
+    console.error("Error in askCampQuestion:", error);
     res
       .status(500)
       .json({ success: false, message: "حدث خطأ أثناء إرسال السؤال" });
@@ -7660,205 +3354,15 @@ const answerCampQuestion = async (req, res) => {
     const adminId = req.user.id;
     const { answer } = req.body;
 
-    const [result] = await db.query(
-      `
-      UPDATE camp_qanda 
-      SET answer = ?, is_answered = TRUE, answered_by_admin_id = ?, answered_at = NOW()
-      WHERE id = ?
-      `,
-      [answer, adminId, questionId]
-    );
+    const result = await campQandAService.answerCampQuestion({
+      questionId,
+      adminId,
+      answer,
+    });
 
-    if (result.affectedRows === 0) {
-      return res
-        .status(404)
-        .json({ success: false, message: "السؤال غير موجود" });
-    }
-
-    // Create notification for the question author
-    try {
-      const [questionData] = await db.query(
-        `SELECT q.user_id, q.camp_id, q.question, qc.name as camp_name, u.username, u.email
-         FROM camp_qanda q
-         JOIN quran_camps qc ON q.camp_id = qc.id
-         JOIN users u ON q.user_id = u.id
-         WHERE q.id = ?`,
-        [questionId]
-      );
-
-      if (questionData.length > 0) {
-        const { user_id, camp_id, camp_name, username, email } =
-          questionData[0];
-
-        // إدراج الإشعار في قاعدة البيانات (دائماً نحفظ حتى لو كان المستخدم معطل الإشعارات)
-        // نحاول أولاً بـ 'qanda_answer' وإذا فشل نستخدم 'admin_message'
-        let notificationInserted = false;
-        let notificationError = null;
-
-        try {
-          const [insertResult] = await db.query(
-            `INSERT INTO camp_notifications (user_id, camp_id, type, title, message) 
-             VALUES (?, ?, 'qanda_answer', ?, ?)`,
-            [
-              user_id,
-              camp_id,
-              "تم الرد على سؤالك",
-              `تم الرد على سؤالك في مخيم "${camp_name}"`,
-            ]
-          );
-
-          notificationInserted = true;
-        } catch (dbError) {
-          notificationError = dbError;
-
-          // محاولة استخدام 'admin_message' كبديل
-          try {
-            const [fallbackResult] = await db.query(
-              `INSERT INTO camp_notifications (user_id, camp_id, type, title, message) 
-               VALUES (?, ?, 'admin_message', ?, ?)`,
-              [
-                user_id,
-                camp_id,
-                "تم الرد على سؤالك",
-                `تم الرد على سؤالك في مخيم "${camp_name}"`,
-              ]
-            );
-
-            console.log(
-              `[Q&A Answer] ✅ Fallback notification inserted successfully! ID: ${fallbackResult.insertId}`
-            );
-            notificationInserted = true;
-          } catch (fallbackError) {
-            console.error(`[Q&A Answer] ❌❌ Fallback also failed!`, {
-              code: fallbackError.code,
-              errno: fallbackError.errno,
-              message: fallbackError.message,
-              sqlMessage: fallbackError.sqlMessage,
-              stack: fallbackError.stack,
-            });
-          }
-        }
-
-        if (!notificationInserted) {
-          console.error(
-            `[Q&A Answer] ⚠️⚠️⚠️  CRITICAL: Notification was NOT inserted into database!`
-          );
-          console.error(
-            `[Q&A Answer] notificationInserted flag: ${notificationInserted}`
-          );
-          if (notificationError) {
-            console.error(
-              `[Q&A Answer] Error details:`,
-              JSON.stringify(
-                notificationError,
-                Object.getOwnPropertyNames(notificationError),
-                2
-              )
-            );
-          } else {
-            console.error(
-              `[Q&A Answer] No error object stored - this is suspicious!`
-            );
-          }
-        } else {
-          console.log(
-            `[Q&A Answer] ✅✅✅ SUCCESS: Notification was inserted! notificationInserted=${notificationInserted}`
-          );
-        }
-
-        // التحقق من إعدادات الإشعارات للمستخدم (للتأكد من إرسال الـ email فقط)
-        const campNotificationService = require("../services/campNotificationService");
-        const shouldSend =
-          await campNotificationService.checkNotificationSettings(
-            user_id,
-            camp_id,
-            "general"
-          );
-
-        // إرسال email إذا كان المستخدم يريد الإشعارات
-        if (shouldSend && email) {
-          try {
-            console.log(`[Q&A Answer] Attempting to send email to ${email}...`);
-            const mailService = require("../services/mailService");
-            const emailSubject = `💬 تم الرد على سؤالك في مخيم ${camp_name}`;
-            const emailHtml = `
-              <div dir="rtl" style="font-family: 'Arabic Typography', Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
-                <div style="background-color: #4E27B9; padding: 30px; text-align: center;">
-                  <img src="https://hadith-shareef.com/assets/icons/180×180.png" alt="Meshkah Logo" style="width: 100px; margin-bottom: 15px;">
-                  <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: bold;">تم الرد على سؤالك</h1>
-                </div>
-                <div style="padding: 40px 30px;">
-                  <p style="color: #2c3e50; font-size: 18px; line-height: 1.8; margin-bottom: 20px;">
-                    مرحباً ${username}،
-                  </p>
-                  <div style="background-color: #F9F7FD; border-radius: 8px; padding: 20px; margin: 20px 0; border-right: 4px solid #4E27B9;">
-                    <p style="color: #555555; line-height: 1.8; font-size: 16px; margin: 0;">
-                      تم الرد على سؤالك في مخيم "${camp_name}". يمكنك الاطلاع على الإجابة الآن.
-                    </p>
-                  </div>
-                  <div style="text-align: center; margin: 30px 0;">
-                    <a href="https://hadith-shareef.com/quran-camps/${camp_id}" style="display: inline-block; background-color: #4E27B9; color: white; padding: 14px 35px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 17px;">
-                      عرض الإجابة
-                    </a>
-                  </div>
-                </div>
-                <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #EAEAEA;">
-                  <p style="color: #AAAAAA; margin: 0; font-size: 12px;">© 2025 مشكاة - جميع الحقوق محفوظة</p>
-                </div>
-              </div>
-            `;
-            const emailInfo = await mailService.sendMail(
-              email,
-              emailSubject,
-              `تم الرد على سؤالك في مخيم "${camp_name}"`,
-              emailHtml
-            );
-            console.log(
-              `[Q&A Answer] ✅ Email sent successfully! MessageId: ${emailInfo.messageId}`
-            );
-          } catch (emailError) {
-            console.error(`[Q&A Answer] ❌ Email error for user ${user_id}:`, {
-              message: emailError.message,
-              code: emailError.code,
-              stack: emailError.stack,
-            });
-            // Continue even if email fails
-          }
-        } else {
-          console.log(
-            `[Q&A Answer] ⏭️  Skipping email: shouldSend=${shouldSend}, email=${
-              email ? "exists" : "missing"
-            }`
-          );
-        }
-      } else {
-        console.error(
-          `[Q&A Answer] ❌❌❌ CRITICAL: questionData.length is 0! No question data found!`
-        );
-        console.error(`[Q&A Answer] questionId: ${questionId}`);
-        console.error(
-          `[Q&A Answer] This means the query did not return any results.`
-        );
-        console.error(`[Q&A Answer] Possible reasons:`);
-        console.error(`[Q&A Answer] 1. Question does not exist`);
-        console.error(`[Q&A Answer] 2. Question was deleted`);
-        console.error(`[Q&A Answer] 3. JOIN failed (camp or user not found)`);
-      }
-    } catch (notifError) {
-      console.error(`[Q&A Answer] ❌❌❌ Fatal error creating notification:`, {
-        message: notifError.message,
-        code: notifError.code,
-        errno: notifError.errno,
-        sqlState: notifError.sqlState,
-        sqlMessage: notifError.sqlMessage,
-        stack: notifError.stack,
-      });
-      // Don't fail the response if notification fails
-    }
-
-    res.json({ success: true, message: "تمت إضافة إجابتك بنجاح" });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error answering camp question:", error);
+    console.error("Error in answerCampQuestion:", error);
     res
       .status(500)
       .json({ success: false, message: "حدث خطأ أثناء إضافة الإجابة" });
@@ -7866,34 +3370,164 @@ const answerCampQuestion = async (req, res) => {
 };
 
 // Delete a question (admin or original author)
+// Get shared reflection by share_link (public endpoint - no auth required)
+const getSharedReflection = async (req, res) => {
+  try {
+    const { shareLink } = req.params;
+
+    // Get reflection with all related data
+    const [reflections] = await db.query(
+      `
+      SELECT 
+        ctp.id as progress_id,
+        ctp.journal_entry,
+        ctp.notes,
+        ctp.content_rich,
+        ctp.proposed_step,
+        ctp.completed_at,
+        ctp.created_at,
+        ctp.upvote_count,
+        ctp.save_count,
+        cdt.id as task_id,
+        cdt.title as task_title,
+        cdt.description as task_description,
+        cdt.day_number,
+        cdt.task_type,
+        cdt.verses_from,
+        cdt.verses_to,
+        qc.id as camp_id,
+        qc.name as camp_name,
+        qc.description as camp_description,
+        qc.surah_name,
+        qc.share_link as camp_share_link,
+        u.id as author_id,
+        u.username as author_name,
+        u.avatar_url as author_avatar,
+        cs.hide_identity,
+        COALESCE(pledge_counts.pledge_count, 0) as pledge_count
+      FROM camp_task_progress ctp
+      JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
+      JOIN users u ON ce.user_id = u.id
+      LEFT JOIN camp_settings cs ON ce.id = cs.enrollment_id
+      JOIN camp_daily_tasks cdt ON ctp.task_id = cdt.id
+      JOIN quran_camps qc ON cdt.camp_id = qc.id
+      LEFT JOIN (
+        SELECT progress_id, COUNT(*) as pledge_count
+        FROM joint_step_pledges
+        GROUP BY progress_id
+      ) pledge_counts ON ctp.id = pledge_counts.progress_id
+      WHERE ctp.share_link = ?
+        AND ctp.is_private = false
+        AND (ctp.journal_entry IS NOT NULL OR ctp.notes IS NOT NULL)
+      `,
+      [shareLink]
+    );
+
+    if (reflections.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "التدبر غير موجود أو غير متاح للمشاركة",
+      });
+    }
+
+    const reflection = reflections[0];
+
+    // Determine if current user is the author (when auth header is provided)
+    const currentUserId = req.user?.id;
+    const isAuthor = currentUserId && currentUserId === reflection.author_id;
+
+    // Format ayah reference
+    let ayahReference = null;
+    if (reflection.verses_from) {
+      const surahName = reflection.surah_name || "";
+      if (
+        reflection.verses_to &&
+        reflection.verses_to !== reflection.verses_from
+      ) {
+        ayahReference = `${surahName} ${reflection.verses_from}-${reflection.verses_to}`;
+      } else {
+        ayahReference = `${surahName} ${reflection.verses_from}`;
+      }
+    }
+
+    // Handle author anonymity
+    let authorName;
+    let authorAvatar;
+    let authorId;
+
+    if (reflection.hide_identity && !isAuthor) {
+      // Hide identity for everyone except the author
+      authorName = "مشارك مجهول";
+      authorAvatar = null;
+      authorId = null;
+    } else {
+      // Show real identity for the author or when hide_identity is false
+      authorName = reflection.author_name;
+      authorAvatar = reflection.author_avatar;
+      authorId = reflection.author_id;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        reflection: {
+          id: reflection.progress_id,
+          content: reflection.journal_entry || reflection.notes,
+          content_rich: reflection.content_rich,
+          proposed_step: reflection.proposed_step,
+          completed_at: reflection.completed_at,
+          created_at: reflection.created_at,
+          upvote_count: reflection.upvote_count || 0,
+          save_count: reflection.save_count || 0,
+          pledge_count: reflection.pledge_count || 0,
+        },
+        task: {
+          id: reflection.task_id,
+          title: reflection.task_title,
+          description: reflection.task_description,
+          day_number: reflection.day_number,
+          task_type: reflection.task_type,
+        },
+        camp: {
+          id: reflection.camp_id,
+          name: reflection.camp_name,
+          description: reflection.camp_description,
+          surah_name: reflection.surah_name,
+          share_link: reflection.camp_share_link,
+        },
+        author: {
+          name: authorName,
+          avatar: authorAvatar,
+          author_id: authorId,
+          is_anonymous: Boolean(reflection.hide_identity),
+          can_view_identity: Boolean(isAuthor),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching shared reflection:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في جلب التدبر المشترك",
+    });
+  }
+};
+
 const deleteCampQuestion = async (req, res) => {
   try {
     const { questionId } = req.params;
     const userId = req.user.id;
+    const userRole = req.user.role;
 
-    // Admin can delete any question, user can only delete their own
-    const whereClause =
-      req.user.role === "admin"
-        ? "WHERE id = ?"
-        : "WHERE id = ? AND user_id = ?";
-    const params =
-      req.user.role === "admin" ? [questionId] : [questionId, userId];
+    const result = await campQandAService.deleteCampQuestion({
+      questionId,
+      userId,
+      userRole,
+    });
 
-    const [result] = await db.query(
-      `DELETE FROM camp_qanda ${whereClause}`,
-      params
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "السؤال غير موجود أو لا تملك صلاحية حذفه",
-      });
-    }
-
-    res.json({ success: true, message: "تم حذف السؤال بنجاح" });
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error deleting camp question:", error);
+    console.error("Error in deleteCampQuestion:", error);
     res
       .status(500)
       .json({ success: false, message: "حدث خطأ أثناء حذف السؤال" });
@@ -8448,7 +4082,7 @@ const createCampFromTemplate = async (req, res) => {
         if (grp.parent_group_id != null) continue;
         const [resGrp] = await db.query(
           `INSERT INTO camp_task_groups (camp_id, title, description, parent_group_id)
-           VALUES (?, ?, ?, ?, ?, ?)`,
+           VALUES (?, ?, ?, ?)`,
           [newCampId, grp.title, grp.description || null, null]
         );
         oldToNewGroupId.set(grp.id, resGrp.insertId);
@@ -8467,7 +4101,7 @@ const createCampFromTemplate = async (req, res) => {
           }
           const [resGrp] = await db.query(
             `INSERT INTO camp_task_groups (camp_id, title, description, parent_group_id)
-             VALUES (?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?)`,
             [newCampId, grp.title, grp.description || null, newParentId]
           );
           oldToNewGroupId.set(grp.id, resGrp.insertId);
@@ -8535,84 +4169,12 @@ const shareBenefit = async (req, res) => {
     const { benefitId } = req.params;
     const userId = req.user.id;
 
-    // Get the benefit and verify ownership
-    const [progress] = await db.query(
-      `
-      SELECT ctp.*, ce.user_id, ce.camp_id, qc.status as camp_status
-      FROM camp_task_progress ctp
-      JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
-      JOIN quran_camps qc ON ce.camp_id = qc.id
-      WHERE ctp.id = ?
-    `,
-      [benefitId]
-    );
-
-    if (progress.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "الفائدة غير موجودة",
-      });
-    }
-
-    // Check if user owns this benefit
-    if (progress[0].user_id !== userId) {
-      return res.status(403).json({
-        success: false,
-        message: "غير مصرح لك بمشاركة هذه الفائدة",
-      });
-    }
-
-    // Check if camp is completed
-    if (progress[0].camp_status === "completed") {
-      return res.status(403).json({
-        success: false,
-        message: "لا يمكن مشاركة محتوى المخيمات المنتهية",
-      });
-    }
-
-    // Update is_private to false
-    await db.query(
-      `
-      UPDATE camp_task_progress
-      SET is_private = false
-      WHERE id = ?
-    `,
-      [benefitId]
-    );
-
-    // تسجيل نشاط مشاركة التدبر
-    try {
-      // جلب معلومات المهمة
-      const [taskInfo] = await db.query(
-        `SELECT cdt.title, cdt.day_number, cdt.id as task_id
-         FROM camp_task_progress ctp
-         JOIN camp_daily_tasks cdt ON ctp.task_id = cdt.id
-         WHERE ctp.id = ?`,
-        [benefitId]
-      );
-
-      if (taskInfo.length > 0) {
-        const details = JSON.stringify({
-          reflection_id: benefitId,
-          task_name: taskInfo[0].title,
-          day: taskInfo[0].day_number || null,
-          task_id: taskInfo[0].task_id,
-        });
-        await db.query(
-          `INSERT INTO user_activity (user_id, camp_id, activity_type, details)
-           VALUES (?, ?, 'reflection_shared', ?)`,
-          [userId, progress[0].camp_id, details]
-        );
-      }
-    } catch (activityError) {
-      console.error("Error logging reflection share activity:", activityError);
-      // لا نوقف العملية إذا فشل تسجيل النشاط
-    }
-
-    res.json({
-      success: true,
-      message: "تمت مشاركة الفائدة بنجاح",
+    const result = await campReflectionService.shareBenefit({
+      benefitId,
+      userId,
     });
+
+    return res.status(result.status).json(result.body);
   } catch (error) {
     console.error("Error sharing benefit:", error);
     res.status(500).json({
@@ -9102,10 +4664,18 @@ const pledgeToJointStep = async (req, res) => {
       });
     }
 
-    // Check if user is enrolled in the camp
+    // Get the cohort number from the progress record
+    const [progressEnrollment] = await db.query(
+      "SELECT cohort_number FROM camp_enrollments WHERE id = ?",
+      [progressRecord.enrollment_id]
+    );
+
+    const progressCohortNumber = progressEnrollment[0]?.cohort_number;
+
+    // Check if user is enrolled in the camp and same cohort
     const [userEnrollments] = await db.query(
-      `SELECT id FROM camp_enrollments WHERE user_id = ? AND camp_id = ?`,
-      [userId, progressRecord.camp_id]
+      `SELECT id FROM camp_enrollments WHERE user_id = ? AND camp_id = ? AND cohort_number = ?`,
+      [userId, progressRecord.camp_id, progressCohortNumber]
     );
 
     if (userEnrollments.length === 0) {
@@ -9165,6 +4735,20 @@ const pledgeToJointStep = async (req, res) => {
       progressRecord.proposed_step
     );
 
+    // Clear study hall cache for this camp
+    try {
+      const redisClient = require("../utils/redisClient");
+      if (redisClient) {
+        const pattern = `study_hall:${progress[0].camp_id}:*`;
+        const keys = await redisClient.keys(pattern);
+        if (keys.length > 0) {
+          await redisClient.del(...keys);
+        }
+      }
+    } catch (redisError) {
+      console.log("Redis not available for cache clearing");
+    }
+
     res.json({
       success: true,
       message: "تم الالتزام بنجاح",
@@ -9182,7 +4766,13 @@ const pledgeToJointStep = async (req, res) => {
 const getAdminStudyHallContent = async (req, res) => {
   try {
     const { id } = req.params;
-    const { day, page = 1, limit = 50, sort = "newest" } = req.query;
+    const {
+      day,
+      page = 1,
+      limit = 50,
+      sort = "newest",
+      cohort_number,
+    } = req.query;
 
     // Validate pagination parameters
     const pageNum = Math.max(1, parseInt(page)) || 1;
@@ -9215,6 +4805,8 @@ const getAdminStudyHallContent = async (req, res) => {
         ctp.completed_at,
         ctp.created_at,
         ctp.is_private,
+        ctp.upvote_count,
+        ctp.save_count,
         u.id as user_id,
         u.username,
         u.email,
@@ -9224,13 +4816,22 @@ const getAdminStudyHallContent = async (req, res) => {
       JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
       JOIN users u ON ce.user_id = u.id
       WHERE cdt.camp_id = ?
+        AND ce.cohort_number = ?
         AND ctp.completed = 1
         AND (ctp.journal_entry IS NOT NULL AND ctp.journal_entry != '' 
              OR ctp.notes IS NOT NULL AND ctp.notes != '')
         AND (ctp.is_private IS NULL OR ctp.is_private = false)
     `;
 
-    const params = [id];
+    // Get cohort number from query or use current cohort
+    let cohortNumber;
+    if (cohort_number) {
+      cohortNumber = parseInt(cohort_number);
+    } else {
+      cohortNumber = await getCurrentCohortNumber(id);
+    }
+
+    const params = [id, cohortNumber];
 
     // Filter by day if specified
     if (day) {
@@ -9255,12 +4856,13 @@ const getAdminStudyHallContent = async (req, res) => {
       JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
       JOIN users u ON ce.user_id = u.id
       WHERE cdt.camp_id = ?
+        AND ce.cohort_number = ?
         AND ctp.completed = 1
         AND (ctp.journal_entry IS NOT NULL AND ctp.journal_entry != '' 
              OR ctp.notes IS NOT NULL AND ctp.notes != '')
         AND (ctp.is_private IS NULL OR ctp.is_private = false)
     `;
-    const countParams = [id];
+    const countParams = [id, cohortNumber];
     if (day) {
       countParams.push(day);
     }
@@ -9283,6 +4885,8 @@ const getAdminStudyHallContent = async (req, res) => {
             progress_id: item.progress_id,
             type: "reflection",
             title: `تدبر: ${item.title}`,
+            upvote_count: item.upvote_count,
+            save_count: item.save_count,
             content: item.journal_entry,
             day: item.day_number,
             completed_at: item.completed_at,
@@ -9433,208 +5037,19 @@ const duplicateCamp = async (req, res) => {
     const { name, description, start_date, duration_days, banner_image, tags } =
       req.body;
 
-    // Get original camp
-    const [campData] = await db.query(
-      "SELECT * FROM quran_camps WHERE id = ?",
-      [id]
-    );
+    const result = await campManagementService.duplicateCamp({
+      campId: id,
+      name,
+      description,
+      start_date,
+      duration_days,
+      banner_image,
+      tags,
+    });
 
-    if (campData.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المخيم غير موجود",
-      });
-    }
-
-    const originalCamp = campData[0];
-
-    // Start transaction
-    const connection = await db.getConnection();
-    await connection.beginTransaction();
-
-    try {
-      // Create new camp
-      const share_link = shortid.generate();
-      const [newCampResult] = await connection.query(
-        `
-        INSERT INTO quran_camps (
-          name, description, surah_number, surah_name, start_date, duration_days,
-          banner_image, opening_surah_number, opening_surah_name, opening_youtube_url,
-          share_link, tags, status, is_template
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'early_registration', 0)
-      `,
-        [
-          name || `${originalCamp.name} (نسخة)`,
-          description || originalCamp.description,
-          originalCamp.surah_number,
-          originalCamp.surah_name,
-          start_date || originalCamp.start_date,
-          duration_days || originalCamp.duration_days,
-          banner_image || originalCamp.banner_image,
-          originalCamp.opening_surah_number,
-          originalCamp.opening_surah_name,
-          originalCamp.opening_youtube_url,
-          share_link,
-          tags || originalCamp.tags,
-        ]
-      );
-
-      const newCampId = newCampResult.insertId;
-
-      // Copy task groups
-      const [taskGroups] = await connection.query(
-        "SELECT * FROM camp_task_groups WHERE camp_id = ?",
-        [id]
-      );
-
-      const groupIdMap = new Map();
-      for (const group of taskGroups) {
-        const [newGroupResult] = await connection.query(
-          `
-          INSERT INTO camp_task_groups (camp_id, title, description, parent_group_id, order_in_camp)
-          VALUES (?, ?, ?, ?, ?)
-        `,
-          [
-            newCampId,
-            group.title,
-            group.description,
-            group.parent_group_id
-              ? groupIdMap.get(group.parent_group_id) || null
-              : null,
-            group.order_in_camp,
-          ]
-        );
-        groupIdMap.set(group.id, newGroupResult.insertId);
-      }
-
-      // Copy tasks
-      const [tasks] = await connection.query(
-        "SELECT * FROM camp_daily_tasks WHERE camp_id = ?",
-        [id]
-      );
-
-      for (const task of tasks) {
-        await connection.query(
-          `
-          INSERT INTO camp_daily_tasks (
-            camp_id, day_number, task_type, title, description, verses_from, verses_to,
-            tafseer_link, youtube_link, order_in_day, is_optional, points, estimated_time,
-            group_id, order_in_group
-          )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `,
-          [
-            newCampId,
-            task.day_number,
-            task.task_type,
-            task.title,
-            task.description,
-            task.verses_from,
-            task.verses_to,
-            task.tafseer_link,
-            task.youtube_link,
-            task.order_in_day,
-            task.is_optional,
-            task.points,
-            task.estimated_time,
-            task.group_id ? groupIdMap.get(task.group_id) || null : null,
-            task.order_in_group,
-          ]
-        );
-      }
-
-      // Copy resource categories
-      const [categories] = await connection.query(
-        "SELECT * FROM camp_resource_categories WHERE camp_id = ?",
-        [id]
-      );
-
-      const categoryIdMap = new Map();
-      for (const category of categories) {
-        const [newCategoryResult] = await connection.query(
-          `
-          INSERT INTO camp_resource_categories (camp_id, title, display_order)
-          VALUES (?, ?, ?)
-        `,
-          [newCampId, category.title, category.display_order]
-        );
-        categoryIdMap.set(category.id, newCategoryResult.insertId);
-      }
-
-      // Copy resources
-      const [resources] = await connection.query(
-        "SELECT * FROM camp_resources WHERE camp_id = ?",
-        [id]
-      );
-
-      for (const resource of resources) {
-        await connection.query(
-          `
-          INSERT INTO camp_resources (camp_id, category_id, title, url, resource_type, display_order)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `,
-          [
-            newCampId,
-            resource.category_id
-              ? categoryIdMap.get(resource.category_id) || null
-              : null,
-            resource.title,
-            resource.url,
-            resource.resource_type,
-            resource.display_order,
-          ]
-        );
-      }
-
-      // Copy admin settings
-      await connection.query(
-        `
-        UPDATE quran_camps SET
-          enable_leaderboard = ?,
-          enable_study_hall = ?,
-          enable_public_enrollment = ?,
-          auto_start_camp = ?,
-          max_participants = ?,
-          enable_notifications = ?,
-          enable_daily_reminders = ?,
-          enable_achievement_notifications = ?,
-          visibility_mode = ?,
-          allow_user_content = ?,
-          enable_interactions = ?
-        WHERE id = ?
-      `,
-        [
-          originalCamp.enable_leaderboard,
-          originalCamp.enable_study_hall,
-          originalCamp.enable_public_enrollment,
-          originalCamp.auto_start_camp,
-          originalCamp.max_participants,
-          originalCamp.enable_notifications,
-          originalCamp.enable_daily_reminders,
-          originalCamp.enable_achievement_notifications,
-          originalCamp.visibility_mode || "public",
-          originalCamp.allow_user_content,
-          originalCamp.enable_interactions,
-          newCampId,
-        ]
-      );
-
-      await connection.commit();
-      connection.release();
-
-      res.json({
-        success: true,
-        message: "تم نسخ المخيم بنجاح",
-        data: { campId: newCampId, share_link },
-      });
-    } catch (error) {
-      await connection.rollback();
-      connection.release();
-      throw error;
-    }
+    return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Error duplicating camp:", error);
+    console.error("Error in duplicateCamp:", error);
     res.status(500).json({
       success: false,
       message: "حدث خطأ أثناء نسخ المخيم",
@@ -9666,6 +5081,9 @@ const exportCampData = async (req, res) => {
 
     const camp = campData[0];
 
+    // Get current cohort number
+    const currentCohortNumber = await getCurrentCohortNumber(id);
+
     // Export participants
     if (type === "participants" || type === "all") {
       // Get total tasks count
@@ -9692,11 +5110,11 @@ const exportCampData = async (req, res) => {
         FROM camp_enrollments ce
         JOIN users u ON ce.user_id = u.id
         LEFT JOIN camp_task_progress ctp ON ce.id = ctp.enrollment_id AND ctp.completed = 1
-        WHERE ce.camp_id = ?
+        WHERE ce.camp_id = ? AND ce.cohort_number = ?
         GROUP BY ce.id
         ORDER BY ce.total_points DESC
       `,
-        [totalTasks, totalTasks, id]
+        [totalTasks, totalTasks, id, currentCohortNumber]
       );
 
       const worksheet = workbook.addWorksheet("المشتركين");
@@ -9768,14 +5186,15 @@ const exportCampData = async (req, res) => {
           cdt.task_type,
           cdt.title,
           COUNT(ctp.id) as completed_count,
-          (SELECT COUNT(*) FROM camp_enrollments WHERE camp_id = ?) as total_participants
+          (SELECT COUNT(*) FROM camp_enrollments WHERE camp_id = ? AND cohort_number = ?) as total_participants
         FROM camp_daily_tasks cdt
         LEFT JOIN camp_task_progress ctp ON cdt.id = ctp.task_id AND ctp.completed = 1
+        LEFT JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id AND ce.cohort_number = ?
         WHERE cdt.camp_id = ?
         GROUP BY cdt.id
         ORDER BY cdt.day_number, cdt.order_in_day
       `,
-        [id, id]
+        [id, currentCohortNumber, currentCohortNumber, id]
       );
 
       const worksheet = workbook.addWorksheet("إحصائيات المهام");
@@ -9858,12 +5277,18 @@ const exportCampData = async (req, res) => {
         JOIN users u ON ce.user_id = u.id
         LEFT JOIN camp_settings cs ON ce.id = cs.enrollment_id
         LEFT JOIN camp_task_progress ctp ON ce.id = ctp.enrollment_id AND ctp.completed = 1
-        WHERE ce.camp_id = ? 
+        WHERE ce.camp_id = ? AND ce.cohort_number = ?
           AND COALESCE(cs.leaderboard_visibility, true) = true
+          AND NOT EXISTS (
+            SELECT 1 FROM camp_supervisors cs2 
+            WHERE cs2.camp_id = ce.camp_id 
+            AND (cs2.cohort_number = ce.cohort_number OR cs2.cohort_number IS NULL)
+            AND cs2.user_id = ce.user_id
+          )
         GROUP BY ce.id
         ORDER BY ce.total_points DESC
       `,
-        [totalTasks, totalTasks, id]
+        [totalTasks, totalTasks, id, currentCohortNumber]
       );
 
       const worksheet = workbook.addWorksheet("لوحة المتصدرين");
@@ -10776,72 +6201,17 @@ const downloadReflectionsPDF = async (req, res) => {
     const { campId } = req.params;
     const userId = req.user.id;
 
-    // Get user's enrollment
-    const [enrollments] = await db.query(
-      `SELECT * FROM camp_enrollments WHERE user_id = ? AND camp_id = ?`,
-      [userId, campId]
-    );
+    // Get data from service
+    const result = await campReflectionService.downloadReflectionsPDF({
+      campId,
+      userId,
+    });
 
-    if (enrollments.length === 0) {
-      return res.status(403).json({
-        success: false,
-        message: "لست مسجلاً في هذا المخيم",
-      });
+    if (result.status !== 200) {
+      return res.status(result.status).json(result.body);
     }
 
-    // Get camp details
-    const [campData] = await db.query(
-      `SELECT id, name, description, surah_name, start_date, duration_days, status FROM quran_camps WHERE id = ?`,
-      [campId]
-    );
-
-    if (campData.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المخيم غير موجود",
-      });
-    }
-
-    const camp = campData[0];
-
-    // Get user details
-    const [users] = await db.query(
-      `SELECT username, email FROM users WHERE id = ?`,
-      [userId]
-    );
-
-    if (users.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "المستخدم غير موجود",
-      });
-    }
-
-    const user = users[0];
-
-    // Get all reflections for this user and camp, sorted by creation date (oldest first)
-    const [reflections] = await db.query(
-      `
-      SELECT 
-        ctp.id,
-        ctp.journal_entry,
-        ctp.content_rich,
-        ctp.created_at,
-        ctp.completed_at,
-        cdt.title as task_title,
-        cdt.day_number,
-        cdt.verses_from,
-        cdt.verses_to,
-        cdt.task_type
-      FROM camp_task_progress ctp
-      JOIN camp_daily_tasks cdt ON ctp.task_id = cdt.id
-      WHERE ctp.enrollment_id = ? 
-        AND ctp.journal_entry IS NOT NULL 
-        AND ctp.journal_entry != ''
-      ORDER BY ctp.created_at ASC
-      `,
-      [enrollments[0].id]
-    );
+    const { camp, user, reflections } = result.body.data;
 
     if (reflections.length === 0) {
       return res.status(404).json({
@@ -11341,9 +6711,9 @@ const downloadUserReflections = async (req, res) => {
     const { campId } = req.params;
     const userId = req.user.id;
 
-    // Get user's enrollment
+    // Get user's enrollment - use the most recent enrollment
     const [enrollments] = await db.query(
-      `SELECT * FROM camp_enrollments WHERE user_id = ? AND camp_id = ?`,
+      `SELECT * FROM camp_enrollments WHERE user_id = ? AND camp_id = ? ORDER BY cohort_number DESC, id DESC LIMIT 1`,
       [userId, campId]
     );
 
@@ -12060,7 +7430,1036 @@ const downloadUserReflections = async (req, res) => {
   }
 };
 
-// Start a new cohort for a camp (Admin only)
+// Start cohort (Admin only)
+const startCampCohort = async (req, res) => {
+  try {
+    const { id, cohortNumber } = req.params;
+
+    // Verify cohort exists
+    const [cohorts] = await db.query(
+      `SELECT * FROM camp_cohorts WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+
+    if (cohorts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الفوج غير موجود",
+      });
+    }
+
+    const cohort = cohorts[0];
+
+    if (cohort.status === "active") {
+      return res.status(400).json({
+        success: false,
+        message: "الفوج نشط بالفعل",
+      });
+    }
+
+    if (cohort.status === "completed" || cohort.status === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "لا يمكن بدء فوج مكتمل أو ملغى",
+      });
+    }
+
+    // Check if there's already an active cohort (only one active cohort allowed)
+    const [activeCohorts] = await db.query(
+      `SELECT cohort_number FROM camp_cohorts 
+       WHERE camp_id = ? AND status = 'active' AND cohort_number != ?`,
+      [id, cohortNumber]
+    );
+
+    if (activeCohorts.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `يوجد فوج نشط آخر بالفعل (الفوج رقم ${activeCohorts[0].cohort_number}). يجب إكمال أو إلغاء الفوج النشط قبل بدء فوج جديد`,
+        code: "ACTIVE_COHORT_EXISTS",
+      });
+    }
+
+    // حساب تاريخ اليوم بتوقيت الرياض
+    const riyadhFormatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Riyadh",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const todayParts = riyadhFormatter.formatToParts(new Date());
+    const y = todayParts.find((p) => p.type === "year").value;
+    const m = todayParts.find((p) => p.type === "month").value;
+    const d = todayParts.find((p) => p.type === "day").value;
+    const todayStr = `${y}-${m}-${d}`; // YYYY-MM-DD بتوقيت الرياض
+
+    // Update cohort status, is_open, and start_date to today
+    await db.query(
+      `UPDATE camp_cohorts SET status = 'active', is_open = 1, start_date = ? WHERE camp_id = ? AND cohort_number = ?`,
+      [todayStr, id, cohortNumber]
+    );
+
+    // Update camp's current_cohort_number
+    await db.query(
+      `UPDATE quran_camps SET current_cohort_number = ? WHERE id = ?`,
+      [cohortNumber, id]
+    );
+
+    // Update camp status to 'active' and start_date to today if it's in 'early_registration' status
+    const [campStatus] = await db.query(
+      `SELECT status FROM quran_camps WHERE id = ?`,
+      [id]
+    );
+    if (
+      campStatus.length > 0 &&
+      campStatus[0].status === "early_registration"
+    ) {
+      await db.query(
+        `UPDATE quran_camps SET status = 'active', start_date = ? WHERE id = ?`,
+        [todayStr, id]
+      );
+    } else {
+      // حتى لو لم تكن الحالة early_registration، حدث start_date لليوم الحالي
+      await db.query(`UPDATE quran_camps SET start_date = ? WHERE id = ?`, [
+        todayStr,
+        id,
+      ]);
+    }
+
+    // Send notifications to participants
+    const CampNotificationService = require("../services/campNotificationService");
+    try {
+      // Get camp name
+      const [campInfo] = await db.query(
+        "SELECT name FROM quran_camps WHERE id = ?",
+        [id]
+      );
+      const campName = campInfo?.name || "المخيم";
+
+      // Get all participants in this cohort
+      const [participants] = await db.query(
+        `SELECT DISTINCT ce.user_id, u.username, u.email 
+         FROM camp_enrollments ce
+         JOIN users u ON ce.user_id = u.id
+         WHERE ce.camp_id = ? AND ce.cohort_number = ?`,
+        [id, cohortNumber]
+      );
+
+      // Send notification and email to each participant
+      for (const participant of participants) {
+        try {
+          // Send notification
+          await CampNotificationService.sendCampStartedNotification(
+            participant.user_id,
+            id,
+            campName
+          );
+
+          // Send email if email exists
+          if (participant.email) {
+            try {
+              await mailService.sendCampStartedEmail(
+                participant.email,
+                participant.username,
+                campName,
+                id
+              );
+            } catch (emailErr) {
+              console.error(
+                `Failed to send email to user ${participant.user_id}:`,
+                emailErr
+              );
+            }
+          }
+        } catch (err) {
+          console.error(
+            `Failed to send notification to user ${participant.user_id}:`,
+            err
+          );
+        }
+      }
+    } catch (notifError) {
+      console.error("Error sending notifications:", notifError);
+      // Continue even if notifications fail
+    }
+
+    // Note: Email notifications are now sent manually via the admin dashboard
+    // Removed automatic email sending on cohort start
+
+    res.json({
+      success: true,
+      message: "تم بدء الفوج بنجاح",
+    });
+  } catch (error) {
+    console.error("Error starting cohort:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في بدء الفوج",
+      error: error.message,
+    });
+  }
+};
+
+// Complete cohort (Admin only)
+const completeCampCohort = async (req, res) => {
+  try {
+    const { id, cohortNumber } = req.params;
+
+    // Verify cohort exists
+    const [cohorts] = await db.query(
+      `SELECT * FROM camp_cohorts WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+
+    if (cohorts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الفوج غير موجود",
+      });
+    }
+
+    const cohort = cohorts[0];
+
+    if (cohort.status === "completed") {
+      return res.status(400).json({
+        success: false,
+        message: "الفوج مكتمل بالفعل",
+      });
+    }
+
+    // Update cohort status, actual_end_date, and is_open
+    await db.query(
+      `UPDATE camp_cohorts 
+       SET status = 'completed', actual_end_date = CURDATE(), is_open = 0 
+       WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+
+    // Send completion notifications
+    const CampNotificationService = require("../services/campNotificationService");
+    try {
+      // Get camp name
+      const [campInfo] = await db.query(
+        "SELECT name FROM quran_camps WHERE id = ?",
+        [id]
+      );
+      const campName = campInfo[0]?.name || "المخيم";
+
+      // Get all participants in this cohort
+      const [participants] = await db.query(
+        `SELECT DISTINCT ce.user_id, u.username, u.email 
+         FROM camp_enrollments ce
+         JOIN users u ON ce.user_id = u.id
+         WHERE ce.camp_id = ? AND ce.cohort_number = ?`,
+        [id, cohortNumber]
+      );
+
+      // Send notification to each participant
+      for (const participant of participants) {
+        try {
+          await CampNotificationService.sendCampFinishedNotification(
+            participant.user_id,
+            id,
+            campName
+          );
+        } catch (err) {
+          console.error(
+            `Failed to send notification to user ${participant.user_id}:`,
+            err
+          );
+        }
+      }
+    } catch (notifError) {
+      console.error("Error sending notifications:", notifError);
+    }
+
+    res.json({
+      success: true,
+      message: "تم إكمال الفوج بنجاح",
+    });
+  } catch (error) {
+    console.error("Error completing cohort:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في إكمال الفوج",
+      error: error.message,
+    });
+  }
+};
+
+// Cancel cohort (Admin only)
+const cancelCampCohort = async (req, res) => {
+  try {
+    const { id, cohortNumber } = req.params;
+
+    // Verify cohort exists
+    const [cohorts] = await db.query(
+      `SELECT * FROM camp_cohorts WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+
+    if (cohorts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الفوج غير موجود",
+      });
+    }
+
+    const cohort = cohorts[0];
+
+    if (cohort.status === "completed") {
+      return res.status(400).json({
+        success: false,
+        message: "لا يمكن إلغاء فوج مكتمل",
+      });
+    }
+
+    if (cohort.status === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "الفوج ملغى بالفعل",
+      });
+    }
+
+    // Update cohort status and is_open
+    await db.query(
+      `UPDATE camp_cohorts SET status = 'cancelled', is_open = 0 WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+
+    // Notify participants (optional)
+    // You can add notification logic here if needed
+
+    res.json({
+      success: true,
+      message: "تم إلغاء الفوج بنجاح",
+    });
+  } catch (error) {
+    console.error("Error cancelling cohort:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في إلغاء الفوج",
+      error: error.message,
+    });
+  }
+};
+
+// Open cohort (Admin only) - Set is_open = true
+const openCampCohort = async (req, res) => {
+  try {
+    const { id, cohortNumber } = req.params;
+
+    // Verify cohort exists
+    const [cohorts] = await db.query(
+      `SELECT * FROM camp_cohorts WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+
+    if (cohorts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الفوج غير موجود",
+      });
+    }
+
+    const cohort = cohorts[0];
+
+    if (cohort.is_open === 1) {
+      return res.status(400).json({
+        success: false,
+        message: "الفوج مفتوح بالفعل",
+      });
+    }
+
+    if (cohort.status === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "لا يمكن فتح فوج ملغى",
+      });
+    }
+
+    // Update cohort is_open status
+    await db.query(
+      `UPDATE camp_cohorts SET is_open = 1 WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+
+    // Update camp's current_cohort_number to this cohort
+    await db.query(
+      `UPDATE quran_camps SET current_cohort_number = ? WHERE id = ?`,
+      [cohortNumber, id]
+    );
+
+    // Note: Email notifications are now sent manually via the admin dashboard
+    // Removed automatic email sending on cohort open
+
+    res.json({
+      success: true,
+      message: "تم فتح الفوج بنجاح",
+    });
+  } catch (error) {
+    console.error("Error opening cohort:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في فتح الفوج",
+      error: error.message,
+    });
+  }
+};
+
+// Close cohort (Admin only) - Set is_open = false
+const closeCampCohort = async (req, res) => {
+  try {
+    const { id, cohortNumber } = req.params;
+
+    // Verify cohort exists
+    const [cohorts] = await db.query(
+      `SELECT * FROM camp_cohorts WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+
+    if (cohorts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الفوج غير موجود",
+      });
+    }
+
+    const cohort = cohorts[0];
+
+    if (cohort.is_open === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "الفوج مغلق بالفعل",
+      });
+    }
+
+    // Update cohort is_open status
+    await db.query(
+      `UPDATE camp_cohorts SET is_open = 0 WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+
+    res.json({
+      success: true,
+      message: "تم إغلاق الفوج بنجاح",
+    });
+  } catch (error) {
+    console.error("Error closing cohort:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في إغلاق الفوج",
+      error: error.message,
+    });
+  }
+};
+
+// Get cohort statistics (Admin only)
+const getCohortStats = async (req, res) => {
+  try {
+    const { id, cohortNumber } = req.params;
+
+    // Verify cohort exists
+    const [cohorts] = await db.query(
+      `SELECT * FROM camp_cohorts WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+
+    if (cohorts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الفوج غير موجود",
+      });
+    }
+
+    // Get participants count
+    const [participantsCount] = await db.query(
+      `SELECT COUNT(*) as count FROM camp_enrollments WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+
+    // Get total tasks count
+    const [totalTasks] = await db.query(
+      `SELECT COUNT(*) as count FROM camp_daily_tasks WHERE camp_id = ?`,
+      [id]
+    );
+
+    const totalTasksCount = totalTasks[0]?.count || 0;
+
+    // Get completed tasks count
+    const [completedTasks] = await db.query(
+      `
+      SELECT COUNT(DISTINCT ctp.task_id) as count
+      FROM camp_task_progress ctp
+      JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
+      WHERE ce.camp_id = ? AND ce.cohort_number = ? AND ctp.completed = 1
+    `,
+      [id, cohortNumber]
+    );
+
+    // Get average progress
+    // First calculate progress for each user, then get the average
+    const [avgProgress] = await db.query(
+      `
+      SELECT 
+        COALESCE(AVG(user_progress), 0) as avg_progress
+      FROM (
+        SELECT 
+          ce.id,
+          CASE 
+            WHEN ? > 0 THEN (COUNT(DISTINCT ctp.task_id) / ?) * 100
+            ELSE 0
+          END as user_progress
+        FROM camp_enrollments ce
+        LEFT JOIN camp_task_progress ctp ON ce.id = ctp.enrollment_id AND ctp.completed = 1
+        WHERE ce.camp_id = ? AND ce.cohort_number = ?
+        GROUP BY ce.id
+      ) as user_progresses
+    `,
+      [totalTasksCount, totalTasksCount, id, cohortNumber]
+    );
+
+    // Get leaderboard top 10
+    const [leaderboard] = await db.query(
+      `
+      SELECT 
+        ce.user_id,
+        u.username,
+        u.avatar_url,
+        ce.total_points,
+        COUNT(DISTINCT ctp.task_id) as completed_tasks,
+        RANK() OVER (ORDER BY ce.total_points DESC) as \`rank\`
+      FROM camp_enrollments ce
+      JOIN users u ON ce.user_id = u.id
+      LEFT JOIN camp_task_progress ctp ON ce.id = ctp.enrollment_id AND ctp.completed = 1
+      WHERE ce.camp_id = ? AND ce.cohort_number = ?
+      GROUP BY ce.id, ce.user_id, u.username, u.avatar_url, ce.total_points
+      ORDER BY ce.total_points DESC
+      LIMIT 10
+    `,
+      [id, cohortNumber]
+    );
+
+    // Get daily completion rate (last 7 days)
+    const [dailyStats] = await db.query(
+      `
+      SELECT 
+        DATE(ctp.completed_at) as date,
+        COUNT(DISTINCT ctp.id) as completions
+      FROM camp_task_progress ctp
+      JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
+      WHERE ce.camp_id = ? 
+        AND ce.cohort_number = ? 
+        AND ctp.completed = 1
+        AND ctp.completed_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+      GROUP BY DATE(ctp.completed_at)
+      ORDER BY date DESC
+    `,
+      [id, cohortNumber]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        participants_count: participantsCount[0]?.count || 0,
+        total_tasks: totalTasksCount,
+        completed_tasks: completedTasks[0]?.count || 0,
+        average_progress: avgProgress[0]?.avg_progress || 0,
+        leaderboard: leaderboard || [],
+        daily_completion_rate: dailyStats || [],
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching cohort stats:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في جلب إحصائيات الفوج",
+      error: error.message,
+    });
+  }
+};
+
+// Get cohorts comparison (Admin only)
+const getCohortsComparison = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get all cohorts with their stats (excluding supervisors)
+    const [cohorts] = await db.query(
+      `
+      SELECT 
+        cc.*,
+        COUNT(DISTINCT CASE 
+          WHEN NOT EXISTS (
+            SELECT 1 FROM camp_supervisors cs 
+            WHERE cs.camp_id = ce.camp_id 
+            AND (cs.cohort_number = ce.cohort_number OR cs.cohort_number IS NULL)
+            AND cs.user_id = ce.user_id
+          ) THEN ce.id
+        END) as participants_count,
+        COUNT(DISTINCT CASE 
+          WHEN NOT EXISTS (
+            SELECT 1 FROM camp_supervisors cs 
+            WHERE cs.camp_id = ce.camp_id 
+            AND (cs.cohort_number = ce.cohort_number OR cs.cohort_number IS NULL)
+            AND cs.user_id = ce.user_id
+          ) THEN ctp.id
+        END) as completed_tasks_count,
+        AVG(CASE 
+          WHEN NOT EXISTS (
+            SELECT 1 FROM camp_supervisors cs 
+            WHERE cs.camp_id = ce.camp_id 
+            AND (cs.cohort_number = ce.cohort_number OR cs.cohort_number IS NULL)
+            AND cs.user_id = ce.user_id
+          ) THEN ce.total_points
+        END) as avg_points
+      FROM camp_cohorts cc
+      LEFT JOIN camp_enrollments ce ON cc.camp_id = ce.camp_id AND cc.cohort_number = ce.cohort_number
+      LEFT JOIN camp_task_progress ctp ON ce.id = ctp.enrollment_id AND ctp.completed = 1
+      WHERE cc.camp_id = ?
+      GROUP BY cc.id
+      ORDER BY cc.cohort_number ASC
+    `,
+      [id]
+    );
+
+    res.json({
+      success: true,
+      data: cohorts.map((cohort) => ({
+        ...cohort,
+        settings: cohort.settings ? JSON.parse(cohort.settings) : null,
+      })),
+    });
+  } catch (error) {
+    console.error("Error fetching cohorts comparison:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في جلب مقارنة الأفواج",
+      error: error.message,
+    });
+  }
+};
+
+// Get cohort participants (Admin only)
+const getCohortParticipants = async (req, res) => {
+  try {
+    const { id, cohortNumber } = req.params;
+    const { page = 1, limit = 50, search, status } = req.query;
+
+    // Verify admin access
+    if (!isAdmin(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: "ليس لديك صلاحية للوصول إلى هذه البيانات",
+      });
+    }
+
+    // Verify cohort exists
+    const cohortExists = await campParticipantService.verifyCohortExists(
+      id,
+      parseInt(cohortNumber)
+    );
+    if (!cohortExists) {
+      return res.status(404).json({
+        success: false,
+        message: "الفوج غير موجود",
+      });
+    }
+
+    const result = await campParticipantService.getParticipants({
+      campId: id,
+      cohortNumber: parseInt(cohortNumber),
+      filters: { status, search },
+      pagination: { page: parseInt(page), limit: parseInt(limit) },
+      includeSupervisors: false,
+    });
+
+    res.json({
+      success: true,
+      data: result.participants,
+      pagination: {
+        ...result.pagination,
+        totalPages: result.pagination.pages,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching cohort participants:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في جلب المشتركين",
+      error: error.message,
+    });
+  }
+};
+
+// Get cohort participants for admin (Admin only) - includes supervisors
+const getCohortParticipantsForAdmin = async (req, res) => {
+  try {
+    const { id, cohortNumber = 1 } = req.params;
+    const { page = 1, limit = 50, search, status } = req.query;
+
+    // Verify admin access
+    if (!isAdmin(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: "ليس لديك صلاحية للوصول إلى هذه البيانات",
+      });
+    }
+
+    // Verify cohort exists
+    const cohortExists = await campParticipantService.verifyCohortExists(
+      id,
+      parseInt(cohortNumber)
+    );
+    if (!cohortExists) {
+      return res.status(404).json({
+        success: false,
+        message: "الفوج غير موجود",
+      });
+    }
+
+    // Admin endpoint - include all participants including supervisors
+    const result = await campParticipantService.getParticipants({
+      campId: id,
+      cohortNumber: parseInt(cohortNumber),
+      filters: { status, search },
+      pagination: { page: parseInt(page), limit: parseInt(limit) },
+      includeSupervisors: true, // Include supervisors for admin view
+    });
+
+    res.json({
+      success: true,
+      data: result.participants,
+      pagination: {
+        ...result.pagination,
+        totalPages: result.pagination.pages,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching cohort participants for admin:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في جلب المشتركين",
+      error: error.message,
+    });
+  }
+};
+
+// Migrate user between cohorts (Admin only)
+const migrateUserBetweenCohorts = async (req, res) => {
+  try {
+    const { id, cohortNumber } = req.params;
+    const { user_id, target_cohort_number } = req.body;
+
+    if (!user_id || !target_cohort_number) {
+      return res.status(400).json({
+        success: false,
+        message: "user_id و target_cohort_number مطلوبان",
+      });
+    }
+
+    // Verify source cohort exists
+    const [sourceCohort] = await db.query(
+      `SELECT * FROM camp_cohorts WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+
+    if (sourceCohort.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الفوج المصدر غير موجود",
+      });
+    }
+
+    // Verify target cohort exists
+    const [targetCohort] = await db.query(
+      `SELECT * FROM camp_cohorts WHERE camp_id = ? AND cohort_number = ?`,
+      [id, target_cohort_number]
+    );
+
+    if (targetCohort.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الفوج الهدف غير موجود",
+      });
+    }
+
+    // Check if user is enrolled in source cohort
+    const [enrollment] = await db.query(
+      `SELECT * FROM camp_enrollments WHERE camp_id = ? AND user_id = ? AND cohort_number = ?`,
+      [id, user_id, cohortNumber]
+    );
+
+    if (enrollment.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المستخدم غير مسجل في الفوج المصدر",
+      });
+    }
+
+    // Check if user is already enrolled in target cohort
+    const [existingEnrollment] = await db.query(
+      `SELECT * FROM camp_enrollments WHERE camp_id = ? AND user_id = ? AND cohort_number = ?`,
+      [id, user_id, target_cohort_number]
+    );
+
+    if (existingEnrollment.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "المستخدم مسجل بالفعل في الفوج الهدف",
+      });
+    }
+
+    // Start transaction
+    await db.query("START TRANSACTION");
+
+    try {
+      // Update enrollment cohort_number
+      await db.query(
+        `UPDATE camp_enrollments SET cohort_number = ? WHERE camp_id = ? AND user_id = ? AND cohort_number = ?`,
+        [target_cohort_number, id, user_id, cohortNumber]
+      );
+
+      // Update friendships cohort_number
+      await db.query(
+        `UPDATE camp_friendships SET cohort_number = ? WHERE camp_id = ? AND (user_id = ? OR friend_id = ?) AND cohort_number = ?`,
+        [target_cohort_number, id, user_id, user_id, cohortNumber]
+      );
+
+      // Update Q&A cohort_number
+      await db.query(
+        `UPDATE camp_qanda SET cohort_number = ? WHERE camp_id = ? AND user_id = ? AND cohort_number = ?`,
+        [target_cohort_number, id, user_id, cohortNumber]
+      );
+
+      // Note: camp_task_progress is linked via enrollment_id, so it will automatically follow
+
+      // Update participants count (triggers should handle this, but we'll do it manually to be safe)
+      await db.query(
+        `UPDATE camp_cohorts SET current_participants = GREATEST(current_participants - 1, 0) WHERE camp_id = ? AND cohort_number = ?`,
+        [id, cohortNumber]
+      );
+      await db.query(
+        `UPDATE camp_cohorts SET current_participants = current_participants + 1 WHERE camp_id = ? AND cohort_number = ?`,
+        [id, target_cohort_number]
+      );
+
+      await db.query("COMMIT");
+
+      res.json({
+        success: true,
+        message: "تم نقل المستخدم بنجاح",
+      });
+    } catch (error) {
+      await db.query("ROLLBACK");
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error migrating user:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في نقل المستخدم",
+      error: error.message,
+    });
+  }
+};
+
+// Bulk migrate users between cohorts (Admin only)
+const bulkMigrateUsersBetweenCohorts = async (req, res) => {
+  try {
+    const { id, cohortNumber } = req.params;
+    const { user_ids, target_cohort_number } = req.body;
+
+    if (!user_ids || !Array.isArray(user_ids) || user_ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "user_ids يجب أن يكون مصفوفة غير فارغة",
+      });
+    }
+
+    if (!target_cohort_number) {
+      return res.status(400).json({
+        success: false,
+        message: "target_cohort_number مطلوب",
+      });
+    }
+
+    // Verify cohorts exist
+    const [sourceCohort] = await db.query(
+      `SELECT * FROM camp_cohorts WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+
+    if (sourceCohort.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الفوج المصدر غير موجود",
+      });
+    }
+
+    const [targetCohort] = await db.query(
+      `SELECT * FROM camp_cohorts WHERE camp_id = ? AND cohort_number = ?`,
+      [id, target_cohort_number]
+    );
+
+    if (targetCohort.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الفوج الهدف غير موجود",
+      });
+    }
+
+    // Start transaction
+    await db.query("START TRANSACTION");
+
+    try {
+      let migratedCount = 0;
+      const placeholders = user_ids.map(() => "?").join(",");
+
+      // Update enrollments
+      const [updateResult] = await db.query(
+        `UPDATE camp_enrollments 
+         SET cohort_number = ? 
+         WHERE camp_id = ? AND user_id IN (${placeholders}) AND cohort_number = ?`,
+        [target_cohort_number, id, ...user_ids, cohortNumber]
+      );
+      migratedCount = updateResult.affectedRows;
+
+      // Update friendships
+      await db.query(
+        `UPDATE camp_friendships 
+         SET cohort_number = ? 
+         WHERE camp_id = ? AND (user_id IN (${placeholders}) OR friend_id IN (${placeholders})) AND cohort_number = ?`,
+        [target_cohort_number, id, ...user_ids, ...user_ids, cohortNumber]
+      );
+
+      // Update Q&A
+      await db.query(
+        `UPDATE camp_qanda 
+         SET cohort_number = ? 
+         WHERE camp_id = ? AND user_id IN (${placeholders}) AND cohort_number = ?`,
+        [target_cohort_number, id, ...user_ids, cohortNumber]
+      );
+
+      // Update participants count
+      await db.query(
+        `UPDATE camp_cohorts SET current_participants = GREATEST(current_participants - ?, 0) WHERE camp_id = ? AND cohort_number = ?`,
+        [migratedCount, id, cohortNumber]
+      );
+      await db.query(
+        `UPDATE camp_cohorts SET current_participants = current_participants + ? WHERE camp_id = ? AND cohort_number = ?`,
+        [migratedCount, id, target_cohort_number]
+      );
+
+      await db.query("COMMIT");
+
+      res.json({
+        success: true,
+        message: `تم نقل ${migratedCount} مستخدم بنجاح`,
+        data: {
+          migrated_count: migratedCount,
+        },
+      });
+    } catch (error) {
+      await db.query("ROLLBACK");
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error bulk migrating users:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في نقل المستخدمين",
+      error: error.message,
+    });
+  }
+};
+
+// Get scheduled cohorts (Admin only)
+const getScheduledCohorts = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [cohorts] = await db.query(
+      `SELECT * FROM camp_cohorts 
+       WHERE camp_id = ? AND status = 'scheduled' 
+       ORDER BY start_date ASC`,
+      [id]
+    );
+
+    res.json({
+      success: true,
+      data: cohorts.map((cohort) => ({
+        ...cohort,
+        settings: cohort.settings ? JSON.parse(cohort.settings) : null,
+      })),
+    });
+  } catch (error) {
+    console.error("Error fetching scheduled cohorts:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في جلب الأفواج المجدولة",
+      error: error.message,
+    });
+  }
+};
+
+// Schedule cohort (Admin only)
+const scheduleCampCohort = async (req, res) => {
+  try {
+    const { id, cohortNumber } = req.params;
+    const { start_date } = req.body;
+
+    if (!start_date) {
+      return res.status(400).json({
+        success: false,
+        message: "start_date مطلوب",
+      });
+    }
+
+    const startDate = new Date(start_date);
+    if (isNaN(startDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "تاريخ البدء غير صحيح",
+      });
+    }
+
+    // Verify cohort exists
+    const [cohorts] = await db.query(
+      `SELECT * FROM camp_cohorts WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+
+    if (cohorts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الفوج غير موجود",
+      });
+    }
+
+    // Update start_date and status
+    await db.query(
+      `UPDATE camp_cohorts 
+       SET start_date = ?, status = 'scheduled' 
+       WHERE camp_id = ? AND cohort_number = ?`,
+      [start_date, id, cohortNumber]
+    );
+
+    res.json({
+      success: true,
+      message: "تم جدولة الفوج بنجاح",
+    });
+  } catch (error) {
+    console.error("Error scheduling cohort:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في جدولة الفوج",
+      error: error.message,
+    });
+  }
+};
+
+// Start a new cohort for a camp (Admin only) - Keep for backward compatibility
+// This function now uses the new camp_cohorts table
 const startNewCohort = async (req, res) => {
   try {
     const { id } = req.params;
@@ -12068,7 +8467,7 @@ const startNewCohort = async (req, res) => {
 
     // Get camp details
     const [camps] = await db.query(
-      `SELECT *, COALESCE(current_cohort_number, 1) as current_cohort_number, COALESCE(total_cohorts, 1) as total_cohorts FROM quran_camps WHERE id = ?`,
+      `SELECT *, COALESCE(current_cohort_number, 1) as current_cohort_number, COALESCE(total_cohorts, 1) as total_cohorts, duration_days FROM quran_camps WHERE id = ?`,
       [id]
     );
 
@@ -12089,8 +8488,13 @@ const startNewCohort = async (req, res) => {
       });
     }
 
-    // Increment cohort numbers
-    const newCohortNumber = (camp.current_cohort_number || 1) + 1;
+    // Get next cohort number
+    const [maxCohort] = await db.query(
+      `SELECT MAX(cohort_number) as max_cohort FROM camp_cohorts WHERE camp_id = ?`,
+      [id]
+    );
+    const newCohortNumber =
+      (maxCohort[0]?.max_cohort || camp.current_cohort_number || 0) + 1;
     const newTotalCohorts = (camp.total_cohorts || 1) + 1;
 
     // Validate start_date if provided
@@ -12106,11 +8510,41 @@ const startNewCohort = async (req, res) => {
       newStartDate = start_date;
     }
 
+    // Calculate end_date
+    let newEndDate = null;
+    if (camp.duration_days) {
+      const endDateObj = new Date(newStartDate);
+      endDateObj.setDate(endDateObj.getDate() + camp.duration_days);
+      newEndDate = endDateObj.toISOString().split("T")[0];
+    }
+
     // Determine new status
     let newStatus = status || "early_registration";
     if (!["early_registration", "active"].includes(newStatus)) {
       newStatus = "early_registration";
     }
+
+    // Determine is_open based on status
+    // If status is 'active', set is_open = 1, otherwise 0
+    const isOpen = newStatus === "active" ? 1 : 0;
+
+    // Create new cohort in camp_cohorts table
+    const [cohortResult] = await db.query(
+      `
+      INSERT INTO camp_cohorts (
+        camp_id, cohort_number, start_date, end_date, status, created_by, is_open
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+      [
+        id,
+        newCohortNumber,
+        newStartDate,
+        newEndDate,
+        newStatus,
+        req.user?.id || null,
+        isOpen,
+      ]
+    );
 
     // Delete all old friendships from previous cohorts when starting a new cohort
     // This ensures that users start fresh with no friends in the new cohort
@@ -12120,16 +8554,14 @@ const startNewCohort = async (req, res) => {
       [id, newCohortNumber]
     );
 
-    // Update camp with new cohort information
+    // Update camp with new cohort information (only current_cohort_number and total_cohorts)
+    // Don't update start_date or status to keep cohorts independent
     await db.query(
       `UPDATE quran_camps 
        SET current_cohort_number = ?, 
-           total_cohorts = ?, 
-           start_date = ?, 
-           status = ?,
-           reopened_date = CASE WHEN status = 'completed' THEN NOW() ELSE reopened_date END
+           total_cohorts = ?
        WHERE id = ?`,
-      [newCohortNumber, newTotalCohorts, newStartDate, newStatus, id]
+      [newCohortNumber, newTotalCohorts, id]
     );
 
     res.json({
@@ -12141,6 +8573,7 @@ const startNewCohort = async (req, res) => {
         total_cohorts: newTotalCohorts,
         start_date: newStartDate,
         status: newStatus,
+        cohort_id: cohortResult.insertId,
       },
     });
   } catch (error) {
@@ -12153,14 +8586,834 @@ const startNewCohort = async (req, res) => {
   }
 };
 
+// ==================== COHORTS MANAGEMENT APIs ====================
+
+// Get all cohorts for a camp (Admin only)
+const getCampCohorts = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, page = 1, limit = 50, sort = "cohort_number" } = req.query;
+
+    // Verify camp exists
+    const [camps] = await db.query(
+      "SELECT id, name FROM quran_camps WHERE id = ?",
+      [id]
+    );
+    if (camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    let query = `
+      SELECT 
+        cc.*,
+        COUNT(DISTINCT CASE 
+          WHEN NOT EXISTS (
+            SELECT 1 FROM camp_supervisors cs 
+            WHERE cs.camp_id = ce.camp_id 
+            AND (cs.cohort_number = ce.cohort_number OR cs.cohort_number IS NULL)
+            AND cs.user_id = ce.user_id
+          ) THEN ce.id
+        END) as participants_count,
+        COUNT(DISTINCT CASE 
+          WHEN NOT EXISTS (
+            SELECT 1 FROM camp_supervisors cs 
+            WHERE cs.camp_id = ce.camp_id 
+            AND (cs.cohort_number = ce.cohort_number OR cs.cohort_number IS NULL)
+            AND cs.user_id = ce.user_id
+          ) AND ctp.completed = 1 THEN ctp.id
+        END) as completed_tasks_count
+      FROM camp_cohorts cc
+      LEFT JOIN camp_enrollments ce ON cc.camp_id = ce.camp_id AND cc.cohort_number = ce.cohort_number
+      LEFT JOIN camp_task_progress ctp ON ce.id = ctp.enrollment_id
+      WHERE cc.camp_id = ?
+    `;
+    const params = [id];
+
+    if (status) {
+      query += ` AND cc.status = ?`;
+      params.push(status);
+    }
+
+    query += ` GROUP BY cc.id`;
+
+    // Sorting
+    const validSorts = ["cohort_number", "start_date", "status", "created_at"];
+    const sortField = validSorts.includes(sort) ? sort : "cohort_number";
+    const sortOrder = sortField === "cohort_number" ? "ASC" : "DESC";
+    query += ` ORDER BY cc.${sortField} ${sortOrder}`;
+
+    // Pagination
+    const offset = (page - 1) * limit;
+    query += ` LIMIT ? OFFSET ?`;
+    params.push(parseInt(limit), offset);
+
+    const [cohorts] = await db.query(query, params);
+
+    // Get total count
+    let countQuery = `SELECT COUNT(*) as total FROM camp_cohorts WHERE camp_id = ?`;
+    const countParams = [id];
+    if (status) {
+      countQuery += ` AND status = ?`;
+      countParams.push(status);
+    }
+    const [countResult] = await db.query(countQuery, countParams);
+    const total = countResult[0].total;
+
+    res.json({
+      success: true,
+      data: cohorts.map((cohort) => ({
+        ...cohort,
+        settings: cohort.settings ? JSON.parse(cohort.settings) : null,
+      })),
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching camp cohorts:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في جلب الأفواج",
+      error: error.message,
+    });
+  }
+};
+
+// Get available cohorts for a camp (Public - open or active cohorts)
+const getAvailableCohorts = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id || null;
+
+    // Verify camp exists
+    const [camps] = await db.query(
+      "SELECT id, name FROM quran_camps WHERE id = ?",
+      [id]
+    );
+    if (camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    // Get all available cohorts (open or active/early_registration)
+    // Do NOT include supervisor information (hidden from regular users)
+    // Exclude supervisors from participants_count
+    const [cohorts] = await db.query(
+      `
+      SELECT 
+        cc.*,
+        COUNT(DISTINCT CASE 
+          WHEN NOT EXISTS (
+            SELECT 1 FROM camp_supervisors cs 
+            WHERE cs.camp_id = ce.camp_id 
+            AND (cs.cohort_number = ce.cohort_number OR cs.cohort_number IS NULL)
+            AND cs.user_id = ce.user_id
+          ) THEN ce.id
+        END) as participants_count,
+        CASE 
+          WHEN cc.status = 'active' THEN 'نشط'
+          WHEN cc.status = 'early_registration' THEN 'التسجيل المبكر'
+          WHEN cc.status = 'scheduled' THEN 'مجدول'
+          WHEN cc.status = 'completed' THEN 'منتهي'
+          WHEN cc.status = 'cancelled' THEN 'ملغي'
+          ELSE 'غير محدد'
+        END as status_ar,
+        CASE
+          WHEN cc.is_open = 1 THEN 'مفتوح'
+          ELSE 'مغلق'
+        END as open_status_ar
+      FROM camp_cohorts cc
+      LEFT JOIN camp_enrollments ce ON cc.camp_id = ce.camp_id AND cc.cohort_number = ce.cohort_number
+      WHERE cc.camp_id = ? 
+        AND (cc.is_open = 1 OR cc.status IN ('early_registration', 'active' , 'scheduled'))
+      GROUP BY cc.id
+      ORDER BY cc.cohort_number DESC
+    `,
+      [id]
+    );
+
+    // Check if user is enrolled in any cohort
+    let userEnrollments = [];
+    if (userId) {
+      const [enrollments] = await db.query(
+        `SELECT cohort_number FROM camp_enrollments 
+         WHERE camp_id = ? AND user_id = ?`,
+        [id, userId]
+      );
+      userEnrollments = enrollments.map((e) => e.cohort_number);
+    }
+
+    const cohortsWithEnrollment = cohorts.map((cohort) => ({
+      ...cohort,
+      is_enrolled: userEnrollments.includes(cohort.cohort_number),
+      settings: cohort.settings ? JSON.parse(cohort.settings) : null,
+    }));
+
+    res.json({
+      success: true,
+      data: cohortsWithEnrollment,
+    });
+  } catch (error) {
+    console.error("Error fetching available cohorts:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في جلب الأفواج المتاحة",
+      error: error.message,
+    });
+  }
+};
+
+// Get user's current cohort for a camp
+const getMyCohort = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "يجب تسجيل الدخول",
+      });
+    }
+
+    // Get user's enrollment
+    const [enrollments] = await db.query(
+      `SELECT ce.*, cc.*
+       FROM camp_enrollments ce
+       JOIN camp_cohorts cc ON ce.camp_id = cc.camp_id AND ce.cohort_number = cc.cohort_number
+       WHERE ce.camp_id = ? AND ce.user_id = ?
+       ORDER BY ce.cohort_number DESC
+       LIMIT 1`,
+      [id, userId]
+    );
+
+    if (enrollments.length === 0) {
+      return res.json({
+        success: true,
+        data: null,
+        message: "لم يتم التسجيل في هذا المخيم",
+      });
+    }
+
+    const enrollment = enrollments[0];
+    enrollment.settings = enrollment.settings
+      ? JSON.parse(enrollment.settings)
+      : null;
+
+    res.json({
+      success: true,
+      data: enrollment,
+    });
+  } catch (error) {
+    console.error("Error fetching user cohort:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في جلب فوجك",
+      error: error.message,
+    });
+  }
+};
+
+// Get single cohort details (Admin only)
+const getCampCohort = async (req, res) => {
+  try {
+    const { id, cohortNumber } = req.params;
+
+    const [cohorts] = await db.query(
+      `
+      SELECT 
+        cc.*,
+        qc.name as camp_name,
+        qc.duration_days,
+        COUNT(DISTINCT CASE 
+          WHEN NOT EXISTS (
+            SELECT 1 FROM camp_supervisors cs 
+            WHERE cs.camp_id = ce.camp_id 
+            AND (cs.cohort_number = ce.cohort_number OR cs.cohort_number IS NULL)
+            AND cs.user_id = ce.user_id
+          ) THEN ce.id
+        END) as participants_count,
+        COUNT(DISTINCT CASE 
+          WHEN NOT EXISTS (
+            SELECT 1 FROM camp_supervisors cs 
+            WHERE cs.camp_id = ce.camp_id 
+            AND (cs.cohort_number = ce.cohort_number OR cs.cohort_number IS NULL)
+            AND cs.user_id = ce.user_id
+          ) AND ctp.completed = 1 THEN ctp.id
+        END) as completed_tasks_count,
+        COUNT(DISTINCT cdt.id) as total_tasks_count
+      FROM camp_cohorts cc
+      JOIN quran_camps qc ON cc.camp_id = qc.id
+      LEFT JOIN camp_enrollments ce ON cc.camp_id = ce.camp_id AND cc.cohort_number = ce.cohort_number
+      LEFT JOIN camp_task_progress ctp ON ce.id = ctp.enrollment_id
+      LEFT JOIN camp_daily_tasks cdt ON qc.id = cdt.camp_id
+      WHERE cc.camp_id = ? AND cc.cohort_number = ?
+      GROUP BY cc.id
+    `,
+      [id, cohortNumber]
+    );
+
+    if (cohorts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الفوج غير موجود",
+      });
+    }
+
+    const cohort = cohorts[0];
+    cohort.settings = cohort.settings ? JSON.parse(cohort.settings) : null;
+
+    res.json({
+      success: true,
+      data: cohort,
+    });
+  } catch (error) {
+    console.error("Error fetching cohort:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في جلب تفاصيل الفوج",
+      error: error.message,
+    });
+  }
+};
+
+// Create new cohort (Admin only)
+const createCampCohort = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      name,
+      start_date,
+      end_date,
+      max_participants,
+      settings,
+      status = "scheduled",
+      is_open = 0,
+      announcement_message,
+      send_email_to_subscribers = false,
+    } = req.body;
+    const userId = req.user.id;
+
+    // Verify camp exists
+    const [camps] = await db.query(
+      "SELECT id, name, duration_days FROM quran_camps WHERE id = ?",
+      [id]
+    );
+    if (camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    const camp = camps[0];
+
+    // Validate dates
+    if (!start_date) {
+      return res.status(400).json({
+        success: false,
+        message: "تاريخ البدء مطلوب",
+      });
+    }
+
+    // Ensure start_date is in YYYY-MM-DD format (date only, no time)
+    let normalizedStartDate = start_date;
+    if (start_date.includes("T")) {
+      normalizedStartDate = start_date.split("T")[0];
+    }
+
+    const startDate = new Date(normalizedStartDate);
+    if (isNaN(startDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "تاريخ البدء غير صحيح",
+      });
+    }
+
+    // Normalize to YYYY-MM-DD format
+    normalizedStartDate = startDate.toISOString().split("T")[0];
+
+    // Calculate end_date if not provided
+    let calculatedEndDate = end_date;
+    if (!calculatedEndDate && camp.duration_days) {
+      const endDateObj = new Date(startDate);
+      endDateObj.setDate(endDateObj.getDate() + camp.duration_days);
+      calculatedEndDate = endDateObj.toISOString().split("T")[0];
+    } else if (calculatedEndDate && calculatedEndDate.includes("T")) {
+      calculatedEndDate = calculatedEndDate.split("T")[0];
+    }
+
+    // Get next cohort number
+    const [maxCohort] = await db.query(
+      `SELECT MAX(cohort_number) as max_cohort FROM camp_cohorts WHERE camp_id = ?`,
+      [id]
+    );
+    const nextCohortNumber = (maxCohort[0]?.max_cohort || 0) + 1;
+
+    // Prevent creating active or early_registration cohort if there's already an active one
+    // Allow scheduled cohorts even if there's an active cohort
+    if (status === "active" || status === "early_registration") {
+      const [activeCohorts] = await db.query(
+        `SELECT cohort_number FROM camp_cohorts 
+         WHERE camp_id = ? AND status = 'active'`,
+        [id]
+      );
+
+      if (activeCohorts.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `يوجد فوج نشط بالفعل (الفوج رقم ${activeCohorts[0].cohort_number}). يجب إكمال أو إلغاء الفوج النشط قبل إنشاء فوج جديد بنشط أو تسجيل مبكر. يمكنك إنشاء فوج مجدول (scheduled) بدلاً من ذلك`,
+          code: "ACTIVE_COHORT_EXISTS",
+        });
+      }
+    }
+
+    // Check for date conflicts with other cohorts
+    // تعارض يحدث إذا كان هناك تداخل في الفترات الزمنية:
+    // الفوج الجديد يبدأ قبل انتهاء فوج موجود AND ينتهي بعد بدء فوج موجود
+    if (calculatedEndDate) {
+      const [conflicts] = await db.query(
+        `
+        SELECT cohort_number, start_date, end_date 
+        FROM camp_cohorts 
+        WHERE camp_id = ? 
+          AND status NOT IN ('cancelled', 'completed')
+          AND (
+            -- الفوج الموجود يبدأ قبل انتهاء الفوج الجديد
+            DATE(start_date) < DATE(?)
+            AND
+            -- الفوج الموجود ينتهي بعد بدء الفوج الجديد (أو لا يوجد تاريخ انتهاء)
+            (end_date IS NULL OR DATE(end_date) > DATE(?))
+          )
+        `,
+        [id, calculatedEndDate, normalizedStartDate]
+      );
+
+      if (conflicts.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "يوجد تعارض في التواريخ مع أفواج أخرى",
+          conflicts: conflicts,
+        });
+      }
+    }
+
+    // Determine is_open value (from request or default to 0)
+    const cohortIsOpen = is_open === 1 || is_open === true ? 1 : 0;
+
+    // Prepare settings with announcement_message
+    let cohortSettings = settings || {};
+    if (announcement_message) {
+      cohortSettings.announcement_message = announcement_message;
+    }
+
+    // Insert new cohort
+    const [result] = await db.query(
+      `
+      INSERT INTO camp_cohorts (
+        camp_id, cohort_number, name, start_date, end_date, 
+        status, max_participants, settings, created_by, is_open
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+      [
+        id,
+        nextCohortNumber,
+        name || null,
+        normalizedStartDate,
+        calculatedEndDate || null,
+        status,
+        max_participants || null,
+        Object.keys(cohortSettings).length > 0
+          ? JSON.stringify(cohortSettings)
+          : null,
+        userId,
+        cohortIsOpen,
+      ]
+    );
+
+    // Update total_cohorts in quran_camps
+    await db.query(`UPDATE quran_camps SET total_cohorts = ? WHERE id = ?`, [
+      nextCohortNumber,
+      id,
+    ]);
+
+    // Update current_cohort_number only (don't update start_date or status)
+    // This allows each cohort to have its own start date independent of camp
+    if (
+      nextCohortNumber === 1 ||
+      status === "early_registration" ||
+      status === "active"
+    ) {
+      await db.query(
+        `UPDATE quran_camps 
+         SET current_cohort_number = ?
+         WHERE id = ?`,
+        [nextCohortNumber, id]
+      );
+    }
+
+    // Fetch created cohort
+    const [newCohort] = await db.query(
+      `SELECT * FROM camp_cohorts WHERE id = ?`,
+      [result.insertId]
+    );
+
+    // Send emails to subscribers if requested
+    let emailsSent = 0;
+    if (
+      send_email_to_subscribers === true ||
+      send_email_to_subscribers === "true"
+    ) {
+      try {
+        // Get all active subscribers (subscription_type = 'cohorts' or 'both')
+        const [subscribers] = await db.query(
+          `SELECT email, unsubscribe_token 
+           FROM camp_notification_subscribers 
+           WHERE is_active = 1 
+             AND (subscription_type = 'cohorts' OR subscription_type = 'both')`
+        );
+
+        // Get camp details for email
+        const [campDetails] = await db.query(
+          `SELECT name, share_link FROM quran_camps WHERE id = ?`,
+          [id]
+        );
+        const campName = campDetails[0]?.name || camp.name;
+        const campShareLink = campDetails[0]?.share_link || id;
+
+        // Send email to each subscriber
+        for (const subscriber of subscribers) {
+          try {
+            await mailService.sendCohortOpenedEmail(
+              subscriber.email,
+              campName,
+              campShareLink,
+              nextCohortNumber,
+              subscriber.unsubscribe_token,
+              announcement_message
+            );
+            emailsSent++;
+          } catch (emailError) {
+            console.error(
+              `Error sending email to ${subscriber.email}:`,
+              emailError
+            );
+          }
+        }
+      } catch (emailError) {
+        console.error("Error sending cohort announcement emails:", emailError);
+        // Don't fail the request if email sending fails
+      }
+    }
+
+    // Notify supervisors about new cohort creation
+    const supervisorNotificationResult =
+      await campManagementService.notifySupervisorsOnCohortCreation({
+        campId: id,
+        cohortNumber: nextCohortNumber,
+        startDate: normalizedStartDate,
+        endDate: calculatedEndDate,
+        announcementMessage: announcement_message,
+        createdBy: userId,
+      });
+
+    res.status(201).json({
+      success: true,
+      message: "تم إنشاء الفوج بنجاح",
+      data: {
+        ...newCohort[0],
+        settings: newCohort[0].settings
+          ? JSON.parse(newCohort[0].settings)
+          : null,
+      },
+      emails_sent: emailsSent,
+      supervisor_emails_sent: supervisorNotificationResult.supervisorEmailsSent,
+      supervisor_emails_failed:
+        supervisorNotificationResult.supervisorEmailsFailed,
+    });
+  } catch (error) {
+    console.error("Error creating cohort:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في إنشاء الفوج",
+      error: error.message,
+    });
+  }
+};
+
+// Update cohort (Admin only)
+const updateCampCohort = async (req, res) => {
+  try {
+    const { id, cohortNumber } = req.params;
+    const {
+      name,
+      start_date,
+      end_date,
+      max_participants,
+      settings,
+      status,
+      notes,
+      is_open,
+    } = req.body;
+
+    // Verify cohort exists
+    const [cohorts] = await db.query(
+      `SELECT * FROM camp_cohorts WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+
+    if (cohorts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الفوج غير موجود",
+      });
+    }
+
+    const cohort = cohorts[0];
+    const oldStatus = cohort.status;
+    const oldIsOpen = cohort.is_open;
+
+    // Prevent updating active or completed cohorts (except for notes and settings)
+    if (cohort.status === "completed") {
+      if (start_date || end_date || status) {
+        return res.status(400).json({
+          success: false,
+          message: "لا يمكن تعديل التواريخ أو الحالة للفوج النشط أو المكتمل",
+        });
+      }
+    }
+
+    // Validate dates if provided
+    if (start_date) {
+      const startDate = new Date(start_date);
+      if (isNaN(startDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: "تاريخ البدء غير صحيح",
+        });
+      }
+    }
+
+    // Build update query dynamically
+    const updates = [];
+    const params = [];
+
+    if (name !== undefined) {
+      updates.push("name = ?");
+      params.push(name || null);
+    }
+    if (start_date !== undefined) {
+      updates.push("start_date = ?");
+      params.push(start_date);
+    }
+    if (end_date !== undefined) {
+      updates.push("end_date = ?");
+      params.push(end_date || null);
+    }
+    if (max_participants !== undefined) {
+      updates.push("max_participants = ?");
+      params.push(max_participants || null);
+    }
+    if (settings !== undefined) {
+      updates.push("settings = ?");
+      params.push(settings ? JSON.stringify(settings) : null);
+    }
+    if (status !== undefined) {
+      updates.push("status = ?");
+      params.push(status);
+    }
+    if (notes !== undefined) {
+      updates.push("notes = ?");
+      params.push(notes || null);
+    }
+    if (is_open !== undefined) {
+      updates.push("is_open = ?");
+      params.push(is_open === 1 || is_open === true ? 1 : 0);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "لا توجد بيانات للتحديث",
+      });
+    }
+
+    params.push(id, cohortNumber);
+
+    await db.query(
+      `UPDATE camp_cohorts SET ${updates.join(
+        ", "
+      )} WHERE camp_id = ? AND cohort_number = ?`,
+      params
+    );
+
+    // Fetch updated cohort
+    const [updatedCohort] = await db.query(
+      `SELECT * FROM camp_cohorts WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+
+    const newStatus = status !== undefined ? status : oldStatus;
+    const newIsOpen =
+      is_open !== undefined
+        ? is_open === 1 || is_open === true
+          ? 1
+          : 0
+        : oldIsOpen;
+
+    // Send email notifications if cohort becomes available for registration
+    // Check if status changed to early_registration/active OR is_open changed to 1
+    const statusChangedToAvailable =
+      (newStatus === "early_registration" || newStatus === "active") &&
+      oldStatus !== "early_registration" &&
+      oldStatus !== "active";
+    const openedForRegistration = newIsOpen === 1 && oldIsOpen === 0;
+
+    if (statusChangedToAvailable || openedForRegistration) {
+      try {
+        const [campInfo] = await db.query(
+          "SELECT name FROM quran_camps WHERE id = ?",
+          [id]
+        );
+        const campName = campInfo[0]?.name || "المخيم";
+
+        const campNotificationController = require("./campNotificationController");
+        await campNotificationController.sendCohortOpenedNotification(
+          id,
+          cohortNumber,
+          campName
+        );
+      } catch (emailListError) {
+        console.error(
+          "Error sending cohort opened emails to subscribers:",
+          emailListError
+        );
+        // Continue even if email list notifications fail
+      }
+    }
+
+    res.json({
+      success: true,
+      message: "تم تحديث الفوج بنجاح",
+      data: {
+        ...updatedCohort[0],
+        settings: updatedCohort[0].settings
+          ? JSON.parse(updatedCohort[0].settings)
+          : null,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating cohort:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في تحديث الفوج",
+      error: error.message,
+    });
+  }
+};
+
+// Delete cohort (Admin only)
+const deleteCampCohort = async (req, res) => {
+  try {
+    const { id, cohortNumber } = req.params;
+    const { migrateToCohort, deleteParticipants } = req.query;
+
+    // Verify cohort exists
+    const [cohorts] = await db.query(
+      `SELECT * FROM camp_cohorts WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+
+    if (cohorts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الفوج غير موجود",
+      });
+    }
+
+    const cohort = cohorts[0];
+
+    // Check if cohort has participants
+    const [participants] = await db.query(
+      `SELECT COUNT(*) as count FROM camp_enrollments WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+    const participantCount = participants[0].count;
+
+    // Prevent deletion of active cohorts
+    if (cohort.status === "active") {
+      return res.status(400).json({
+        success: false,
+        message: "لا يمكن حذف فوج نشط. يرجى إكماله أو إلغاؤه أولاً",
+      });
+    }
+
+    // Handle participants
+    if (participantCount > 0) {
+      if (migrateToCohort) {
+        // Migrate participants to another cohort
+        await db.query(
+          `UPDATE camp_enrollments SET cohort_number = ? WHERE camp_id = ? AND cohort_number = ?`,
+          [migrateToCohort, id, cohortNumber]
+        );
+
+        // Update participants count in target cohort
+        await db.query(
+          `UPDATE camp_cohorts 
+           SET current_participants = current_participants + ? 
+           WHERE camp_id = ? AND cohort_number = ?`,
+          [participantCount, id, migrateToCohort]
+        );
+      } else if (deleteParticipants === "true") {
+        // Delete participants (cascade will handle related data)
+        await db.query(
+          `DELETE FROM camp_enrollments WHERE camp_id = ? AND cohort_number = ?`,
+          [id, cohortNumber]
+        );
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: `يوجد ${participantCount} مشترك في هذا الفوج. يرجى تحديد migrateToCohort أو deleteParticipants=true`,
+        });
+      }
+    }
+
+    // Delete cohort
+    await db.query(
+      `DELETE FROM camp_cohorts WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+
+    res.json({
+      success: true,
+      message: "تم حذف الفوج بنجاح",
+    });
+  } catch (error) {
+    console.error("Error deleting cohort:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في حذف الفوج",
+      error: error.message,
+    });
+  }
+};
+
 const getCampInteractions = async (req, res) => {
   try {
     const { id } = req.params;
+    const { cohort_number } = req.query;
 
-    // التحقق من وجود المخيم وجلب cohort_number الحالي
+    // التحقق من وجود المخيم
     const [camps] = await db.query(
-      `SELECT id, name, COALESCE(current_cohort_number, 1) as current_cohort_number 
-       FROM quran_camps WHERE id = ?`,
+      `SELECT id, name FROM quran_camps WHERE id = ?`,
       [id]
     );
 
@@ -12171,7 +9424,13 @@ const getCampInteractions = async (req, res) => {
       });
     }
 
-    const currentCohortNumber = camps[0].current_cohort_number || 1;
+    // Get cohort number from query or use current cohort
+    let cohortNumber;
+    if (cohort_number) {
+      cohortNumber = parseInt(cohort_number);
+    } else {
+      cohortNumber = await getCurrentCohortNumber(id);
+    }
 
     // جلب جميع المهمات المكتملة مع معلومات المستخدمين مقسمة بالأيام
     const [interactions] = await db.query(
@@ -12195,7 +9454,7 @@ const getCampInteractions = async (req, res) => {
         AND ctp.completed = true
       ORDER BY cdt.day_number ASC, ctp.completed_at ASC
       `,
-      [id, currentCohortNumber]
+      [id, cohortNumber]
     );
 
     // تنظيم البيانات حسب الأيام
@@ -12253,6 +9512,1138 @@ const getCampInteractions = async (req, res) => {
   }
 };
 
+// ==================== SUPERVISORS MANAGEMENT APIs ====================
+
+// Get camp supervisors (Admin only)
+const getCampSupervisors = async (req, res) => {
+  try {
+    const { id, cohortNumber } = req.params;
+    const cohortNum = cohortNumber || req.query.cohortNumber;
+
+    const result = await campManagementService.getCampSupervisors({
+      campId: id,
+      cohortNumber: cohortNum,
+    });
+
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error("Error in getCampSupervisors:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في جلب المشرفين",
+    });
+  }
+};
+
+// Add camp supervisor (Admin only)
+const addCampSupervisor = async (req, res) => {
+  try {
+    const { id, cohortNumber } = req.params;
+    const { userId } = req.body;
+    const createdBy = req.user.id;
+
+    const result = await campManagementService.addCampSupervisor({
+      campId: id,
+      userId,
+      createdBy,
+      cohortNumber,
+    });
+
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error("Error in addCampSupervisor:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في إضافة المشرف",
+    });
+  }
+};
+
+// Remove camp supervisor (Admin only)
+const removeCampSupervisor = async (req, res) => {
+  try {
+    const { id, userId, cohortNumber } = req.params;
+    const cohortNum = cohortNumber || req.query.cohortNumber;
+
+    const result = await campManagementService.removeCampSupervisor({
+      campId: id,
+      userId,
+      cohortNumber: cohortNum,
+    });
+
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error("Error in removeCampSupervisor:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في إزالة المشرف",
+    });
+  }
+};
+
+// Note: isSupervisor helper is now imported from utils/permissionsHelper
+
+// Get cohort participants for supervisor (Supervisor only)
+const getSupervisorCohortParticipants = async (req, res) => {
+  try {
+    const { id, cohortNumber } = req.params;
+    const userId = req.user.id;
+    const { page = 1, limit = 50, search, status } = req.query;
+
+    // Verify user is supervisor for this cohort
+    const accessInfo = await verifyAccess(id, req.user, parseInt(cohortNumber));
+    if (!accessInfo.hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: "ليس لديك صلاحية للوصول إلى هذا الفوج",
+      });
+    }
+
+    // Verify cohort exists
+    const cohortExists = await campParticipantService.verifyCohortExists(
+      id,
+      parseInt(cohortNumber)
+    );
+    if (!cohortExists) {
+      return res.status(404).json({
+        success: false,
+        message: "الفوج غير موجود",
+      });
+    }
+
+    // Get participants (excluding supervisors)
+    const result = await campParticipantService.getParticipants({
+      campId: id,
+      cohortNumber: parseInt(cohortNumber),
+      filters: { status, search },
+      pagination: { page: parseInt(page), limit: parseInt(limit) },
+      includeSupervisors: false,
+    });
+
+    res.json({
+      success: true,
+      data: result.participants,
+      pagination: result.pagination,
+    });
+  } catch (error) {
+    console.error("Error fetching supervisor cohort participants:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في جلب المشتركين",
+      error: error.message,
+    });
+  }
+};
+
+// Remove participant from cohort (Supervisor only)
+const removeParticipantFromCohort = async (req, res) => {
+  try {
+    const { id, cohortNumber, userId } = req.params;
+    const supervisorId = req.user.id;
+
+    // Verify user is supervisor for this cohort
+    const isSupervisorForCohort = await isSupervisor(
+      id,
+      supervisorId,
+      cohortNumber
+    );
+    if (!isSupervisorForCohort) {
+      return res.status(403).json({
+        success: false,
+        message: "ليس لديك صلاحية لإزالة المشتركين من هذا الفوج",
+      });
+    }
+
+    // Verify enrollment exists
+    const [enrollments] = await db.query(
+      `SELECT id FROM camp_enrollments 
+       WHERE camp_id = ? AND cohort_number = ? AND user_id = ?`,
+      [id, cohortNumber, userId]
+    );
+
+    if (enrollments.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المشترك غير موجود في هذا الفوج",
+      });
+    }
+
+    // Remove enrollment
+    await db.query(
+      `DELETE FROM camp_enrollments 
+       WHERE camp_id = ? AND cohort_number = ? AND user_id = ?`,
+      [id, cohortNumber, userId]
+    );
+
+    res.json({
+      success: true,
+      message: "تم إزالة المشترك من الفوج بنجاح",
+    });
+  } catch (error) {
+    console.error("Error removing participant from cohort:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في إزالة المشترك",
+      error: error.message,
+    });
+  }
+};
+
+// Migrate participant to another cohort (Supervisor only)
+const migrateParticipantBySupervisor = async (req, res) => {
+  try {
+    const { id, cohortNumber } = req.params;
+    const { user_id, target_cohort_number } = req.body;
+    const supervisorId = req.user.id;
+
+    // Verify user is supervisor for this cohort
+    const isSupervisorForCohort = await isSupervisor(
+      id,
+      supervisorId,
+      cohortNumber
+    );
+    if (!isSupervisorForCohort) {
+      return res.status(403).json({
+        success: false,
+        message: "ليس لديك صلاحية لنقل المشتركين من هذا الفوج",
+      });
+    }
+
+    // Verify target cohort exists
+    const [targetCohorts] = await db.query(
+      `SELECT * FROM camp_cohorts WHERE camp_id = ? AND cohort_number = ?`,
+      [id, target_cohort_number]
+    );
+
+    if (targetCohorts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الفوج الهدف غير موجود",
+      });
+    }
+
+    // Verify enrollment exists in source cohort
+    const [enrollments] = await db.query(
+      `SELECT id FROM camp_enrollments 
+       WHERE camp_id = ? AND cohort_number = ? AND user_id = ?`,
+      [id, cohortNumber, user_id]
+    );
+
+    if (enrollments.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المشترك غير موجود في هذا الفوج",
+      });
+    }
+
+    // Check if user is already enrolled in target cohort
+    const [existingEnrollments] = await db.query(
+      `SELECT id FROM camp_enrollments 
+       WHERE camp_id = ? AND cohort_number = ? AND user_id = ?`,
+      [id, target_cohort_number, user_id]
+    );
+
+    if (existingEnrollments.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "المشترك مسجل بالفعل في الفوج الهدف",
+      });
+    }
+
+    // ========================================
+    // البدأ بعملية النقل مع حذف التقدم القديم
+    // ========================================
+
+    // 1. حذف التقدم اليومي في الفوج القديم (daily_tasks_progress)
+    await db.query(
+      `DELETE FROM daily_tasks_progress 
+       WHERE camp_id = ? AND cohort_number = ? AND user_id = ?`,
+      [id, cohortNumber, user_id]
+    );
+
+    // 2. حذف التقدم العام (camp_progress)
+    await db.query(
+      `DELETE FROM camp_progress 
+       WHERE camp_id = ? AND cohort_number = ? AND user_id = ?`,
+      [id, cohortNumber, user_id]
+    );
+
+    // 3. حذف الـ streaks
+    await db.query(
+      `DELETE FROM camp_streaks 
+       WHERE camp_id = ? AND cohort_number = ? AND user_id = ?`,
+      [id, cohortNumber, user_id]
+    );
+
+    // 4. حذف الصداقات القديمة - محصورة في الفوج القديم
+    // (سيحتاج المستخدم إعادة بناء صداقاته في الفوج الجديد)
+    const user1Id = user_id; // سنستخدمها في الحالتين
+    await db.query(
+      `DELETE FROM camp_friendships 
+       WHERE camp_id = ? AND cohort_number = ? 
+       AND (user1_id = ? OR user2_id = ?)`,
+      [id, cohortNumber, user1Id, user1Id]
+    );
+
+    // 5. حذف طلبات الصداقة المعلقة المرتبطة بالفوج القديم
+    await db.query(
+      `DELETE FROM friend_requests 
+       WHERE camp_id = ? 
+       AND (sender_id = ? OR receiver_id = ?) 
+       AND status = 'pending'`,
+      [id, user_id, user_id]
+    );
+
+    // 6. تحديث cohort_number في enrollment (النقل الفعلي)
+    await db.query(
+      `UPDATE camp_enrollments 
+       SET cohort_number = ? 
+       WHERE camp_id = ? AND cohort_number = ? AND user_id = ?`,
+      [target_cohort_number, id, cohortNumber, user_id]
+    );
+
+    // 7. إنشاء سجل progress جديد في الفوج الجديد (البدء من الصفر)
+    await db.query(
+      `INSERT INTO camp_progress (camp_id, cohort_number, user_id, points, completed_tasks)
+       VALUES (?, ?, ?, 0, 0)
+       ON DUPLICATE KEY UPDATE points = 0, completed_tasks = 0`,
+      [id, target_cohort_number, user_id]
+    );
+
+    res.json({
+      success: true,
+      message: `تم نقل المشترك إلى الفوج ${target_cohort_number} بنجاح مع إعادة تعيين تقدمه وصداقاته`,
+    });
+  } catch (error) {
+    console.error("Error migrating participant:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في نقل المشترك",
+      error: error.message,
+    });
+  }
+};
+
+// Get cohort statistics for supervisor (Supervisor only)
+const getSupervisorCohortStats = async (req, res) => {
+  try {
+    const { id, cohortNumber } = req.params;
+    const userId = req.user.id;
+
+    // Verify user is supervisor for this cohort
+    const isSupervisorForCohort = await isSupervisor(id, userId, cohortNumber);
+    if (!isSupervisorForCohort) {
+      return res.status(403).json({
+        success: false,
+        message: "ليس لديك صلاحية للوصول إلى إحصائيات هذا الفوج",
+      });
+    }
+
+    // Verify cohort exists
+    const [cohorts] = await db.query(
+      `SELECT * FROM camp_cohorts WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+
+    if (cohorts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الفوج غير موجود",
+      });
+    }
+
+    // Get total tasks count
+    const [totalTasksResult] = await db.query(
+      `SELECT COUNT(*) as total FROM camp_daily_tasks WHERE camp_id = ?`,
+      [id]
+    );
+    const totalTasks = totalTasksResult[0].total || 1;
+
+    // Get statistics - use subqueries to calculate properly (excluding supervisors)
+    const [statsResult] = await db.query(
+      `
+      SELECT 
+        COUNT(DISTINCT ce.id) as total_participants,
+        COUNT(DISTINCT CASE WHEN ce.status = 'active' THEN ce.id END) as active_participants,
+        COUNT(DISTINCT CASE WHEN ce.status = 'completed' THEN ce.id END) as completed_participants,
+        COALESCE(AVG(
+          CASE 
+            WHEN task_counts.completed_count > 0 
+            THEN (task_counts.completed_count / ?) * 100 
+            ELSE 0 
+          END
+        ), 0) as average_progress,
+        COALESCE(AVG(ce.total_points), 0) as average_points
+      FROM camp_enrollments ce
+      LEFT JOIN (
+        SELECT 
+          enrollment_id,
+          COUNT(DISTINCT id) as completed_count
+        FROM camp_task_progress
+        WHERE completed = 1
+        GROUP BY enrollment_id
+      ) task_counts ON ce.id = task_counts.enrollment_id
+      WHERE ce.camp_id = ? AND ce.cohort_number = ?
+      AND NOT EXISTS (
+        SELECT 1 FROM camp_supervisors cs 
+        WHERE cs.camp_id = ce.camp_id 
+        AND (cs.cohort_number = ce.cohort_number OR cs.cohort_number IS NULL)
+        AND cs.user_id = ce.user_id
+      )
+    `,
+      [totalTasks, id, cohortNumber]
+    );
+
+    const result = {
+      total_participants: statsResult[0]?.total_participants || 0,
+      active_participants: statsResult[0]?.active_participants || 0,
+      completed_participants: statsResult[0]?.completed_participants || 0,
+      average_progress: parseFloat(statsResult[0]?.average_progress || 0),
+      average_points: parseFloat(statsResult[0]?.average_points || 0),
+    };
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error("Error fetching supervisor cohort stats:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في جلب الإحصائيات",
+      error: error.message,
+    });
+  }
+};
+
+// Send cohort notification email manually (Admin only)
+// Send cohort announcement email to subscribers (Admin only)
+const sendCohortAnnouncement = async (req, res) => {
+  try {
+    const { id, cohortNumber } = req.params;
+    const { announcement_message } = req.body;
+
+    // Verify camp exists
+    const [camps] = await db.query(
+      "SELECT id, name, share_link FROM quran_camps WHERE id = ?",
+      [id]
+    );
+    if (camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    // Verify cohort exists
+    const [cohorts] = await db.query(
+      `SELECT * FROM camp_cohorts WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+    if (cohorts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الفوج غير موجود",
+      });
+    }
+
+    const camp = camps[0];
+    const cohort = cohorts[0];
+    const campName = camp.name;
+    const campShareLink = camp.share_link || id;
+
+    // Get announcement message from cohort settings or use provided one
+    let message = announcement_message;
+    if (!message && cohort.settings) {
+      const settings = JSON.parse(cohort.settings);
+      message = settings.announcement_message;
+    }
+
+    // Get all active subscribers (subscription_type = 'cohorts' or 'both')
+    const [subscribers] = await db.query(
+      `SELECT email, unsubscribe_token 
+       FROM camp_notification_subscribers 
+       WHERE is_active = 1 
+         AND (subscription_type = 'cohorts' OR subscription_type = 'both')`
+    );
+
+    if (subscribers.length === 0) {
+      return res.json({
+        success: true,
+        message: "لا يوجد مشتركين نشطين لإرسال الإيميلات لهم",
+        emails_sent: 0,
+      });
+    }
+
+    // Send email to each subscriber
+    let emailsSent = 0;
+    let emailsFailed = 0;
+    const errors = [];
+
+    for (const subscriber of subscribers) {
+      try {
+        await mailService.sendCohortOpenedEmail(
+          subscriber.email,
+          campName,
+          campShareLink,
+          cohortNumber,
+          subscriber.unsubscribe_token,
+          message
+        );
+        emailsSent++;
+      } catch (emailError) {
+        emailsFailed++;
+        errors.push({
+          email: subscriber.email,
+          error: emailError.message,
+        });
+        console.error(
+          `Error sending email to ${subscriber.email}:`,
+          emailError
+        );
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `تم إرسال ${emailsSent} إيميل بنجاح`,
+      emails_sent: emailsSent,
+      emails_failed: emailsFailed,
+      total_subscribers: subscribers.length,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  } catch (error) {
+    console.error("Error sending cohort announcement:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في إرسال الإعلان",
+      error: error.message,
+    });
+  }
+};
+
+const sendCohortNotification = async (req, res) => {
+  try {
+    const { id, cohortNumber } = req.params;
+
+    // Verify camp exists
+    const [camps] = await db.query(
+      "SELECT id, name FROM quran_camps WHERE id = ?",
+      [id]
+    );
+    if (camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+
+    // Verify cohort exists
+    const [cohorts] = await db.query(
+      `SELECT * FROM camp_cohorts WHERE camp_id = ? AND cohort_number = ?`,
+      [id, cohortNumber]
+    );
+    if (cohorts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الفوج غير موجود",
+      });
+    }
+
+    const camp = camps[0];
+    const campNotificationController = require("./campNotificationController");
+
+    // Send notification
+    await campNotificationController.sendCohortOpenedNotification(
+      id,
+      cohortNumber,
+      camp.name
+    );
+
+    res.json({
+      success: true,
+      message: "تم إرسال الإشعار بنجاح",
+    });
+  } catch (error) {
+    console.error("Error sending cohort notification:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في إرسال الإشعار",
+      error: error.message,
+    });
+  }
+};
+
+// Export study hall content to Excel (Admin only)
+const exportStudyHallFawaid = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { cohort_number } = req.query;
+    const ExcelJS = require("exceljs");
+
+    // Get camp details
+    const [camps] = await db.query(
+      `SELECT name FROM quran_camps WHERE id = ?`,
+      [id]
+    );
+    if (camps.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "المخيم غير موجود",
+      });
+    }
+    // const campName = camps[0].name;
+
+    // Get cohort number
+    let cohortNumber = cohort_number
+      ? parseInt(cohort_number)
+      : await getCurrentCohortNumber(id);
+
+    // Query all matching content without pagination
+    let query = `
+      SELECT 
+        cdt.day_number,
+        cdt.title as task_title,
+        CASE 
+            WHEN ctp.journal_entry IS NOT NULL AND ctp.journal_entry != '' THEN 'تدبر'
+            ELSE 'فائدة'
+        END as type,
+        COALESCE(NULLIF(ctp.journal_entry, ''), NULLIF(ctp.notes, '')) as content,
+        u.username,
+        u.email,
+        ctp.completed_at,
+        ctp.upvote_count,
+        ctp.save_count
+      FROM camp_task_progress ctp
+      JOIN camp_daily_tasks cdt ON ctp.task_id = cdt.id
+      JOIN camp_enrollments ce ON ctp.enrollment_id = ce.id
+      JOIN users u ON ce.user_id = u.id
+      WHERE cdt.camp_id = ?
+        AND ce.cohort_number = ?
+        AND ctp.completed = 1
+        AND (ctp.journal_entry IS NOT NULL AND ctp.journal_entry != '' 
+             OR ctp.notes IS NOT NULL AND ctp.notes != '')
+        AND (ctp.is_private IS NULL OR ctp.is_private = false)
+      ORDER BY cdt.day_number ASC, ctp.completed_at DESC
+    `;
+
+    const [rows] = await db.query(query, [id, cohortNumber]);
+
+    // Create Excel Workbook
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("الفوائد والتدبرات");
+
+    // Setup Columns
+    worksheet.columns = [
+      { header: "اليوم", key: "day", width: 10 },
+      { header: "النوع", key: "type", width: 15 },
+      { header: "عنوان المهمة", key: "task", width: 30 },
+      { header: "المحتوى", key: "content", width: 60 },
+      { header: "المشارك", key: "username", width: 20 },
+      { header: "البريد الإلكتروني", key: "email", width: 30 },
+      { header: "التاريخ", key: "date", width: 20 },
+      { header: "الإعجابات", key: "upvotes", width: 10 },
+      { header: "الحفظ", key: "saves", width: 10 },
+    ];
+
+    // Style Header Row
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: "FFFFFF" } };
+    headerRow.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "4F46E5" }, // Indigo color
+    };
+    headerRow.alignment = { horizontal: "center", vertical: "middle" };
+
+    // Function to strip HTML tags
+    const stripHtml = (html) => {
+      if (!html) return "";
+      return html
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    };
+
+    // Add Data
+    rows.forEach((row) => {
+      const cleanContent = stripHtml(row.content);
+      const rowData = worksheet.addRow({
+        day: `اليوم ${row.day_number}`,
+        type: row.type,
+        task: row.task_title,
+        content: cleanContent,
+        username: row.username,
+        email: row.email,
+        date: new Date(row.completed_at).toLocaleDateString("ar-SA"),
+        upvotes: row.upvote_count || 0,
+        saves: row.save_count || 0,
+      });
+
+      // Style content cells to wrap text
+      rowData.getCell("content").alignment = { wrapText: true };
+    });
+
+    // Response Headers for File Download
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="StudyHall_Camp${id}_Cohort${cohortNumber}.xlsx"`
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error("Error exporting study hall content:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء تصدير الملف",
+      error: error.message,
+    });
+  }
+};
+
+// ==================== DAILY TESTS CONTROLLERS ====================
+
+// Create or update daily test (Admin only)
+const createDailyTest = async (req, res) => {
+  try {
+    const { id } = req.params; // camp_id
+    const { day_number, title, description, points, is_active, questions } =
+      req.body;
+
+    if (!day_number || !title) {
+      return res.status(400).json({
+        success: false,
+        message: "رقم اليوم والعنوان مطلوبان",
+      });
+    }
+
+    // Check admin access
+    if (!isAdmin(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: "غير مصرح لك بإنشاء الاختبارات",
+      });
+    }
+
+    const result = await campTestService.createDailyTest({
+      campId: parseInt(id),
+      dayNumber: parseInt(day_number),
+      testData: {
+        title,
+        description,
+        points: points || 0,
+        is_active: is_active !== undefined ? is_active : true,
+        questions: questions || [],
+      },
+    });
+
+    res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error("Error creating daily test:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء إنشاء الاختبار",
+      error: error.message,
+    });
+  }
+};
+
+// Get all daily tests for a camp (Admin only - list without full details)
+const getAllDailyTests = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check admin access
+    if (!isAdmin(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: "غير مصرح لك بجلب الاختبارات",
+      });
+    }
+
+    const result = await campTestService.getAllDailyTests({
+      campId: parseInt(id),
+    });
+
+    res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error("Error getting all daily tests:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء جلب الاختبارات",
+      error: error.message,
+    });
+  }
+};
+
+// Get daily test (Admin only - with all details)
+const getDailyTest = async (req, res) => {
+  try {
+    const { id, dayNumber } = req.params;
+
+    // Check admin access
+    if (!isAdmin(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: "غير مصرح لك بجلب الاختبارات",
+      });
+    }
+
+    const result = await campTestService.getDailyTest({
+      campId: parseInt(id),
+      dayNumber: parseInt(dayNumber),
+    });
+
+    res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error("Error getting daily test:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء جلب الاختبار",
+      error: error.message,
+    });
+  }
+};
+
+// Delete daily test (Admin only)
+const deleteDailyTest = async (req, res) => {
+  try {
+    const { id, dayNumber } = req.params;
+
+    // Check admin access
+    if (!isAdmin(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: "غير مصرح لك بحذف الاختبارات",
+      });
+    }
+
+    // Get test ID
+    const [tests] = await db.query(
+      `SELECT id FROM camp_daily_tests WHERE camp_id = ? AND day_number = ?`,
+      [id, dayNumber]
+    );
+
+    if (tests.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الاختبار غير موجود",
+      });
+    }
+
+    const testId = tests[0].id;
+
+    // Delete test (cascade will delete questions, answers, attempts, responses)
+    await db.query(`DELETE FROM camp_daily_tests WHERE id = ?`, [testId]);
+
+    res.json({
+      success: true,
+      message: "تم حذف الاختبار بنجاح",
+    });
+  } catch (error) {
+    console.error("Error deleting daily test:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء حذف الاختبار",
+      error: error.message,
+    });
+  }
+};
+
+// Get test for user (without correct answers if not submitted)
+const getTestForUser = async (req, res) => {
+  try {
+    const { id, dayNumber } = req.params;
+    const userId = req.user.id;
+
+    // Get test ID
+    const [tests] = await db.query(
+      `SELECT id FROM camp_daily_tests 
+       WHERE camp_id = ? AND day_number = ? AND is_active = true`,
+      [id, dayNumber]
+    );
+
+    if (tests.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الاختبار غير موجود أو غير نشط",
+      });
+    }
+
+    const result = await campTestService.getTestForUser({
+      testId: tests[0].id,
+      userId,
+    });
+
+    res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error("Error getting test for user:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء جلب الاختبار",
+      error: error.message,
+    });
+  }
+};
+
+// Submit test attempt
+const submitTest = async (req, res) => {
+  try {
+    const { id, dayNumber } = req.params;
+    const userId = req.user.id;
+    const { responses } = req.body;
+
+    if (!responses || !Array.isArray(responses)) {
+      return res.status(400).json({
+        success: false,
+        message: "يجب إرسال قائمة بالإجابات",
+      });
+    }
+
+    // Get test ID
+    const [tests] = await db.query(
+      `SELECT id FROM camp_daily_tests 
+       WHERE camp_id = ? AND day_number = ? AND is_active = true`,
+      [id, dayNumber]
+    );
+
+    if (tests.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الاختبار غير موجود أو غير نشط",
+      });
+    }
+
+    const testId = tests[0].id;
+
+    // Get user enrollment
+    const [enrollments] = await db.query(
+      `SELECT id FROM camp_enrollments 
+       WHERE user_id = ? AND camp_id = ? 
+       ORDER BY cohort_number DESC, id DESC 
+       LIMIT 1`,
+      [userId, id]
+    );
+
+    if (enrollments.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: "غير مسجل في هذا المخيم",
+      });
+    }
+
+    // Get attempt (must exist and not be submitted)
+    const [attempts] = await db.query(
+      `SELECT id, submitted_at FROM camp_test_attempts 
+       WHERE test_id = ? AND enrollment_id = ?`,
+      [testId, enrollments[0].id]
+    );
+
+    if (attempts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "لم يتم فتح هذا الاختبار بعد",
+      });
+    }
+
+    const attempt = attempts[0];
+
+    // Check if already submitted
+    if (attempt.submitted_at) {
+      return res.status(400).json({
+        success: false,
+        message: "تم حل هذا الاختبار مسبقاً",
+      });
+    }
+
+    const attemptId = attempt.id;
+
+    const result = await campTestService.submitTestAttempt({
+      attemptId,
+      responses,
+    });
+
+    res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error("Error submitting test:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء إرسال الاختبار",
+      error: error.message,
+    });
+  }
+};
+
+// Get test results
+const getTestResults = async (req, res) => {
+  try {
+    const { id, dayNumber } = req.params;
+    const userId = req.user.id;
+
+    // Get test ID
+    const [tests] = await db.query(
+      `SELECT id FROM camp_daily_tests 
+       WHERE camp_id = ? AND day_number = ?`,
+      [id, dayNumber]
+    );
+
+    if (tests.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الاختبار غير موجود",
+      });
+    }
+
+    const testId = tests[0].id;
+
+    // Get user enrollment
+    const [enrollments] = await db.query(
+      `SELECT id FROM camp_enrollments 
+       WHERE user_id = ? AND camp_id = ? 
+       ORDER BY cohort_number DESC, id DESC 
+       LIMIT 1`,
+      [userId, id]
+    );
+
+    if (enrollments.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: "غير مسجل في هذا المخيم",
+      });
+    }
+
+    // Get attempt
+    const [attempts] = await db.query(
+      `SELECT id FROM camp_test_attempts 
+       WHERE test_id = ? AND enrollment_id = ?`,
+      [testId, enrollments[0].id]
+    );
+
+    if (attempts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "لم يتم حل هذا الاختبار بعد",
+      });
+    }
+
+    const result = await campTestService.getTestResults({
+      attemptId: attempts[0].id,
+    });
+
+    res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error("Error getting test results:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء جلب النتائج",
+      error: error.message,
+    });
+  }
+};
+
+// Check if test is available (should open)
+const checkTestAvailability = async (req, res) => {
+  try {
+    const { id, dayNumber } = req.params;
+    const userId = req.user.id;
+
+    const result = await campTestService.checkIfTestShouldOpen({
+      campId: parseInt(id),
+      dayNumber: parseInt(dayNumber),
+      userId,
+    });
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error("Error checking test availability:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء التحقق من الاختبار",
+      error: error.message,
+    });
+  }
+};
+
+// Get test statistics (Admin only)
+const getTestStatistics = async (req, res) => {
+  try {
+    const { id, dayNumber } = req.params;
+
+    // Check admin access
+    if (!isAdmin(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: "غير مصرح لك بجلب إحصائيات الاختبارات",
+      });
+    }
+
+    // Get test ID
+    const [tests] = await db.query(
+      `SELECT id FROM camp_daily_tests 
+       WHERE camp_id = ? AND day_number = ?`,
+      [id, dayNumber]
+    );
+
+    if (tests.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "الاختبار غير موجود",
+      });
+    }
+
+    const testId = tests[0].id;
+
+    const result = await campTestService.getTestStatistics({
+      testId: testId,
+    });
+
+    res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error("Error getting test statistics:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء جلب إحصائيات الاختبار",
+      error: error.message,
+    });
+  }
+};
+
+// Get user attempt details (Admin only)
+const getUserAttemptDetails = async (req, res) => {
+  try {
+    const { attemptId } = req.params;
+
+    // Check admin access
+    if (!isAdmin(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: "غير مصرح لك بجلب تفاصيل المحاولات",
+      });
+    }
+
+    const result = await campTestService.getTestResults({
+      attemptId: parseInt(attemptId),
+    });
+
+    res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error("Error getting user attempt details:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ أثناء جلب تفاصيل المحاولة",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   // User APIs
   getAllCamps,
@@ -12260,9 +10651,7 @@ module.exports = {
   getCampDailyTasks,
   enrollInCamp,
   getMyProgress,
-  completeTask,
   markTaskComplete,
-  trackReadingTime,
   updateTaskBenefits,
   getCampLeaderboard,
   getMyStreak,
@@ -12303,7 +10692,6 @@ module.exports = {
   getCampSettings,
   updateCampSettings,
   getAdminCampSettings,
-  getCampInteractions,
   updateAdminCampSettings,
   getUserNotifications,
   markNotificationAsRead,
@@ -12311,7 +10699,6 @@ module.exports = {
   // Streak functions
   calculateStreak,
   updateStreak,
-  deleteCamp,
   // User management function
   removeUserFromCamp,
   getUserDetails,
@@ -12335,6 +10722,8 @@ module.exports = {
   askCampQuestion,
   answerCampQuestion,
   deleteCampQuestion,
+  // Shared Reflections
+  getSharedReflection,
   // Task Groups
   createTaskGroup,
   updateTaskGroup,
@@ -12350,10 +10739,44 @@ module.exports = {
   createCampFromTemplate,
   // Cohorts Management
   startNewCohort,
+  getCampCohorts,
+  getAvailableCohorts,
+  getMyCohort,
+  getCampCohort,
+  createCampCohort,
+  updateCampCohort,
+  deleteCampCohort,
+
+  // Supervisors APIs
+  getCampSupervisors,
+  addCampSupervisor,
+  removeCampSupervisor,
+  isSupervisor,
+  getSupervisorCohortParticipants,
+  removeParticipantFromCohort,
+  migrateParticipantBySupervisor,
+  getSupervisorCohortStats,
+  startCampCohort,
+  completeCampCohort,
+  cancelCampCohort,
+  openCampCohort,
+  closeCampCohort,
+  getCohortStats,
+  getCohortsComparison,
+  getCohortParticipants,
+  getCohortParticipantsForAdmin,
+  migrateUserBetweenCohorts,
+  bulkMigrateUsersBetweenCohorts,
+  getScheduledCohorts,
+  scheduleCampCohort,
+  sendCohortNotification,
+  // Send cohort announcement manually
+  sendCohortAnnouncement,
   // Study Hall Content Management (Admin)
   getAdminStudyHallContent,
   updateStudyHallContent,
   deleteStudyHallContent,
+  exportStudyHallFawaid, // Add this
   // Export
   exportCampData,
   // Daily Messages
@@ -12364,6 +10787,7 @@ module.exports = {
   // Tasks Import/Export
   exportCampTasks,
   importCampTasks,
+  getCampInteractions,
   // Reflections Export
   downloadUserReflections,
   downloadReflectionsPDF,
@@ -12380,4 +10804,16 @@ module.exports = {
   createCampHelpFAQ,
   updateCampHelpFAQ,
   deleteCampHelpFAQ,
+
+  // Daily Tests
+  createDailyTest,
+  getDailyTest,
+  getTestForUser,
+  submitTest,
+  getTestResults,
+  checkTestAvailability,
+  deleteDailyTest,
+  getTestStatistics,
+  getAllDailyTests,
+  getUserAttemptDetails,
 };

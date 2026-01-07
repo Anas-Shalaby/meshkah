@@ -393,7 +393,13 @@ const getUserProgress = async ({ campId, userId }) => {
         ctp.notes,
         COALESCE(completion_counts.completed_by_count, 0) as completed_by_count
       FROM camp_daily_tasks cdt
-      LEFT JOIN camp_task_progress ctp ON cdt.id = ctp.task_id AND ctp.enrollment_id = ?
+      LEFT JOIN camp_task_progress ctp ON cdt.id = ctp.task_id 
+        AND ctp.enrollment_id = ?
+        AND EXISTS (
+          SELECT 1 FROM camp_enrollments ce_filter 
+          WHERE ce_filter.id = ctp.enrollment_id 
+          AND ce_filter.cohort_number = ?
+        )
       LEFT JOIN (
       SELECT 
         task_id,
@@ -406,7 +412,7 @@ const getUserProgress = async ({ campId, userId }) => {
       WHERE cdt.camp_id = ?
       ORDER BY cdt.day_number, cdt.order_in_day
     `,
-      [enrollment.id || 0, campId, userCohortNumber, campId]
+      [enrollment.id || 0, userCohortNumber, campId, userCohortNumber, campId]
     );
 
     // إضافة بيانات الأصدقاء (نفس المنطق من getCampDailyTasks)
@@ -735,21 +741,27 @@ const markTaskComplete = async ({
       let affectedRows = 0;
       let wasAlreadyCompleted = false;
 
-      if (journal_entry != null) {
-        try {
-          const redisClient = require("../utils/redisClient");
-          if (redisClient) {
-            // Delete all cache keys for this camp
-            const pattern = `study_hall:${tasks[0].camp_id}:*`;
-            const keys = await redisClient.keys(pattern);
-            if (keys.length > 0) {
-              await redisClient.del(...keys);
-            }
+      // Always clear study hall cache when completing tasks
+      try {
+        const redisClient = require("../utils/redisClient");
+        if (redisClient) {
+          // Delete all cache keys for this camp
+          const pattern = `study_hall:${tasks[0].camp_id}:*`;
+          const keys = await redisClient.keys(pattern);
+          if (keys.length > 0) {
+            await redisClient.del(...keys);
+            console.log(
+              `✅ Cleared ${keys.length} study hall cache keys for camp ${tasks[0].camp_id}`
+            );
           }
-        } catch (redisError) {
-          console.log("Redis not available for cache clearing");
         }
+      } catch (redisError) {
+        console.log(
+          "Redis not available for cache clearing:",
+          redisError.message
+        );
       }
+
       if (existingProgress.length > 0) {
         wasAlreadyCompleted = existingProgress[0].completed;
 
@@ -1161,25 +1173,26 @@ const updateTaskBenefits = async ({
 
     // Clear study hall cache - delete all cache keys for this camp
     // Clear cache if content changed, privacy changed, or share_link changed
-    if (
-      cleanedJournalEntry ||
-      updatedNotes ||
-      privacyChanged ||
-      shareLinkChanged
-    ) {
-      try {
-        const redisClient = require("../utils/redisClient");
-        if (redisClient) {
-          // Delete all cache keys for this camp (using pattern matching)
-          const pattern = `study_hall:${tasks[0].camp_id}:*`;
-          const keys = await redisClient.keys(pattern);
-          if (keys.length > 0) {
-            await redisClient.del(...keys);
-          }
+    // Always clear study hall cache after updating task benefits to ensure fresh data
+    // This prevents stale cache issues where new reflections don't appear
+    try {
+      const redisClient = require("../utils/redisClient");
+      if (redisClient) {
+        // Delete all cache keys for this camp (using pattern matching)
+        const pattern = `study_hall:${tasks[0].camp_id}:*`;
+        const keys = await redisClient.keys(pattern);
+        if (keys.length > 0) {
+          await redisClient.del(...keys);
+          console.log(
+            `✅ Cleared ${keys.length} study hall cache keys for camp ${tasks[0].camp_id}`
+          );
         }
-      } catch (redisError) {
-        console.log("Redis not available for cache clearing");
       }
+    } catch (redisError) {
+      console.log(
+        "Redis not available for cache clearing:",
+        redisError.message
+      );
     }
 
     if (existingProgress.length > 0) {
@@ -2158,6 +2171,7 @@ const getMySummary = async ({ id, userId }) => {
         longestStreak: longestStreak,
         percentile: percentile,
         topReflection: topReflection,
+        cohortNumber: userCohortNumber,
         // New statistics
         bestDay: bestDay,
         productivityRate: productivityRate,

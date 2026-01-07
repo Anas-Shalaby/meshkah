@@ -73,9 +73,117 @@ const optionalAuthMiddleware = (req, res, next) => {
   }
 };
 
+// Helper function to check supervisor access for a specific cohort
+const checkSupervisorCohortAccess = async (campId, userId, cohortNumber) => {
+  try {
+    const db = require("../config/database");
+
+    // Check if user is general supervisor (cohort_number IS NULL) or specific cohort supervisor
+    const [supervisors] = await db.query(
+      `SELECT 1 FROM camp_supervisors 
+       WHERE camp_id = ? AND user_id = ? AND (
+         cohort_number = ? OR (cohort_number IS NULL)
+       )
+       LIMIT 1`,
+      [campId, userId, cohortNumber || null]
+    );
+
+    return supervisors.length > 0;
+  } catch (error) {
+    console.error("Error checking supervisor cohort access:", error);
+    return false;
+  }
+};
+
+// Supervisor middleware - checks if user is supervisor or admin
+const supervisorMiddleware = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res
+        .status(401)
+        .json({ msg: "No user found, authorization denied" });
+    }
+
+    // Admin always has access
+    if (req.user.role === "admin") {
+      return next();
+    }
+
+    // Check if user is supervisor for this camp/cohort
+    const db = require("../config/database");
+    const { id } = req.params; // camp_id
+    // Try to get cohortNumber from params first, then query, then body
+    const cohortNumber =
+      req.params.cohortNumber ||
+      req.query.cohortNumber ||
+      req.body.cohortNumber;
+
+    const hasAccess = await checkSupervisorCohortAccess(
+      id,
+      req.user.id,
+      cohortNumber
+    );
+
+    if (!hasAccess) {
+      return res.status(403).json({
+        msg: "Access denied. Supervisor or admin role required.",
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error("Error in supervisor middleware:", error);
+    return res.status(500).json({ msg: "Error checking supervisor access" });
+  }
+};
+
+// Supervisor or admin middleware - allows supervisors and admins
+const supervisorOrAdminMiddleware = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res
+        .status(401)
+        .json({ msg: "No user found, authorization denied" });
+    }
+
+    // Admin always has access
+    if (req.user.role === "admin") {
+      return next();
+    }
+
+    // Check if user is supervisor for this camp/cohort
+    const db = require("../config/database");
+    const { id } = req.params; // camp_id
+    const { cohortNumber } = req.query || req.body;
+
+    const [supervisors] = await db.query(
+      `SELECT 1 FROM camp_supervisors 
+       WHERE camp_id = ? AND user_id = ? AND (
+         cohort_number = ? OR (cohort_number IS NULL AND ? IS NULL)
+       )
+       LIMIT 1`,
+      [id, req.user.id, cohortNumber || null, cohortNumber || null]
+    );
+
+    if (supervisors.length > 0) {
+      return next();
+    }
+
+    return res.status(403).json({
+      msg: "Access denied. Supervisor or admin role required.",
+    });
+  } catch (error) {
+    console.error("Error in supervisor or admin middleware:", error);
+    return res.status(500).json({ msg: "Error checking supervisor access" });
+  }
+};
+
 module.exports = {
   authMiddleware,
   restrictTo,
   adminMiddleware,
+  checkSupervisorCohortAccess,
   optionalAuthMiddleware,
+  supervisorMiddleware,
+  supervisorOrAdminMiddleware,
 };

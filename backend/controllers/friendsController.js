@@ -1,6 +1,42 @@
 const db = require("../config/database");
 const CampNotificationService = require("../services/campNotificationService");
 
+// Helper function to get current cohort number
+const getCurrentCohortNumber = async (campId) => {
+  try {
+    const [camps] = await db.query(
+      `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
+      [campId]
+    );
+    return camps[0]?.current_cohort_number || 1;
+  } catch (e) {
+    return 1;
+  }
+};
+
+// Helper function to check if user is supervisor
+const isSupervisor = async (campId, userId, cohortNumber = null) => {
+  try {
+    let query = `
+      SELECT 1 FROM camp_supervisors 
+      WHERE camp_id = ? AND user_id = ? AND (
+        cohort_number = ? OR (cohort_number IS NULL AND ? IS NULL)
+      )
+      LIMIT 1
+    `;
+    const [result] = await db.query(query, [
+      campId,
+      userId,
+      cohortNumber || null,
+      cohortNumber || null,
+    ]);
+    return result.length > 0;
+  } catch (error) {
+    console.error("Error checking supervisor status:", error);
+    return false;
+  }
+};
+
 // ==================== جلب كود الصحبة الخاص بالمستخدم ====================
 const getMyFriendCode = async (req, res) => {
   try {
@@ -15,6 +51,16 @@ const getMyFriendCode = async (req, res) => {
       });
     }
 
+    // Check if user is supervisor or admin
+    const currentCohortNumber = await getCurrentCohortNumber(campId);
+    const hasSupervisorAccess = await isSupervisor(
+      campId,
+      userId,
+      currentCohortNumber
+    );
+    const userIsAdmin = userId === 1 && req.user.role === "admin";
+    const hasFullAccess = userIsAdmin || hasSupervisorAccess;
+
     // البحث عن الـ enrollment للمستخدم في هذا المخيم
     const [enrollments] = await db.query(
       `SELECT id, friend_code, camp_id 
@@ -23,10 +69,12 @@ const getMyFriendCode = async (req, res) => {
       [userId, campId]
     );
 
-    if (enrollments.length === 0) {
-      return res.status(404).json({
+    // If supervisor/admin has no enrollment, they can't get friend code
+    // (friend code is tied to enrollment)
+    if (hasFullAccess && enrollments.length === 0) {
+      return res.status(400).json({
         success: false,
-        message: "أنت غير مسجل في هذا المخيم",
+        message: "كود الصحبة متاح فقط للمشاركين المسجلين في المخيم",
       });
     }
 
@@ -218,13 +266,21 @@ const sendFriendRequest = async (req, res) => {
     const senderUsername =
       senderInfo.length > 0 ? senderInfo[0].username : "مستخدم";
 
-    // إرسال إشعار للمستقبل
-    await CampNotificationService.sendFriendRequestNotification(
-      senderId,
-      receiverId,
-      campId,
-      senderUsername
-    );
+    // إرسال إشعار للمستقبل (لا نوقف العملية إذا فشل الإشعار)
+    try {
+      await CampNotificationService.sendFriendRequestNotification(
+        senderId,
+        receiverId,
+        campId,
+        senderUsername
+      );
+    } catch (notificationError) {
+      // نكمل العملية حتى لو فشل الإشعار
+      console.error(
+        "Error sending friend request notification:",
+        notificationError
+      );
+    }
 
     res.status(201).json({
       success: true,
@@ -374,15 +430,23 @@ const respondToFriendRequest = async (req, res) => {
       }
     }
 
-    // إرسال إشعار للمرسل (سواء قبول أو رفض)
+    // إرسال إشعار للمرسل (سواء قبول أو رفض) - لا نوقف العملية إذا فشل الإشعار
     if (campId) {
-      await CampNotificationService.respondToFriendRequestNotification(
-        receiverId,
-        senderId,
-        campId,
-        action === "accept" ? "قبول" : "رفض",
-        receiverUsername
-      );
+      try {
+        await CampNotificationService.respondToFriendRequestNotification(
+          receiverId,
+          senderId,
+          campId,
+          action === "accept" ? "قبول" : "رفض",
+          receiverUsername
+        );
+      } catch (notificationError) {
+        // نكمل العملية حتى لو فشل الإشعار
+        console.error(
+          "Error sending friend request response notification:",
+          notificationError
+        );
+      }
     }
 
     res.json({
@@ -513,13 +577,23 @@ const getFriendsList = async (req, res) => {
       });
     }
 
+    const currentCohortNumber = await getCurrentCohortNumber(campId);
+    const hasSupervisorAccess = await isSupervisor(
+      campId,
+      userId,
+      currentCohortNumber
+    );
+    const userIsAdmin = userId === 1 && req.user.role === "admin";
+    const hasFullAccess = userIsAdmin || hasSupervisorAccess;
+
     // تأكيد أن المستخدم الحالي مسجل في هذا المخيم
     const [myEnrollment] = await db.query(
       `SELECT id FROM camp_enrollments WHERE user_id = ? AND camp_id = ?`,
       [userId, campId]
     );
 
-    if (myEnrollment.length === 0) {
+    // Supervisors/admins can remove friends even without enrollment
+    if (!hasFullAccess && myEnrollment.length === 0) {
       return res.status(403).json({
         success: false,
         message: "يجب أن تكون مسجلاً في هذا المخيم للاطلاع على الصحبة",
@@ -531,7 +605,6 @@ const getFriendsList = async (req, res) => {
       `SELECT COALESCE(current_cohort_number, 1) as current_cohort_number FROM quran_camps WHERE id = ?`,
       [campId]
     );
-    const currentCohortNumber = camps[0]?.current_cohort_number || 1;
 
     // جلب جميع الصداقات المرتبطة بهذا المخيم والفوج الحالي فقط
     const [campFriendships] = await db.query(
@@ -556,15 +629,22 @@ const getFriendsList = async (req, res) => {
         CASE 
           WHEN cf.user1_id = ? THEN u2.email 
           ELSE u1.email 
-        END as friend_email
+        END as friend_email,
+        CASE 
+          WHEN cf.user1_id = ? THEN ce2.total_points 
+          ELSE ce1.total_points 
+        END as friend_points
       FROM camp_friendships cf
       LEFT JOIN users u1 ON cf.user1_id = u1.id
+      LEFT JOIN camp_enrollments ce1 ON ce1.user_id = u1.id AND ce1.camp_id = cf.camp_id
       LEFT JOIN users u2 ON cf.user2_id = u2.id
+      LEFT JOIN camp_enrollments ce2 ON ce2.user_id = u2.id AND ce2.camp_id = cf.camp_id
       WHERE cf.camp_id = ?
         AND cf.cohort_number = ?
         AND (cf.user1_id = ? OR cf.user2_id = ?)
       ORDER BY cf.created_at DESC`,
       [
+        userId,
         userId,
         userId,
         userId,
@@ -583,6 +663,7 @@ const getFriendsList = async (req, res) => {
       profile_picture: friendship.friend_profile_picture,
       email: friendship.friend_email,
       friendship_created_at: friendship.created_at,
+      points: friendship.friend_points || 0,
     }));
 
     res.json({
@@ -706,13 +787,24 @@ const getFriendsActivityFeed = async (req, res) => {
       });
     }
 
+    // Check if user is supervisor or admin
+    const currentCohortNumber = await getCurrentCohortNumber(campId);
+    const hasSupervisorAccess = await isSupervisor(
+      campId,
+      userId,
+      currentCohortNumber
+    );
+    const userIsAdmin = userId === 1 && req.user.role === "admin";
+    const hasFullAccess = userIsAdmin || hasSupervisorAccess;
+
     // تأكد أن المستخدم مسجل في المخيم
     const [myEnrollment] = await db.query(
       `SELECT id FROM camp_enrollments WHERE user_id = ? AND camp_id = ?`,
       [userId, campId]
     );
 
-    if (myEnrollment.length === 0) {
+    // Supervisors/admins can view activity feed even without enrollment
+    if (!hasFullAccess && myEnrollment.length === 0) {
       return res.status(403).json({
         success: false,
         message: "يجب أن تكون مسجلاً في هذا المخيم للاطلاع على نشاط الصحبة",

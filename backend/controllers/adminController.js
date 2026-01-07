@@ -180,3 +180,218 @@ exports.deleteUser = async (req, res) => {
     handleDatabaseError(res, error);
   }
 };
+
+// Send Cohort Completion Notifications (Manual)
+exports.sendCohortCompletionNotifications = async (req, res) => {
+  const { campId, cohortNumber } = req.params;
+
+  try {
+    const CampNotificationService = require("../services/campNotificationService");
+
+    // Call the service function
+    const result = await CampNotificationService.sendCohortCompletionToAll(
+      parseInt(campId),
+      parseInt(cohortNumber)
+    );
+
+    if (result.success) {
+      return res.status(200).json({
+        success: true,
+        message: result.message,
+        data: {
+          sent: result.count,
+          errors: result.errors,
+          total: result.total,
+        },
+      });
+    } else {
+      return res.status(result.alreadySent ? 400 : 500).json({
+        success: false,
+        message: result.message,
+        alreadySent: result.alreadySent || false,
+      });
+    }
+  } catch (error) {
+    console.error("Error in sendCohortCompletionNotifications:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في إرسال الإشعارات",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// Get Ramadan theme status
+exports.getRamadanThemeStatus = async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      "SELECT setting_value, updated_at FROM site_settings WHERE setting_key = ?",
+      ["ramadan_theme_enabled"]
+    );
+
+    if (rows.length === 0) {
+      // إنشاء الإعداد إذا لم يكن موجود
+      await db.query(
+        "INSERT INTO site_settings (setting_key, setting_value, description) VALUES (?, ?, ?)",
+        [
+          "ramadan_theme_enabled",
+          "false",
+          "تفعيل أو إلغاء الثيم الرمضاني للموقع",
+        ]
+      );
+
+      return res.status(200).json({
+        success: true,
+        enabled: false,
+        updatedAt: new Date(),
+      });
+    }
+
+    const enabled = rows[0].setting_value === "true";
+
+    res.status(200).json({
+      success: true,
+      enabled: enabled,
+      updatedAt: rows[0].updated_at,
+    });
+  } catch (error) {
+    console.error("Error getting Ramadan theme status:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في جلب حالة الثيم",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// Update Ramadan theme status (Admin only)
+exports.updateRamadanThemeStatus = async (req, res) => {
+  try {
+    const { enabled } = req.body;
+
+    if (typeof enabled !== "boolean") {
+      return res.status(400).json({
+        success: false,
+        message: "يجب أن تكون القيمة true أو false",
+      });
+    }
+
+    const userId = req.user ? req.user.id : null;
+
+    await db.query(
+      "UPDATE site_settings SET setting_value = ?, updated_by = ?, updated_at = NOW() WHERE setting_key = ?",
+      [enabled ? "true" : "false", userId, "ramadan_theme_enabled"]
+    );
+
+    res.status(200).json({
+      success: true,
+      message: enabled
+        ? "تم تفعيل الثيم الرمضاني بنجاح"
+        : "تم إلغاء الثيم الرمضاني بنجاح",
+      enabled: enabled,
+    });
+  } catch (error) {
+    console.error("Error updating Ramadan theme status:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في تحديث حالة الثيم",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// Get Ramadan date
+exports.getRamadanDate = async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      "SELECT setting_value, updated_at FROM site_settings WHERE setting_key = ?",
+      ["ramadan_start_date"]
+    );
+
+    if (rows.length === 0) {
+      // إنشاء الإعداد إذا لم يكن موجود - التاريخ الافتراضي 18 فبراير 2026
+      const defaultDate = "2026-02-18";
+      await db.query(
+        "INSERT INTO site_settings (setting_key, setting_value, description) VALUES (?, ?, ?)",
+        ["ramadan_start_date", defaultDate, "تاريخ بداية شهر رمضان المبارك"]
+      );
+
+      return res.status(200).json({
+        success: true,
+        startDate: defaultDate,
+        updatedAt: new Date(),
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      startDate: rows[0].setting_value,
+      updatedAt: rows[0].updated_at,
+    });
+  } catch (error) {
+    console.error("Error getting Ramadan date:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في جلب تاريخ رمضان",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// Update Ramadan date (Admin only)
+exports.updateRamadanDate = async (req, res) => {
+  try {
+    const { startDate } = req.body;
+
+    // التحقق من صحة التاريخ
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!startDate || !dateRegex.test(startDate)) {
+      return res.status(400).json({
+        success: false,
+        message: "يجب إدخال تاريخ صحيح بصيغة YYYY-MM-DD",
+      });
+    }
+
+    const date = new Date(startDate);
+    if (isNaN(date.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "التاريخ المدخل غير صالح",
+      });
+    }
+
+    const userId = req.user ? req.user.id : null;
+
+    // تحديث التاريخ
+    const [result] = await db.query(
+      "UPDATE site_settings SET setting_value = ?, updated_by = ?, updated_at = NOW() WHERE setting_key = ?",
+      [startDate, userId, "ramadan_start_date"]
+    );
+
+    // إذا لم يكن موجود، أضفه
+    if (result.affectedRows === 0) {
+      await db.query(
+        "INSERT INTO site_settings (setting_key, setting_value, description, updated_by) VALUES (?, ?, ?, ?)",
+        [
+          "ramadan_start_date",
+          startDate,
+          "تاريخ بداية شهر رمضان المبارك",
+          userId,
+        ]
+      );
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "تم تحديث تاريخ رمضان بنجاح",
+      startDate: startDate,
+    });
+  } catch (error) {
+    console.error("Error updating Ramadan date:", error);
+    res.status(500).json({
+      success: false,
+      message: "حدث خطأ في تحديث تاريخ رمضان",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};

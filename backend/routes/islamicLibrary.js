@@ -1255,7 +1255,6 @@ router.get(
         `${ISLAMIC_LIBRARY_API_BASE}/${bookSlug}/chapters?apiKey=${ISLAMIC_LIBRARY_API_KEY}`
       );
       const bookData = response.data;
-      console.log(bookData);
       if (!bookData) {
         return sendError(
           res,

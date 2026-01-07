@@ -1,6 +1,7 @@
 const db = require("../config/database");
 const shortid = require("shortid");
 const campParticipantService = require("./campParticipantService");
+const mailService = require("./mailService");
 
 /**
  * Get camp supervisors
@@ -77,7 +78,12 @@ const getCampSupervisors = async ({ campId, cohortNumber }) => {
  * @param {number} [params.cohortNumber]
  * @returns {Promise<{status: number, body: Object}>}
  */
-const addCampSupervisor = async ({ campId, userId, createdBy, cohortNumber }) => {
+const addCampSupervisor = async ({
+  campId,
+  userId,
+  createdBy,
+  cohortNumber,
+}) => {
   try {
     // Verify camp exists
     const [camps] = await db.query(
@@ -133,14 +139,54 @@ const addCampSupervisor = async ({ campId, userId, createdBy, cohortNumber }) =>
       };
     }
 
-    // Add supervisor
-    await db.query(
-      `INSERT INTO camp_supervisors (camp_id, cohort_number, user_id, created_by)
-       VALUES (?, ?, ?, ?)`,
-      [campId, cohortNumber || null, userId, createdBy]
+    // Ensure supervisor is general (cohort_number = NULL) for all camps
+    // Add supervisor to ALL camps as general supervisor
+    const finalCohortNumber = null; // Always set to NULL for general supervision
+
+    // Get all camps
+    const [allCamps] = await db.query("SELECT id, name FROM quran_camps");
+
+    // Add supervisor to all camps
+    for (const camp of allCamps) {
+      // Check if already a supervisor for this camp
+      const [existing] = await db.query(
+        `SELECT id FROM camp_supervisors 
+         WHERE camp_id = ? AND user_id = ? AND cohort_number IS NULL`,
+        [camp.id, userId]
+      );
+
+      if (existing.length === 0) {
+        await db.query(
+          `INSERT INTO camp_supervisors (camp_id, cohort_number, user_id, created_by)
+           VALUES (?, ?, ?, ?)`,
+          [camp.id, finalCohortNumber, userId, createdBy]
+        );
+      }
+    }
+
+    // Get user email and username for welcome email
+    const [userDetails] = await db.query(
+      "SELECT email, username FROM users WHERE id = ?",
+      [userId]
     );
 
-    // Auto-enroll supervisor if cohort specified
+    // Send welcome email to new supervisor (mentioning all camps)
+    if (userDetails.length > 0 && userDetails[0].email) {
+      try {
+        await mailService.sendSupervisorWelcomeEmail(
+          userDetails[0].email,
+          userDetails[0].username || "المشرف",
+          "جميع المخيمات", // All camps
+          null // No specific camp
+        );
+      } catch (emailError) {
+        console.error("Error sending supervisor welcome email:", emailError);
+        // Don't fail the operation if email fails
+      }
+    }
+
+    // Auto-enroll supervisor if cohort was originally specified (for backward compatibility)
+    // Note: Now supervisors are general, but we still check original cohortNumber for enrollment
     if (cohortNumber) {
       const [existingEnrollment] = await db.query(
         `SELECT id FROM camp_enrollments 
@@ -300,7 +346,15 @@ const removeCampSupervisor = async ({ campId, userId, cohortNumber }) => {
  * @param {string} [params.tags]
  * @returns {Promise<{status: number, body: Object}>}
  */
-const duplicateCamp = async ({ campId, name, description, start_date, duration_days, banner_image, tags }) => {
+const duplicateCamp = async ({
+  campId,
+  name,
+  description,
+  start_date,
+  duration_days,
+  banner_image,
+  tags,
+}) => {
   let connection;
   try {
     // Get original camp
@@ -519,9 +573,206 @@ const duplicateCamp = async ({ campId, name, description, start_date, duration_d
   }
 };
 
+/**
+ * Notify supervisors when a new cohort is created
+ * @param {Object} params
+ * @param {number} params.campId
+ * @param {number} params.cohortNumber
+ * @param {string} params.startDate
+ * @param {string} params.endDate
+ * @param {string} params.announcementMessage
+ * @param {number} params.createdBy - Admin user ID who created the cohort
+ * @returns {Promise<{supervisorEmailsSent: number, supervisorEmailsFailed: number, notifiedSupervisors: Array}>}
+ */
+const notifySupervisorsOnCohortCreation = async ({
+  campId,
+  cohortNumber,
+  startDate,
+  endDate,
+  announcementMessage,
+  createdBy,
+}) => {
+  let supervisorEmailsSent = 0;
+  let supervisorEmailsFailed = 0;
+  const notifiedSupervisors = [];
+
+  try {
+    // Get all general supervisors across ALL camps (cohort_number IS NULL)
+    // These supervisors receive notifications for all cohorts in all camps
+    const [supervisors] = await db.query(
+      `SELECT DISTINCT u.id, u.email, u.username 
+       FROM camp_supervisors cs
+       JOIN users u ON cs.user_id = u.id
+       WHERE cs.cohort_number IS NULL`,
+      []
+    );
+
+    // Get camp details for email
+    const [campDetails] = await db.query(
+      `SELECT name, share_link FROM quran_camps WHERE id = ?`,
+      [campId]
+    );
+
+    if (campDetails.length === 0) {
+      console.error(`Camp ${campId} not found for supervisor notification`);
+      return {
+        supervisorEmailsSent,
+        supervisorEmailsFailed,
+        notifiedSupervisors,
+      };
+    }
+
+    const campName = campDetails[0].name;
+    const campShareLink = campDetails[0].share_link || campId;
+
+    // Send briefing email to each supervisor
+    for (const supervisor of supervisors) {
+      try {
+        await mailService.sendCampBriefing(
+          supervisor.email,
+          {
+            name: campName,
+            share_link: campShareLink,
+            id: campId,
+          },
+          {
+            cohortNumber,
+            startDate,
+            endDate,
+          },
+          announcementMessage
+        );
+        supervisorEmailsSent++;
+        notifiedSupervisors.push({
+          email: supervisor.email,
+          username: supervisor.username,
+        });
+      } catch (emailError) {
+        supervisorEmailsFailed++;
+        console.error(
+          `Error sending briefing email to supervisor ${supervisor.email}:`,
+          emailError
+        );
+      }
+    }
+  } catch (error) {
+    console.error("Error sending supervisor briefing emails:", error);
+    // Don't throw - return what we have
+  }
+
+  // Send confirmation email to admin (the user who created the cohort)
+  try {
+    const [adminUser] = await db.query(
+      "SELECT email, username FROM users WHERE id = ?",
+      [createdBy]
+    );
+
+    if (adminUser.length > 0 && adminUser[0].email) {
+      const adminEmail = adminUser[0].email;
+      const adminUsername = adminUser[0].username || "المشرف";
+
+      // Get camp name
+      const [campDetailsForAdmin] = await db.query(
+        `SELECT name FROM quran_camps WHERE id = ?`,
+        [campId]
+      );
+      const campNameForAdmin = campDetailsForAdmin[0]?.name || campName;
+
+      const formatDate = (dateStr) => {
+        return new Date(dateStr).toLocaleDateString("ar-EG", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+      };
+
+      const confirmationHtml = `
+        <div dir="rtl" style="font-family: Arial, sans-serif; direction: rtl; text-align: right; max-width: 600px; margin: 0 auto;">
+          <div style="background-color: #10b981; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h2 style="color: white; margin: 0; font-size: 22px;">✅ تم إرسال الإشعارات بنجاح</h2>
+          </div>
+          
+          <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none;">
+            <p style="color: #374151; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+              السلام عليكم ورحمة الله وبركاته،
+            </p>
+            
+            <p style="color: #374151; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+              عزيزي/عزيزتي <strong>${adminUsername}</strong>،
+            </p>
+            
+            <p style="color: #374151; font-size: 16px; line-height: 1.6; margin-bottom: 25px;">
+              تم إنشاء الفوج رقم <strong>${cohortNumber}</strong> في مخيم <strong>${campNameForAdmin}</strong> بنجاح، وتم إرسال الإشعارات للمشرفين.
+            </p>
+            
+            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 25px 0;">
+              <h3 style="color: #1f2937; margin-top: 0; margin-bottom: 15px; font-size: 18px;">📊 ملخص الإشعارات:</h3>
+              <p style="color: #4b5563; line-height: 1.8; margin: 5px 0;">
+                <strong>عدد المشرفين الذين تم إرسال الإشعار لهم:</strong> ${supervisorEmailsSent}
+              </p>
+              ${
+                supervisorEmailsFailed > 0
+                  ? `
+                <p style="color: #dc2626; line-height: 1.8; margin: 5px 0;">
+                  <strong>عدد الإيميلات الفاشلة:</strong> ${supervisorEmailsFailed}
+                </p>
+              `
+                  : ""
+              }
+            </div>
+            
+            ${
+              notifiedSupervisors.length > 0
+                ? `
+              <div style="background-color: #eff6ff; padding: 20px; border-radius: 8px; margin: 25px 0;">
+                <h4 style="color: #1e40af; margin-top: 0; margin-bottom: 15px; font-size: 16px;">📧 قائمة المشرفين الذين تم إرسال الإشعار لهم:</h4>
+                <ul style="color: #1e3a8a; line-height: 1.8; margin: 0; padding-right: 20px;">
+                  ${notifiedSupervisors
+                    .map((s) => `<li>${s.username} (${s.email})</li>`)
+                    .join("")}
+                </ul>
+              </div>
+            `
+                : ""
+            }
+            
+            <div style="background-color: #f0fdf4; padding: 15px; border-radius: 8px; margin: 25px 0; border-right: 4px solid #10b981;">
+              <p style="color: #166534; margin: 0; font-size: 14px; line-height: 1.6;">
+                <strong>معلومات الفوج:</strong><br>
+                • رقم الفوج: ${cohortNumber}<br>
+                • تاريخ البدء: ${formatDate(startDate)}<br>
+                ${endDate ? `• تاريخ الانتهاء: ${formatDate(endDate)}` : ""}
+              </p>
+            </div>
+          </div>
+          
+          <div style="background-color: #f9fafb; padding: 20px; text-align: center; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
+            <p style="color: #6b7280; margin: 0; font-size: 14px;">
+              فريق مشكاة الأحاديث
+            </p>
+          </div>
+        </div>
+      `;
+
+      await mailService.sendMail(
+        adminEmail,
+        `✅ تأكيد: تم إرسال إشعارات الفوج رقم ${cohortNumber} في مخيم ${campNameForAdmin}`,
+        "",
+        confirmationHtml
+      );
+    }
+  } catch (adminEmailError) {
+    console.error("Error sending admin confirmation email:", adminEmailError);
+    // Don't throw - continue
+  }
+
+  return { supervisorEmailsSent, supervisorEmailsFailed, notifiedSupervisors };
+};
+
 module.exports = {
   getCampSupervisors,
   addCampSupervisor,
   removeCampSupervisor,
   duplicateCamp,
+  notifySupervisorsOnCohortCreation,
 };

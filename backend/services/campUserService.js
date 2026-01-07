@@ -307,6 +307,18 @@ const enrollUser = async ({
       [enrollmentId, hideIdentity]
     );
 
+    // زيادة عدد المشتركين في الفوج
+    await db.query(
+      `UPDATE camp_cohorts 
+       SET current_participants = current_participants + 1 
+       WHERE camp_id = ? AND cohort_number = ?`,
+      [campId, targetCohortNumber]
+    );
+
+    console.log(
+      `[EnrollInCamp] Updated cohort ${targetCohortNumber} participants count for camp ${campId}`
+    );
+
     // إكمال الإحالة إذا كان المستخدم محالاً (يجب أن يحدث دائماً بعد التسجيل)
     // يتم استدعاؤه خارج شرط isReadOnly لأن الإحالة يجب أن تكتمل حتى في المخيمات المنتهية
     try {
@@ -429,6 +441,18 @@ const removeUserFromCamp = async ({ campId, userId }) => {
         ]
       );
 
+      // تقليل عدد المشتركين في الفوج
+      await db.query(
+        `UPDATE camp_cohorts 
+         SET current_participants = GREATEST(current_participants - 1, 0) 
+         WHERE camp_id = ? AND cohort_number = ?`,
+        [campId, currentCohortNumber]
+      );
+
+      console.log(
+        `[RemoveUserFromCamp] Updated cohort ${currentCohortNumber} participants count for camp ${campId}`
+      );
+
       await db.query("COMMIT");
 
       return {
@@ -503,6 +527,18 @@ const leaveCamp = async ({ campId, userId }) => {
            OR fr.receiver_id IN (SELECT user_id FROM camp_enrollments WHERE camp_id = ? AND cohort_number = ?)
          )`,
       [userId, userId, campId, currentCohortNumber, campId, currentCohortNumber]
+    );
+
+    // تقليل عدد المشتركين في الفوج
+    await db.query(
+      `UPDATE camp_cohorts 
+       SET current_participants = GREATEST(current_participants - 1, 0) 
+       WHERE camp_id = ? AND cohort_number = ?`,
+      [campId, currentCohortNumber]
+    );
+
+    console.log(
+      `[LeaveCamp] Updated cohort ${currentCohortNumber} participants count for camp ${campId}`
     );
 
     await db.query("COMMIT");
