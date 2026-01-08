@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import Cookies from "js-cookie";
 
 export default function ThemePage() {
   const [ramadanEnabled, setRamadanEnabled] = useState(false);
@@ -32,7 +33,7 @@ export default function ThemePage() {
   async function fetchThemeStatus() {
     try {
       const response = await fetch(
-        `http://localhost:4000/api/admin/theme/ramadan`
+        `https://api.hadith-shareef.com/api/admin/theme/ramadan`
       );
       const data = await response.json();
 
@@ -50,7 +51,7 @@ export default function ThemePage() {
   async function fetchRamadanDate() {
     try {
       const response = await fetch(
-        `http://localhost:4000/api/admin/theme/ramadan-date`
+        `https://api.hadith-shareef.com/api/admin/theme/ramadan-date`
       );
       const data = await response.json();
 
@@ -71,9 +72,9 @@ export default function ThemePage() {
 
     setUpdatingDate(true);
     try {
-      const token = localStorage.getItem("token");
+      const token = Cookies.get("token");
       const response = await fetch(
-        `http://localhost:4000/api/admin/theme/ramadan-date`,
+        `https://api.hadith-shareef.com/api/admin/theme/ramadan-date`,
         {
           method: "PUT",
           headers: {
@@ -108,9 +109,9 @@ export default function ThemePage() {
   async function handleToggleTheme() {
     setUpdating(true);
     try {
-      const token = localStorage.getItem("token");
+      const token = Cookies.get("token");
       const response = await fetch(
-        `http://localhost:4000/api/admin/theme/ramadan`,
+        `https://api.hadith-shareef.com/api/admin/theme/ramadan`,
         {
           method: "PUT",
           headers: {

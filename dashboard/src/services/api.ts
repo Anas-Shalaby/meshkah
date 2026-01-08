@@ -2,7 +2,7 @@ import axios from "axios";
 import Cookies from "js-cookie";
 
 const api = axios.create({
-  baseURL: "http://localhost:4000/api",
+  baseURL: "https://api.hadith-shareef.com/api",
 });
 
 // Request interceptor
@@ -109,7 +109,7 @@ export const dashboardService = {
       `${process.env.NEXT_PUBLIC_API_URL}/memorization/plans/${planId}/duplicate`,
       {},
       {
-        headers: { "x-auth-token": localStorage.getItem("token") },
+        headers: { "x-auth-token": Cookies.get("token") },
       }
     );
     return response.data;
@@ -119,7 +119,7 @@ export const dashboardService = {
       `${process.env.NEXT_PUBLIC_API_URL}/memorization/plans/${planId}/status`,
       { status },
       {
-        headers: { "x-auth-token": localStorage.getItem("token") },
+        headers: { "x-auth-token": Cookies.get("token") },
       }
     );
     return response.data;
@@ -128,7 +128,7 @@ export const dashboardService = {
     const response = await api.get(
       `/admin/memorization/plans/${planId}/analytics`,
       {
-        headers: { "x-auth-token": localStorage.getItem("token") },
+        headers: { "x-auth-token": Cookies.get("token") },
       }
     );
     return response.data;
@@ -136,6 +136,30 @@ export const dashboardService = {
   getPlanStats: async () => {
     return await api.get("/memorization/plans/stats");
   },
+
+  // Book Journeys Management
+  getBookJourneysStats: () =>
+    api.get("/book-journeys/admin/stats").then((res) => res.data),
+  getBookJourneys: (params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+  }) => api.get("/book-journeys/admin/all", { params }).then((res) => res.data),
+  getBookJourney: (id: number) =>
+    api.get(`/book-journeys/admin/${id}`).then((res) => res.data),
+  updateBookJourneyStatus: (id: number, status: string) =>
+    api
+      .put(`/book-journeys/admin/${id}/status`, { status })
+      .then((res) => res.data),
+  getBookJourneyParticipants: (
+    id: number,
+    params?: { page?: number; limit?: number }
+  ) =>
+    api
+      .get(`/book-journeys/admin/${id}/participants`, { params })
+      .then((res) => res.data),
+  getBookJourneyProgress: (id: number) =>
+    api.get(`/book-journeys/admin/${id}/progress`).then((res) => res.data),
 
   // Quran Camps Management
   getQuranCamps: () => api.get("/quran-camps"),

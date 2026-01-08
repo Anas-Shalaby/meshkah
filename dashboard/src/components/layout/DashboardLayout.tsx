@@ -49,6 +49,11 @@ const menuItems = [
     href: "/dashboard/quran-camps",
   },
   {
+    label: "ختمات الكتب",
+    icon: BookOpen,
+    href: "/dashboard/book-journeys",
+  },
+  {
     label: "الثيم الرمضاني",
     icon: Palette,
     href: "/dashboard/theme",

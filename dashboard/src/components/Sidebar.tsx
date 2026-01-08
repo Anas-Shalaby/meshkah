@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LucideIcon,
+  BookOpen,
 } from "lucide-react";
 
 interface MenuItem {
@@ -39,6 +40,11 @@ export default function Sidebar() {
       title: "خطط الحفظ",
       icon: Book,
       path: "/dashboard/memorization",
+    },
+    {
+      title: "ختمات الكتب",
+      icon: BookOpen,
+      path: "/dashboard/book-journeys",
     },
     {
       title: "طلبات الطباعة",
