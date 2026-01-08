@@ -9,6 +9,8 @@ migrations
 .env.test
 .env.*.local
 
+scripts
+
 # Logs
 logs
 *.log

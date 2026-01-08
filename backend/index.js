@@ -5,6 +5,8 @@ const path = require("path");
 const { setupTaskReminders } = require("./config/taskReminderScheduler");
 const CampNotificationScheduler = require("./config/campNotificationScheduler");
 const FriendsDigestScheduler = require("./config/friendsDigestScheduler");
+const JourneyReminderScheduler = require("./config/journeyReminderScheduler");
+const ReviewReminderScheduler = require("./config/reviewReminderScheduler");
 const http = require("http");
 const mailService = require("./services/mailService");
 const notificationRoutes = require("./routes/notification");
@@ -118,6 +120,8 @@ app.use("/api/hadith-verification", require("./routes/hadithVerification")); // 
 app.use("/api/camp-notifications", require("./routes/campNotifications")); // إضافة إشعارات المخيمات
 app.use("/api/notes-export", require("./routes/notesExport")); // إضافة نظام تصدير الملاحظات
 app.use("/api/friends", require("./routes/friends")); // إضافة نظام الصحبة المخصصة (الأصدقاء)
+app.use("/api/book-journeys", require("./routes/bookJourneys")); // نظام ختمات الكتب
+app.use("/api/reviews", require("./routes/reviews")); // نظام المراجعة الذكية
 app.post("/send-welcome-email", async (req, res) => {
   try {
     const { email, username } = req.body;
@@ -147,6 +151,14 @@ campNotificationScheduler.start();
 // Initialize friends digest scheduler
 const friendsDigestScheduler = new FriendsDigestScheduler();
 friendsDigestScheduler.start();
+
+// Initialize journey reminder scheduler
+const journeyReminderScheduler = new JourneyReminderScheduler();
+journeyReminderScheduler.start();
+
+// Initialize review reminder scheduler
+const reviewReminderScheduler = new ReviewReminderScheduler();
+reviewReminderScheduler.start();
 
 app.set("io", io);
 
