@@ -84,6 +84,19 @@ const MyCampJournalPage = lazy(() => import("./pages/MyCampJournalPage"));
 const CampSummaryPage = lazy(() => import("./pages/CampSummaryPage"));
 const SharedReflectionPage = lazy(() => import("./pages/SharedReflectionPage"));
 
+// Book Journeys Pages - ختمات الكتب
+const BookJourneysPage = lazy(() => import("./pages/BookJourneysPage"));
+const JourneyDetailsPage = lazy(() => import("./pages/JourneyDetailsPage"));
+const JoinJourneyPage = lazy(() => import("./pages/JoinJourneyPage"));
+const VerifyJourneyCertificatePage = lazy(() =>
+  import("./pages/VerifyJourneyCertificatePage")
+);
+
+// Review System Pages - نظام المراجعة الذكية
+const ReviewsPage = lazy(() => import("./pages/ReviewsPage"));
+const ReviewStatsPage = lazy(() => import("./pages/ReviewStatsPage"));
+const ReviewSettingsPage = lazy(() => import("./pages/ReviewSettingsPage"));
+
 const websiteMetadata = {
   title: "مشكاة الأحاديث - موسوعة الحديث الشريف",
   description:
@@ -328,6 +341,55 @@ function AppContent() {
                     </PrivateRoute>
                   }
                 />
+                {/* Book Journeys Routes - ختمات الكتب */}
+                <Route path="/book-journeys" element={<BookJourneysPage />} />
+                <Route
+                  path="/book-journeys/:id"
+                  element={
+                    <PrivateRoute>
+                      <JourneyDetailsPage />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/book-journeys/join/:shareCode"
+                  element={
+                    <PrivateRoute>
+                      <JoinJourneyPage />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/verify-journey/:code"
+                  element={<VerifyJourneyCertificatePage />}
+                />
+                
+                {/* Review System Routes - نظام المراجعة الذكية */}
+                <Route
+                  path="/reviews"
+                  element={
+                    <PrivateRoute>
+                      <ReviewsPage />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/reviews/stats"
+                  element={
+                    <PrivateRoute>
+                      <ReviewStatsPage />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/reviews/settings"
+                  element={
+                    <PrivateRoute>
+                      <ReviewSettingsPage />
+                    </PrivateRoute>
+                  }
+                />
+                
                 <Route path="/privacy-policy" element={<Anas />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>

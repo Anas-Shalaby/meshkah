@@ -45,7 +45,7 @@
 
 /* تحسينات الخطوط للعربية */
 .arabic-text {
-  font-family: "Cairo", "Noto Sans Arabic", "Tajawal", sans-serif;
+  font-family: "Almarai", "Noto Sans Arabic", "Tajawal", sans-serif;
   font-feature-settings: "liga" 1, "calt" 1;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -72,7 +72,7 @@
 
 /* تحسينات الخطوط للعربية */
 .arabic-text {
-  font-family: "Cairo", "Noto Sans Arabic", "Tajawal", sans-serif;
+  font-family: "Almarai", "Noto Sans Arabic", "Tajawal", sans-serif;
   font-feature-settings: "liga" 1, "calt" 1;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -91,7 +91,7 @@
 
 /* تحسينات الخطوط للعربية */
 .arabic-text {
-  font-family: "Cairo", "Noto Sans Arabic", "Tajawal", sans-serif;
+  font-family: "Almarai", "Noto Sans Arabic", "Tajawal", sans-serif;
   font-feature-settings: "liga" 1, "calt" 1;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;

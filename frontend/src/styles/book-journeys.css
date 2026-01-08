@@ -1,0 +1,643 @@
+/* ========================================
+   نظام ختمات الكتب - Book Journeys Styles
+   هوية بصرية متوافقة مع المخيمات القرآنية
+   ======================================== */
+
+/* CSS Variables - نفس ألوان المخيمات */
+:root {
+  /* Gold Accents for achievements */
+  --journey-gold: #d4af37;
+  --journey-gold-light: #f4d47f;
+  --journey-gold-dark: #b8941f;
+  --journey-primary: #7440e9;
+  --journey-primary-dark: #6d28d9;
+  --journey-secondary: #8b5cf6;
+  --journey-accent: #a78bfa;
+  --journey-bg-gradient-start: #f7f6fb;
+  --journey-bg-gradient-middle: #f3edff;
+  --journey-bg-gradient-end: #e9e4f5;
+  --journey-card-shadow: 0 2px 16px 0 rgba(116, 64, 233, 0.08),
+    0 15px 30px -10px rgba(116, 64, 233, 0.2);
+  --journey-hover-shadow: 0 25px 50px -12px rgba(139, 92, 246, 0.3);
+  --journey-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dark {
+  --journey-primary: #a78bfa;
+  --journey-primary-dark: #8b5cf6;
+  --journey-secondary: #c4b5fd;
+  --journey-accent: #ddd6fe;
+  --journey-bg-gradient-start: #1e1b2e;
+  --journey-bg-gradient-middle: #2d1b3d;
+  --journey-bg-gradient-end: #3d1f4d;
+  --journey-card-shadow: 0 2px 16px 0 rgba(139, 92, 246, 0.15),
+    0 15px 30px -10px rgba(139, 92, 246, 0.25);
+  --journey-hover-shadow: 0 25px 50px -12px rgba(167, 139, 250, 0.4);
+}
+
+/* الخلفية الرئيسية */
+.journey-page-bg {
+  background: linear-gradient(
+    135deg,
+    var(--journey-bg-gradient-start) 0%,
+    var(--journey-bg-gradient-middle) 50%,
+    var(--journey-bg-gradient-end) 100%
+  );
+  min-height: 100vh;
+}
+
+/* الهيدر */
+.journey-header {
+  background: linear-gradient(135deg, #7440e9 0%, #6d28d9 50%, #5b21b6 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.journey-header::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  opacity: 0.5;
+}
+
+/* بطاقات الكتب */
+.journey-book-card {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: var(--journey-card-shadow);
+  transition: var(--journey-transition);
+  border: 1px solid rgba(139, 92, 246, 0.1);
+  overflow: hidden;
+}
+
+.journey-book-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: var(--journey-hover-shadow);
+}
+
+.journey-book-card-header {
+  background: linear-gradient(135deg, #7440e9 0%, #8b5cf6 100%);
+  padding: 1rem;
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+/* صورة الكتاب المصغرة */
+.journey-book-thumb {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+}
+
+.journey-book-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.journey-book-card:hover .journey-book-thumb img {
+  transform: scale(1.1);
+}
+
+/* بطاقات الختمات النشطة */
+.journey-active-card {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 4px 15px rgba(116, 64, 233, 0.1);
+  transition: var(--journey-transition);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  cursor: pointer;
+}
+
+.journey-active-card:hover {
+  transform: translateX(-8px);
+  box-shadow: 0 10px 25px rgba(116, 64, 233, 0.2);
+}
+
+/* شريط التقدم */
+.journey-progress-bar {
+  background: linear-gradient(90deg, #e9d5ff, #f3e8ff);
+  border-radius: 9999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.journey-progress-bar-fill {
+  background: linear-gradient(90deg, #7440e9 0%, #8b5cf6 50%, #a78bfa 100%);
+  border-radius: 9999px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.journey-progress-bar-fill::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* التبويبات */
+.journey-tabs {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 4px 15px rgba(116, 64, 233, 0.1);
+  padding: 0.25rem;
+}
+
+.journey-tab {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  transition: var(--journey-transition);
+  color: #6b7280;
+}
+
+.journey-tab:hover {
+  background: rgba(139, 92, 246, 0.1);
+  /* color: #7440e9; */
+}
+
+.journey-tab-active {
+  background: linear-gradient(135deg, #7440e9 0%, #8b5cf6 100%);
+  color: white;
+}
+
+/* بطاقة الحديث */
+.journey-hadith-card {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: var(--journey-card-shadow);
+  overflow: hidden;
+  border: 1px solid rgba(139, 92, 246, 0.1);
+}
+
+.journey-hadith-card-header {
+  background: linear-gradient(135deg, #7440e9 0%, #8b5cf6 100%);
+  padding: 0.75rem 1rem;
+  color: white;
+}
+
+/* نص الحديث */
+.journey-hadith-text {
+  font-family: "Noto Naskh Arabic", "Amiri", "Scheherazade", serif;
+  font-size: 1.2rem;
+  line-height: 2;
+  color: #374151;
+  font-feature-settings: "liga" 1, "calt" 1;
+  text-rendering: optimizeLegibility;
+}
+
+/* الأزرار */
+.journey-btn-primary {
+  background: linear-gradient(135deg, #7440e9 0%, #8b5cf6 100%);
+  color: white;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  transition: var(--journey-transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.journey-btn-primary::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.journey-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(116, 64, 233, 0.4);
+}
+
+.journey-btn-primary:hover::before {
+  left: 100%;
+}
+
+.journey-btn-secondary {
+  background: rgba(139, 92, 246, 0.1);
+  color: #7440e9;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  transition: var(--journey-transition);
+}
+
+.journey-btn-secondary:hover {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.5);
+}
+
+/* الإحصائيات */
+.journey-stat-card {
+  background: white;
+  border-radius: 1rem;
+  padding: 1rem;
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(116, 64, 233, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.1);
+  transition: var(--journey-transition);
+}
+
+.journey-stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(116, 64, 233, 0.15);
+}
+
+.journey-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #7440e9;
+}
+
+.journey-stat-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* Streak Badge */
+.journey-streak-badge {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Status Badges */
+.journey-status-active {
+  background: linear-gradient(135deg, #7440e9 0%, #8b5cf6 100%);
+  color: white;
+}
+
+.journey-status-paused {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+}
+
+.journey-status-completed {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+/* الأصدقاء */
+.journey-friend-item {
+  background: rgba(139, 92, 246, 0.05);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  transition: var(--journey-transition);
+}
+
+.journey-friend-item:hover {
+  background: rgba(139, 92, 246, 0.1);
+}
+
+/* المودال */
+.journey-modal-overlay {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+}
+
+.journey-modal-content {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* الشهادة */
+.journey-certificate-preview {
+  background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 50%, #ddd6fe 100%);
+  border: 2px solid #a78bfa;
+  border-radius: 1rem;
+}
+
+/* Loading Spinner */
+.journey-spinner {
+  border: 4px solid rgba(139, 92, 246, 0.2);
+  border-top-color: #7440e9;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Empty State */
+.journey-empty-state {
+  text-align: center;
+  padding: 3rem;
+}
+
+.journey-empty-icon {
+  width: 5rem;
+  height: 5rem;
+  color: #d1d5db;
+  margin: 0 auto 1rem;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .journey-book-card:hover {
+    transform: none;
+  }
+
+  .journey-active-card:hover {
+    transform: none;
+  }
+
+  .journey-hadith-text {
+    font-size: 1.1rem;
+    line-height: 1.9;
+  }
+
+  .journey-tab {
+    padding: 0.5rem 0.5rem;
+    font-size: 0.85rem;
+  }
+}
+
+/* ========================================
+   الثيم الرمضاني - Ramadan Theme
+   ======================================== */
+
+/* Ramadan Theme Header */
+:root.ramadan-theme .journey-header {
+  background: linear-gradient(135deg, #7440e9 0%, #5a2bb8 50%, #4c1d95 100%);
+}
+
+:root.ramadan-theme .journey-header::before {
+  background: radial-gradient(
+      circle at 10% 20%,
+      rgba(212, 175, 55, 0.3) 0%,
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 90% 80%,
+      rgba(212, 175, 55, 0.2) 0%,
+      transparent 40%
+    ),
+    url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d4af37' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  opacity: 1;
+}
+
+/* Ramadan Theme Cards */
+:root.ramadan-theme .journey-book-card {
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  box-shadow: 0 4px 20px rgba(116, 64, 233, 0.1),
+    0 0 30px rgba(212, 175, 55, 0.08);
+}
+
+:root.ramadan-theme .journey-book-card:hover {
+  box-shadow: 0 10px 40px rgba(116, 64, 233, 0.2),
+    0 0 40px rgba(212, 175, 55, 0.15);
+}
+
+:root.ramadan-theme .journey-book-card-header {
+  background: linear-gradient(135deg, #7440e9 0%, #5a2bb8 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+:root.ramadan-theme .journey-book-card-header::after {
+  content: "☪";
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  font-size: 1.5rem;
+  opacity: 0.3;
+  color: #d4af37;
+}
+
+/* Ramadan Active Cards */
+:root.ramadan-theme .journey-active-card {
+  border: 1px solid rgba(212, 175, 55, 0.15);
+  box-shadow: 0 4px 15px rgba(116, 64, 233, 0.1),
+    inset 0 0 30px rgba(212, 175, 55, 0.03);
+}
+
+:root.ramadan-theme .journey-active-card:hover {
+  box-shadow: 0 10px 30px rgba(116, 64, 233, 0.15),
+    0 0 20px rgba(212, 175, 55, 0.1);
+}
+
+/* Ramadan Progress Bar */
+:root.ramadan-theme .journey-progress-bar {
+  background: linear-gradient(90deg, #f3e8ff, rgba(212, 175, 55, 0.1));
+}
+
+:root.ramadan-theme .journey-progress-bar-fill {
+  background: linear-gradient(90deg, #7440e9 0%, #8b5cf6 50%, #d4af37 100%);
+}
+
+/* Ramadan Tabs */
+:root.ramadan-theme .journey-tabs {
+  border: 1px solid rgba(212, 175, 55, 0.1);
+  box-shadow: 0 4px 15px rgba(116, 64, 233, 0.08),
+    inset 0 0 20px rgba(212, 175, 55, 0.02);
+}
+
+:root.ramadan-theme .journey-tab-active {
+  background: linear-gradient(135deg, #7440e9 0%, #5a2bb8 100%);
+  box-shadow: 0 4px 15px rgba(212, 175, 55, 0.2);
+}
+
+/* Ramadan Hadith Card */
+:root.ramadan-theme .journey-hadith-card {
+  border: 1px solid rgba(212, 175, 55, 0.15);
+  box-shadow: 0 4px 20px rgba(116, 64, 233, 0.1),
+    0 0 30px rgba(212, 175, 55, 0.05);
+}
+
+:root.ramadan-theme .journey-hadith-card-header {
+  background: linear-gradient(135deg, #7440e9 0%, #5a2bb8 100%);
+}
+
+/* Ramadan Buttons */
+:root.ramadan-theme .journey-btn-primary {
+  background: linear-gradient(135deg, #7440e9 0%, #5a2bb8 100%);
+  box-shadow: 0 4px 15px rgba(212, 175, 55, 0.2);
+}
+
+:root.ramadan-theme .journey-btn-primary:hover {
+  box-shadow: 0 8px 25px rgba(116, 64, 233, 0.3),
+    0 0 20px rgba(212, 175, 55, 0.2);
+}
+
+/* Ramadan Streak Badge */
+:root.ramadan-theme .journey-streak-badge {
+  background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%);
+  box-shadow: 0 2px 10px rgba(212, 175, 55, 0.4);
+}
+
+/* Ramadan Stats Card */
+:root.ramadan-theme .journey-stat-card {
+  border: 1px solid rgba(212, 175, 55, 0.1);
+  background: linear-gradient(135deg, white 0%, rgba(212, 175, 55, 0.02) 100%);
+}
+
+:root.ramadan-theme .journey-stat-card:hover {
+  box-shadow: 0 8px 25px rgba(116, 64, 233, 0.12),
+    0 0 15px rgba(212, 175, 55, 0.1);
+}
+
+/* Ramadan Certificate */
+:root.ramadan-theme .journey-certificate-preview {
+  background: linear-gradient(
+    135deg,
+    #f3e8ff 0%,
+    rgba(212, 175, 55, 0.1) 50%,
+    #e9d5ff 100%
+  );
+  border: 2px solid #d4af37;
+  box-shadow: 0 0 30px rgba(212, 175, 55, 0.2),
+    inset 0 0 50px rgba(212, 175, 55, 0.05);
+}
+
+/* Ramadan Modal */
+:root.ramadan-theme .journey-modal-content {
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3), 0 0 50px rgba(212, 175, 55, 0.1);
+}
+
+/* Gold Glow Effect */
+.journey-gold-glow {
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
+}
+
+/* Ramadan Decorative Elements */
+:root.ramadan-theme .journey-page-bg::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(
+      circle at 10% 10%,
+      rgba(212, 175, 55, 0.05) 0%,
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 90% 90%,
+      rgba(212, 175, 55, 0.05) 0%,
+      transparent 30%
+    );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Milestone Animation */
+@keyframes milestone-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(212, 175, 55, 0.6);
+  }
+}
+
+.journey-milestone {
+  animation: milestone-glow 2s ease-in-out infinite;
+}
+
+/* Completion Celebration */
+@keyframes celebration {
+  0% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(1.1) rotate(-5deg);
+  }
+  50% {
+    transform: scale(1.2) rotate(5deg);
+  }
+  75% {
+    transform: scale(1.1) rotate(-5deg);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.journey-celebration {
+  animation: celebration 0.6s ease-in-out;
+}
+
+/* Daily Streak Fire Animation */
+@keyframes fire-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 5px #f59e0b);
+  }
+  50% {
+    filter: drop-shadow(0 0 15px #f59e0b) drop-shadow(0 0 25px #d97706);
+  }
+}
+
+.journey-fire-icon {
+  animation: fire-glow 1.5s ease-in-out infinite;
+}

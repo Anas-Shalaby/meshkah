@@ -11,33 +11,51 @@ import {
   Star,
   GraduationCap,
   Bell,
+  Brain,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 import NotificationCenter from "./NotificationCenter";
 import { useNotificationContext } from "../context/NotificationContext";
 
-const NAV_LINKS_MOBILE = [
-  { name: "الرئيسية", to: "/", icon: Sparkles },
-  { name: "حديث اليوم", to: "/daily-hadith", icon: BookOpen },
-  { name: "الأحاديث", to: "/hadiths", icon: BookOpen },
-  { name: "المكتبة الإسلامية", to: "/islamic-library", icon: BookOpen },
-  { name: "المخيمات القرآنية", to: "/quran-camps", icon: GraduationCap },
-  { name: "التحقق من الحديث", to: "/hadith-verification", icon: Shield },
-  { name: "المحفوظات", to: "/saved", icon: Heart },
-  { name: "البطاقات الدعوية", to: "/public-cards", icon: Shield },
-  { name: "من نحن", to: "/about", icon: Shield },
-  { name: "تواصل معنا", to: "/contact", icon: Shield },
+// تنظيم الروابط في أقسام لتسهيل التنقل
+const NAV_SECTIONS = [
+  {
+    title: "الرئيسية",
+    links: [
+      { name: "الرئيسية", to: "/", icon: Sparkles },
+      { name: "حديث اليوم", to: "/daily-hadith", icon: BookOpen },
+    ],
+  },
+  {
+    title: "التعلم",
+    links: [
+      { name: "الأحاديث", to: "/hadiths", icon: BookOpen },
+      { name: "المكتبة الإسلامية", to: "/islamic-library", icon: BookOpen },
+      { name: "التحقق من الحديث", to: "/hadith-verification", icon: Shield },
+    ],
+  },
+  {
+    title: "الميزات",
+    links: [
+      { name: "المخيمات القرآنية", to: "/quran-camps", icon: GraduationCap },
+      { name: "ختمات الكتب", to: "/book-journeys", icon: BookOpen },
+      { name: "المراجعة الذكية", to: "/reviews", icon: Brain },
+      { name: "البطاقات الدعوية", to: "/public-cards", icon: Shield },
+      { name: "المحفوظات", to: "/saved", icon: Heart },
+    ],
+  },
 ];
 
 const NAV_LINKS = [
   { name: "الرئيسية", to: "/" },
   { name: "حديث اليوم", to: "/daily-hadith" },
   { name: "الأحاديث", to: "/hadiths" },
-  { name: "المكتبة الإسلامية", to: "/islamic-library" },
   { name: "المخيمات القرآنية", to: "/quran-camps" },
+  { name: "ختمات الكتب", to: "/book-journeys" },
   { name: "التحقق من الحديث", to: "/hadith-verification" },
   { name: "البطاقات الدعوية", to: "/public-cards" },
+  { name: "المكتبة الإسلامية", to: "/islamic-library" },
 ];
 
 const Navbar = () => {
@@ -45,6 +63,7 @@ const Navbar = () => {
   const location = useLocation();
   const { user, isAuthenticated, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [navDropdownOpen, setNavDropdownOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [notifOpen, setNotifOpen] = useState(false);
   const [campNotificationsOpen, setCampNotificationsOpen] = useState(false);
@@ -71,13 +90,26 @@ const Navbar = () => {
   // Close mobile menu on ESC key
   useEffect(() => {
     const handleEsc = (e) => {
-      if (e.key === "Escape") setMobileOpen(false);
+      if (e.key === "Escape") {
+        setMobileOpen(false);
+        setNavDropdownOpen(false);
+        setDropdownOpen(false);
+      }
     };
-    if (mobileOpen) {
-      window.addEventListener("keydown", handleEsc);
-    }
+    window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
-  }, [mobileOpen]);
+  }, []);
+
+  // Close nav dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (navDropdownOpen && !e.target.closest(".nav-dropdown")) {
+        setNavDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [navDropdownOpen]);
 
   // جلب الإشعارات من الـ API عند فتح القائمة أو عند تحميل الصفحة
   useEffect(() => {
@@ -173,10 +205,11 @@ const Navbar = () => {
             </Link>
           </motion.div>
 
-          {/* Centered Desktop Nav */}
+          {/* Centered Desktop Nav - أكثر تنظيماً */}
           <div className="hidden lg:flex flex-1 items-center justify-center">
             <div className="flex items-center gap-1 lg:gap-2">
-              {NAV_LINKS.map((link, index) => (
+              {/* الروابط الرئيسية */}
+              {NAV_LINKS.slice(0, 5).map((link, index) => (
                 <motion.div
                   key={link.to}
                   initial={{ opacity: 0, y: -10 }}
@@ -195,6 +228,61 @@ const Navbar = () => {
                   </Link>
                 </motion.div>
               ))}
+
+              {/* قائمة المزيد */}
+              {NAV_LINKS.length > 5 && (
+                <motion.div
+                  className="relative nav-dropdown"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                >
+                  <button
+                    className="px-3 py-2 rounded-xl text-sm font-medium text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 hover:text-[#7440E9] transition-all duration-300 flex items-center gap-1"
+                    onClick={() => setNavDropdownOpen(!navDropdownOpen)}
+                  >
+                    المزيد
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </button>
+
+                  {/* قائمة منسدلة للمزيد من الروابط */}
+                  {navDropdownOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute top-full mt-2 left-0 w-48 bg-white/95 backdrop-blur-xl border border-purple-200/50 rounded-2xl shadow-2xl py-2 z-50"
+                    >
+                      {NAV_LINKS.slice(5).map((link) => (
+                        <Link
+                          key={link.to}
+                          to={link.to}
+                          className={`block px-4 py-3 text-sm font-medium transition-all duration-300 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 hover:text-[#7440E9] ${
+                            location.pathname === link.to
+                              ? "bg-gradient-to-r from-purple-100 to-indigo-100 text-[#7440E9] font-bold"
+                              : "text-gray-700"
+                          }`}
+                          onClick={() => setNavDropdownOpen(false)}
+                        >
+                          {link.name}
+                        </Link>
+                      ))}
+                    </motion.div>
+                  )}
+                </motion.div>
+              )}
             </div>
           </div>
 
@@ -290,14 +378,14 @@ const Navbar = () => {
                         <Link
                           to="/profile"
                           className="block px-4 py-3 text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 hover:text-[#7440E9] transition-all duration-300"
-                          onClick={() => setDropdownOpen(false)}
+                          onClick={() => setNavDropdownOpen(false)}
                         >
                           الملف الشخصي
                         </Link>
                         <Link
                           to="/saved"
                           className="block px-4 py-3 text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 hover:text-[#7440E9] transition-all duration-300"
-                          onClick={() => setDropdownOpen(false)}
+                          onClick={() => setNavDropdownOpen(false)}
                         >
                           محفوظاتي
                         </Link>
@@ -405,28 +493,43 @@ const Navbar = () => {
                 </motion.div>
               )}
 
-              {/* Navigation Links */}
-              <div className="flex-1 p-6 space-y-2 font-almarai overflow-scroll mb-2">
-                {NAV_LINKS_MOBILE.map((link, index) => (
-                  <motion.div
-                    key={link.to}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                  >
-                    <Link
-                      to={link.to}
-                      onClick={closeMobile}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-all duration-300 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 hover:text-[#7440E9] focus:outline-none focus:ring-2 focus:ring-[#7440E9] ${
-                        location.pathname === link.to
-                          ? "bg-gradient-to-r from-purple-100 to-indigo-100 text-[#7440E9] font-bold shadow-md"
-                          : "text-gray-700"
-                      }`}
-                    >
-                      <link.icon className="w-5 h-5" />
-                      {link.name}
-                    </Link>
-                  </motion.div>
+              {/* Navigation Links - مقسمة لأقسام */}
+              <div className="flex-1 p-6 space-y-4 font-almarai overflow-y-auto mb-2">
+                {NAV_SECTIONS.map((section, sectionIndex) => (
+                  <div key={section.title} className="space-y-2">
+                    {/* عنوان القسم */}
+                    <div className="px-2 py-1">
+                      <h3 className="text-xs font-bold text-[#7440E9] uppercase tracking-wide">
+                        {section.title}
+                      </h3>
+                    </div>
+
+                    {/* روابط القسم */}
+                    {section.links.map((link, linkIndex) => {
+                      const globalIndex = sectionIndex * 10 + linkIndex; // للـ animation
+                      return (
+                        <motion.div
+                          key={link.to}
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: globalIndex * 0.05 }}
+                        >
+                          <Link
+                            to={link.to}
+                            onClick={closeMobile}
+                            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 hover:text-[#7440E9] focus:outline-none focus:ring-2 focus:ring-[#7440E9] ${
+                              location.pathname === link.to
+                                ? "bg-gradient-to-r from-purple-100 to-indigo-100 text-[#7440E9] font-bold shadow-md"
+                                : "text-gray-700"
+                            }`}
+                          >
+                            <link.icon className="w-4 h-4 flex-shrink-0" />
+                            <span className="truncate">{link.name}</span>
+                          </Link>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
                 ))}
               </div>
 

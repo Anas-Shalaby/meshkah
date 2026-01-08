@@ -127,7 +127,24 @@ const NotificationCenter = ({ isOpen, onClose }) => {
   };
 
   // الحصول على أيقونة نوع الإشعار
-  const getNotificationIcon = (type) => {
+  const getNotificationIcon = (type, source) => {
+    // إشعارات الختمات
+    if (source === "journey") {
+      switch (type) {
+        case "friend_completed_day":
+          return "📖";
+        case "friend_finished_book":
+          return "🎊";
+        case "friend_started_book":
+          return "🚀";
+        case "reminder":
+          return "⏰";
+        default:
+          return "📚";
+      }
+    }
+
+    // إشعارات المخيمات
     switch (type) {
       case "welcome":
         return "🎉";
@@ -164,7 +181,7 @@ const NotificationCenter = ({ isOpen, onClose }) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 font-cairo bg-black bg-opacity-50 z-40"
+            className="fixed inset-0 font-cairo bg-black bg-opacity-50 z-[60]"
           />
 
           {/* Modal */}
@@ -173,7 +190,7 @@ const NotificationCenter = ({ isOpen, onClose }) => {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -20 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="fixed top-[71px] font-cairo right-2 left-2 sm:right-4 sm:left-auto w-auto sm:w-80 max-w-[calc(100vw-1rem)] sm:max-w-[90vw] bg-white rounded-2xl shadow-lg border border-gray-100 z-50 max-h-[70vh] overflow-hidden md:top-16 md:right-6 md:w-96"
+            className="fixed top-[71px] font-cairo right-2 left-2 sm:right-4 sm:left-auto w-auto sm:w-80 max-w-[calc(100vw-1rem)] sm:max-w-[90vw] bg-white rounded-2xl shadow-lg border border-gray-100 z-[61] max-h-[70vh] overflow-hidden md:top-16 md:right-6 md:w-96"
           >
             {/* الهيدر */}
             <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-100">
@@ -259,7 +276,10 @@ const NotificationCenter = ({ isOpen, onClose }) => {
                     >
                       <div className="flex items-start space-x-2 sm:space-x-3">
                         <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 rounded-xl flex items-center justify-center text-base sm:text-lg flex-shrink-0">
-                          {getNotificationIcon(notification.type)}
+                          {getNotificationIcon(
+                            notification.type,
+                            notification.source
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
@@ -320,6 +340,11 @@ const NotificationCenter = ({ isOpen, onClose }) => {
                             {notification.camp_name && (
                               <span className="text-[10px] sm:text-xs text-gray-600 bg-gray-100 px-2 sm:px-3 py-0.5 sm:py-1 rounded-lg font-medium truncate max-w-[50%] sm:max-w-none">
                                 {notification.camp_name}
+                              </span>
+                            )}
+                            {notification.source === "journey" && (
+                              <span className="text-[10px] sm:text-xs text-white bg-[#7440E9] px-2 sm:px-3 py-0.5 sm:py-1 rounded-lg font-medium truncate max-w-[50%] sm:max-w-none">
+                                📚 ختمات الكتب
                               </span>
                             )}
                           </div>
