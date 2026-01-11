@@ -42,15 +42,22 @@ const getHadithById = (hadithIdInBook, bookSlug) => {
   const bookData = loadBookData(bookSlug);
   if (!bookData || !bookData.hadiths) return null;
   
-  // البحث بـ idInBook وليس id
-  const hadith = bookData.hadiths.find(h => h.idInBook === parseInt(hadithIdInBook));
+  const searchId = parseInt(hadithIdInBook);
+  
+  // البحث أولاً بـ id (للكتب المحلية من Islamic Library)
+  let hadith = bookData.hadiths.find(h => h.id === searchId);
+  
+  // إذا لم يُوجد، البحث بـ idInBook (للكتب من Book Journeys)
+  if (!hadith) {
+    hadith = bookData.hadiths.find(h => h.idInBook === searchId);
+  }
   
   if (!hadith) return null;
   
   // تنسيق الحديث للعرض
   return {
     id: hadith.id,
-    idInBook: hadith.idInBook,
+    idInBook: hadith.idInBook || hadith.id,
     arabic: hadith.arabic,
     english: hadith.english?.text || hadith.english || ''
   };
@@ -62,10 +69,10 @@ const getHadithById = (hadithIdInBook, bookSlug) => {
  */
 const createReviewCard = async (userId, journeyId, hadithId, bookSlug) => {
   try {
-    // التحقق من عدم وجود بطاقة مسبقاً
+    // التحقق من عدم وجود بطاقة مسبقاً (البحث بـ hadith_id و book_slug للدقة)
     const [existing] = await db.query(
-      'SELECT id FROM review_cards WHERE user_id = ? AND hadith_id = ?',
-      [userId, hadithId]
+      'SELECT id FROM review_cards WHERE user_id = ? AND hadith_id = ? AND book_slug = ?',
+      [userId, hadithId, bookSlug]
     );
 
     if (existing.length > 0) {
@@ -73,15 +80,20 @@ const createReviewCard = async (userId, journeyId, hadithId, bookSlug) => {
       return { exists: true, cardId: existing[0].id };
     }
 
+    // جلب بيانات الحديث من الكتاب للحصول على idInBook
+    const hadith = getHadithById(hadithId, bookSlug);
+    const hadithIdInBook = hadith?.idInBook || hadithId;
+
     // إنشاء بطاقة جديدة
     const nextReviewDate = SpacedRepetitionService.addDays(new Date(), 1);
     
     const [result] = await db.query(
       `INSERT INTO review_cards 
-       (user_id, journey_id, hadith_id, book_slug, next_review_date)
-       VALUES (?, ?, ?, ?, ?)`,
-      [userId, journeyId, hadithId, bookSlug, nextReviewDate]
+       (user_id, journey_id, hadith_id, hadith_id_in_book, book_slug, next_review_date)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [userId, journeyId, hadithId, hadithIdInBook, bookSlug, nextReviewDate]
     );
+
 
     return { 
       created: true, 
@@ -90,9 +102,22 @@ const createReviewCard = async (userId, journeyId, hadithId, bookSlug) => {
     };
   } catch (error) {
     console.error('Error creating review card:', error);
+    // إذا فشل الإدراج بسبب عدم وجود العمود hadith_id_in_book، نحاول بالطريقة القديمة
+    if (error.code === 'ER_BAD_FIELD_ERROR') {
+      console.warn('hadith_id_in_book column not found, using fallback insert');
+      const nextReviewDate = SpacedRepetitionService.addDays(new Date(), 1);
+      const [result] = await db.query(
+        `INSERT INTO review_cards 
+         (user_id, journey_id, hadith_id, book_slug, next_review_date)
+         VALUES (?, ?, ?, ?, ?)`,
+        [userId, journeyId, hadithId, bookSlug, nextReviewDate]
+      );
+      return { created: true, cardId: result.insertId, nextReviewDate };
+    }
     throw error;
   }
 };
+
 
 /**
  * GET /api/reviews/due

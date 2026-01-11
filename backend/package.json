@@ -20,9 +20,11 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@sentry/node": "^10.32.1",
     "axios": "^1.7.9",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^2.4.3",
+    "bullmq": "^5.66.4",
     "cors": "^2.8.5",
     "cron-parser": "^4.9.0",
     "date-fns": "^3.6.0",
@@ -50,6 +52,7 @@
     "mysql2": "^3.12.0",
     "node-cache": "^5.1.2",
     "node-cron": "^3.0.3",
+    "node-telegram-bot-api": "^0.67.0",
     "nodemailer": "^6.9.16",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
@@ -58,6 +61,7 @@
     "pm2": "^6.0.13",
     "puppeteer": "^24.31.0",
     "puppeteer-core": "^24.31.0",
+    "qrcode": "^1.5.4",
     "shortid": "^2.2.16",
     "socket.io": "^4.8.1"
   },

@@ -229,6 +229,99 @@ router.put("/:id/resume", authMiddleware, bookJourneysController.resumeJourney);
  */
 router.put("/:id/pace", authMiddleware, bookJourneysController.updatePace);
 
+/**
+ * PUT /api/book-journeys/:id/pledge
+ * تحديث التعهد
+ * Body: { pledge: string, pledge_shared?: boolean }
+ */
+router.put("/:id/pledge", authMiddleware, bookJourneysController.updatePledge);
+
+/**
+ * PUT /api/book-journeys/:id/settings
+ * تحديث إعدادات الختمة (pace, pledge, وغيرها)
+ * Body: { pace?: number, pledge?: string, pledge_shared?: boolean }
+ */
+router.put(
+  "/:id/settings",
+  authMiddleware,
+  bookJourneysController.updateJourneySettings
+);
+
+/**
+ * POST /api/book-journeys/:id/reset
+ * إعادة ضبط الختمة (حذف التقدم والبدء من جديد)
+ * Body: { confirm: boolean }
+ */
+router.post(
+  "/:id/reset",
+  authMiddleware,
+  bookJourneysController.resetJourneyProgress
+);
+
+
+/**
+ * GET /api/book-journeys/:id/calendar
+ * جلب بيانات التقويم الشهري
+ * Query: { month?: number, year?: number }
+ */
+router.get(
+  "/:id/calendar",
+  authMiddleware,
+  bookJourneysController.getProgressCalendar
+);
+
+// =====================================================
+// مسارات نظام الرفقة (Buddy System)
+// =====================================================
+
+/**
+ * GET /api/book-journeys/:id/buddy
+ * معلومات الرفيق الحالي
+ */
+router.get("/:id/buddy", authMiddleware, bookJourneysController.getBuddyInfo);
+
+/**
+ * POST /api/book-journeys/:id/buddy/request
+ * طلب رفيق جديد
+ * Body: { target_user_id: number }
+ */
+router.post(
+  "/:id/buddy/request",
+  authMiddleware,
+  bookJourneysController.requestBuddy
+);
+
+/**
+ * PUT /api/book-journeys/:id/buddy/accept/:buddyRequestId
+ * قبول طلب الرفقة
+ */
+router.put(
+  "/:id/buddy/accept/:buddyRequestId",
+  authMiddleware,
+  bookJourneysController.acceptBuddy
+);
+
+/**
+ * PUT /api/book-journeys/:id/buddy/decline/:buddyRequestId
+ * رفض طلب الرفقة
+ */
+router.put(
+  "/:id/buddy/decline/:buddyRequestId",
+  authMiddleware,
+  bookJourneysController.declineBuddy
+);
+
+/**
+ * POST /api/book-journeys/:id/buddy/encourage
+ * إرسال تشجيع للرفيق
+ * Body: { message: string }
+ */
+router.post(
+  "/:id/buddy/encourage",
+  authMiddleware,
+  bookJourneysController.sendBuddyEncouragement
+);
+
 // =====================================================
 // مسارات الأصدقاء
 // =====================================================

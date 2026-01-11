@@ -258,7 +258,7 @@ const getMyJourneys = async (req, res) => {
 const startJourney = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { book_slug, pace = 1 } = req.body;
+    const { book_slug, pace = 1, pledge = null } = req.body;
 
     // التحقق من وجود الكتاب
     const book = AVAILABLE_BOOKS.find((b) => b.slug === book_slug);
@@ -294,12 +294,12 @@ const startJourney = async (req, res) => {
     // توليد كود المشاركة
     const shareCode = generateShareCode();
 
-    // إنشاء الختمة
+    // إنشاء الختمة مع التعهد
     const [result] = await db.query(
       `INSERT INTO book_journeys 
-       (user_id, book_slug, book_name, total_hadiths, pace, start_date, share_code, status)
-       VALUES (?, ?, ?, ?, ?, CURDATE(), ?, 'active')`,
-      [userId, book_slug, book.name, totalHadiths, pace, shareCode]
+       (user_id, book_slug, book_name, total_hadiths, pace, start_date, share_code, status, pledge)
+       VALUES (?, ?, ?, ?, ?, CURDATE(), ?, 'active', ?)`,
+      [userId, book_slug, book.name, totalHadiths, pace, shareCode, pledge]
     );
 
     const journeyId = result.insertId;
@@ -594,24 +594,42 @@ const markHadithAsRead = async (req, res) => {
     );
     const newPosition = readCount[0].count;
 
-    // تحديث streak
-    let newStreak = journey.streak_count;
-    const today = new Date().toISOString().split("T")[0];
-    const lastReadDate = journey.last_read_date
-      ? new Date(journey.last_read_date).toISOString().split("T")[0]
+    // تحديث streak (منطق محسّن مع فترة سماح)
+    let newStreak = journey.streak_count || 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    let lastReadDate = null;
+    if (journey.last_read_date) {
+      lastReadDate = new Date(journey.last_read_date);
+      lastReadDate.setHours(0, 0, 0, 0);
+    }
+
+    // حساب عدد الأيام منذ آخر قراءة
+    const daysSinceLastRead = lastReadDate 
+      ? Math.floor((today - lastReadDate) / (1000 * 60 * 60 * 24))
       : null;
 
-    if (lastReadDate !== today) {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split("T")[0];
-
-      if (lastReadDate === yesterdayStr) {
-        newStreak = journey.streak_count + 1;
-      } else if (lastReadDate !== today) {
-        newStreak = 1;
-      }
+    if (daysSinceLastRead === null) {
+      // أول قراءة - بداية streak جديد
+      newStreak = 1;
+    } else if (daysSinceLastRead === 0) {
+      // نفس اليوم - لا تغيير في الـ streak
+      // newStreak يبقى كما هو
+    } else if (daysSinceLastRead === 1) {
+      // اليوم التالي - زيادة الـ streak
+      newStreak = journey.streak_count + 1;
+    } else if (daysSinceLastRead <= 3) {
+      // فترة سماح (2-3 أيام) - خصم تدريجي لكن لا نعيده للصفر
+      const penalty = daysSinceLastRead - 1;
+      newStreak = Math.max(1, journey.streak_count - penalty);
+      console.log(`⚠️ Streak penalty applied: ${journey.streak_count} → ${newStreak} (missed ${daysSinceLastRead} days)`);
+    } else {
+      // أكثر من 3 أيام - إعادة الـ streak للبداية
+      newStreak = 1;
+      console.log(`🔄 Streak reset: ${journey.streak_count} → 1 (missed ${daysSinceLastRead} days)`);
     }
+
 
     // التحقق من إكمال الكتاب
     let newStatus = journey.status;
@@ -721,7 +739,7 @@ const getJourneyProgress = async (req, res) => {
 
     const progressPercent =
       journey.total_hadiths > 0
-        ? Math.round((readCount[0].count / journey.total_hadiths) * 100)
+        ? Math.ceil((readCount[0].count / journey.total_hadiths) * 100)
         : 0;
 
     // حساب متوسط القراءة اليومي
@@ -856,6 +874,468 @@ const updatePace = async (req, res) => {
   } catch (error) {
     console.error("Error updating pace:", error);
     res.status(500).json({ success: false, message: "خطأ في تحديث السرعة" });
+  }
+};
+
+/**
+ * PUT /api/book-journeys/:id/pledge
+ * تحديث أو إضافة التعهد
+ */
+const updatePledge = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const journeyId = req.params.id;
+    const { pledge, pledge_shared = false } = req.body;
+
+    if (!pledge || pledge.trim().length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "التعهد لا يمكن أن يكون فارغاً" });
+    }
+
+    const [result] = await db.query(
+      `UPDATE book_journeys SET pledge = ?, pledge_shared = ?
+       WHERE id = ? AND user_id = ?`,
+      [pledge.trim(), pledge_shared, journeyId, userId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "الختمة غير موجودة" });
+    }
+
+    res.json({ success: true, message: "تم حفظ التعهد بنجاح", pledge });
+  } catch (error) {
+    console.error("Error updating pledge:", error);
+    res.status(500).json({ success: false, message: "خطأ في حفظ التعهد" });
+  }
+};
+
+// =====================================================
+// APIs نظام الرفقة (Buddy System)
+// =====================================================
+
+/**
+ * POST /api/book-journeys/:id/buddy/request
+ * طلب رفيق للختمة
+ */
+const requestBuddy = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const journeyId = req.params.id;
+    const { target_user_id } = req.body;
+
+    // التحقق من ملكية الختمة
+    const [myJourneys] = await db.query(
+      `SELECT * FROM book_journeys WHERE id = ? AND user_id = ?`,
+      [journeyId, userId]
+    );
+
+    if (myJourneys.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "الختمة غير موجودة" });
+    }
+
+    const myJourney = myJourneys[0];
+
+    // جلب ختمة الشخص المستهدف لنفس الكتاب
+    const [targetJourneys] = await db.query(
+      `SELECT bj.*, u.username FROM book_journeys bj
+       JOIN users u ON bj.user_id = u.id
+       WHERE bj.user_id = ? AND bj.book_slug = ? AND bj.status = 'active'`,
+      [target_user_id, myJourney.book_slug]
+    );
+
+    if (targetJourneys.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "هذا الشخص ليس لديه ختمة نشطة لنفس الكتاب",
+      });
+    }
+
+    const targetJourney = targetJourneys[0];
+
+    // التحقق من عدم وجود طلب سابق
+    const [existingRequest] = await db.query(
+      `SELECT * FROM journey_buddies 
+       WHERE (journey_id = ? AND buddy_journey_id = ?) 
+          OR (journey_id = ? AND buddy_journey_id = ?)`,
+      [journeyId, targetJourney.id, targetJourney.id, journeyId]
+    );
+
+    if (existingRequest.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "يوجد طلب رفقة قائم بالفعل",
+      });
+    }
+
+    // إنشاء طلب الرفقة
+    await db.query(
+      `INSERT INTO journey_buddies (journey_id, buddy_journey_id, status)
+       VALUES (?, ?, 'pending')`,
+      [journeyId, targetJourney.id]
+    );
+
+    // إرسال إشعار للشخص المستهدف
+    const [currentUser] = await db.query(
+      `SELECT username FROM users WHERE id = ?`,
+      [userId]
+    );
+    
+    await db.query(
+      `INSERT INTO journey_notifications 
+       (user_id, type, related_journey_id, friend_id, message, buddy_type)
+       VALUES (?, 'buddy_request', ?, ?, ?, 'buddy_request')`,
+      [
+        target_user_id,
+        targetJourney.id,
+        userId,
+        `${currentUser[0]?.username || 'صديق'} يريد أن يكون رفيقك في ختمة ${myJourney.book_name}! 📚`,
+      ]
+    );
+
+    res.json({
+      success: true,
+      message: `تم إرسال طلب الرفقة إلى ${targetJourney.username}`,
+    });
+  } catch (error) {
+    console.error("Error requesting buddy:", error);
+    res.status(500).json({ success: false, message: "خطأ في إرسال طلب الرفقة" });
+  }
+};
+
+/**
+ * PUT /api/book-journeys/:id/buddy/accept/:buddyRequestId
+ * قبول طلب الرفقة
+ */
+const acceptBuddy = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const journeyId = req.params.id;
+    const buddyRequestId = req.params.buddyRequestId;
+
+    // التحقق من ملكية الختمة
+    const [myJourneys] = await db.query(
+      `SELECT * FROM book_journeys WHERE id = ? AND user_id = ?`,
+      [journeyId, userId]
+    );
+
+    if (myJourneys.length === 0) {
+      return res.status(404).json({ success: false, message: "الختمة غير موجودة" });
+    }
+
+    // التحقق من وجود الطلب
+    const [requests] = await db.query(
+      `SELECT jb.*, bj.user_id as requester_id, bj.book_name, u.username as requester_name
+       FROM journey_buddies jb
+       JOIN book_journeys bj ON jb.journey_id = bj.id
+       JOIN users u ON bj.user_id = u.id
+       WHERE jb.id = ? AND jb.buddy_journey_id = ? AND jb.status = 'pending'`,
+      [buddyRequestId, journeyId]
+    );
+
+    if (requests.length === 0) {
+      return res.status(404).json({ success: false, message: "طلب الرفقة غير موجود" });
+    }
+
+    const request = requests[0];
+
+    // قبول الطلب
+    await db.query(
+      `UPDATE journey_buddies SET status = 'accepted', accepted_at = NOW() WHERE id = ?`,
+      [buddyRequestId]
+    );
+
+    // إرسال إشعار للطالب
+    const [currentUser] = await db.query(`SELECT username FROM users WHERE id = ?`, [userId]);
+    
+    await db.query(
+      `INSERT INTO journey_notifications 
+       (user_id, type, related_journey_id, friend_id, message, buddy_type)
+       VALUES (?, 'buddy_accepted', ?, ?, ?, 'buddy_accepted')`,
+      [
+        request.requester_id,
+        request.journey_id,
+        userId,
+        `${currentUser[0]?.username || 'صديق'} قبل طلب الرفقة! أنتما الآن رفيقان في ختمة ${request.book_name} 🎉`,
+      ]
+    );
+
+    res.json({ success: true, message: "تم قبول طلب الرفقة! 🎉" });
+  } catch (error) {
+    console.error("Error accepting buddy:", error);
+    res.status(500).json({ success: false, message: "خطأ في قبول طلب الرفقة" });
+  }
+};
+
+/**
+ * PUT /api/book-journeys/:id/buddy/decline/:buddyRequestId
+ * رفض طلب الرفقة
+ */
+const declineBuddy = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const journeyId = req.params.id;
+    const buddyRequestId = req.params.buddyRequestId;
+
+    const [result] = await db.query(
+      `UPDATE journey_buddies jb
+       JOIN book_journeys bj ON jb.buddy_journey_id = bj.id
+       SET jb.status = 'declined'
+       WHERE jb.id = ? AND jb.buddy_journey_id = ? AND bj.user_id = ? AND jb.status = 'pending'`,
+      [buddyRequestId, journeyId, userId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: "طلب الرفقة غير موجود" });
+    }
+
+    res.json({ success: true, message: "تم رفض طلب الرفقة" });
+  } catch (error) {
+    console.error("Error declining buddy:", error);
+    res.status(500).json({ success: false, message: "خطأ في رفض الطلب" });
+  }
+};
+
+/**
+ * GET /api/book-journeys/:id/buddy
+ * معلومات الرفيق
+ */
+const getBuddyInfo = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const journeyId = req.params.id;
+
+    // التحقق من ملكية الختمة
+    const [myJourneys] = await db.query(
+      `SELECT * FROM book_journeys WHERE id = ? AND user_id = ?`,
+      [journeyId, userId]
+    );
+
+    if (myJourneys.length === 0) {
+      return res.status(404).json({ success: false, message: "الختمة غير موجودة" });
+    }
+
+    // جلب الرفيق المقبول
+    const [buddyRelation] = await db.query(
+      `SELECT jb.*, 
+              bj.id as buddy_journey_id, bj.current_position, bj.total_hadiths, bj.streak_count, bj.last_read_date,
+              u.id as buddy_user_id, u.username, u.avatar_url
+       FROM journey_buddies jb
+       JOIN book_journeys bj ON 
+         CASE 
+           WHEN jb.journey_id = ? THEN jb.buddy_journey_id = bj.id
+           ELSE jb.journey_id = bj.id
+         END
+       JOIN users u ON bj.user_id = u.id
+       WHERE (jb.journey_id = ? OR jb.buddy_journey_id = ?) AND jb.status = 'accepted'`,
+      [journeyId, journeyId, journeyId]
+    );
+
+    if (buddyRelation.length === 0) {
+      // جلب طلبات الرفقة المعلقة
+      const [pendingRequests] = await db.query(
+        `SELECT jb.*, bj.book_name, u.username, u.avatar_url
+         FROM journey_buddies jb
+         JOIN book_journeys bj ON jb.journey_id = bj.id
+         JOIN users u ON bj.user_id = u.id
+         WHERE jb.buddy_journey_id = ? AND jb.status = 'pending'`,
+        [journeyId]
+      );
+
+      return res.json({
+        success: true,
+        has_buddy: false,
+        buddy: null,
+        pending_requests: pendingRequests,
+      });
+    }
+
+    const buddy = buddyRelation[0];
+    const progressPercent = buddy.total_hadiths > 0
+      ? Math.round((buddy.current_position / buddy.total_hadiths) * 100)
+      : 0;
+
+    // التحقق من إكمال الورد اليوم
+    const [todayProgress] = await db.query(
+      `SELECT COUNT(*) as count FROM journey_progress 
+       WHERE journey_id = ? AND DATE(read_at) = CURDATE()`,
+      [buddy.buddy_journey_id]
+    );
+
+    res.json({
+      success: true,
+      has_buddy: true,
+      buddy: {
+        user_id: buddy.buddy_user_id,
+        username: buddy.username,
+        avatar_url: buddy.avatar_url,
+        journey_id: buddy.buddy_journey_id,
+        current_position: buddy.current_position,
+        total_hadiths: buddy.total_hadiths,
+        progress_percent: progressPercent,
+        streak_count: buddy.streak_count,
+        completed_today: todayProgress[0]?.count > 0,
+        last_read_date: buddy.last_read_date,
+      },
+      pending_requests: [],
+    });
+  } catch (error) {
+    console.error("Error getting buddy info:", error);
+    res.status(500).json({ success: false, message: "خطأ في جلب معلومات الرفيق" });
+  }
+};
+
+/**
+ * POST /api/book-journeys/:id/buddy/encourage
+ * إرسال رسالة تشجيع للرفيق
+ */
+const sendBuddyEncouragement = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const journeyId = req.params.id;
+    const { message } = req.body;
+
+    if (!message || message.trim().length === 0) {
+      return res.status(400).json({ success: false, message: "الرسالة لا يمكن أن تكون فارغة" });
+    }
+
+    // التحقق من ملكية الختمة
+    const [myJourneys] = await db.query(
+      `SELECT * FROM book_journeys WHERE id = ? AND user_id = ?`,
+      [journeyId, userId]
+    );
+
+    if (myJourneys.length === 0) {
+      return res.status(404).json({ success: false, message: "الختمة غير موجودة" });
+    }
+
+    // جلب الرفيق
+    const [buddyRelation] = await db.query(
+      `SELECT jb.*, 
+              CASE WHEN jb.journey_id = ? THEN jb.buddy_journey_id ELSE jb.journey_id END as buddy_journey_id
+       FROM journey_buddies jb
+       WHERE (jb.journey_id = ? OR jb.buddy_journey_id = ?) AND jb.status = 'accepted'`,
+      [journeyId, journeyId, journeyId]
+    );
+
+    if (buddyRelation.length === 0) {
+      return res.status(400).json({ success: false, message: "ليس لديك رفيق في هذه الختمة" });
+    }
+
+    const buddyJourneyId = buddyRelation[0].buddy_journey_id;
+
+    // جلب معلومات الرفيق
+    const [buddyInfo] = await db.query(
+      `SELECT bj.user_id, u.username FROM book_journeys bj
+       JOIN users u ON bj.user_id = u.id
+       WHERE bj.id = ?`,
+      [buddyJourneyId]
+    );
+
+    // حفظ الرسالة
+    await db.query(
+      `INSERT INTO buddy_messages (from_journey_id, to_journey_id, message, message_type)
+       VALUES (?, ?, ?, 'encouragement')`,
+      [journeyId, buddyJourneyId, message.trim()]
+    );
+
+    // إرسال إشعار
+    const [currentUser] = await db.query(`SELECT username FROM users WHERE id = ?`, [userId]);
+    
+    await db.query(
+      `INSERT INTO journey_notifications 
+       (user_id, type, related_journey_id, friend_id, message, buddy_type)
+       VALUES (?, 'buddy_encouragement', ?, ?, ?, 'buddy_encouragement')`,
+      [
+        buddyInfo[0].user_id,
+        buddyJourneyId,
+        userId,
+        `💪 رسالة تشجيع من رفيقك ${currentUser[0]?.username || ''}: "${message.trim()}"`,
+      ]
+    );
+
+    res.json({ success: true, message: "تم إرسال التشجيع! 💪" });
+  } catch (error) {
+    console.error("Error sending encouragement:", error);
+    res.status(500).json({ success: false, message: "خطأ في إرسال التشجيع" });
+  }
+};
+
+/**
+ * GET /api/book-journeys/:id/calendar
+ * جلب بيانات التقويم الشهري
+ */
+const getProgressCalendar = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const journeyId = req.params.id;
+    const { month, year } = req.query;
+
+    // استخدام الشهر والسنة الحالية إذا لم تُحدد
+    const targetMonth = month ? parseInt(month) : new Date().getMonth() + 1;
+    const targetYear = year ? parseInt(year) : new Date().getFullYear();
+
+    // التحقق من ملكية الختمة
+    const [journeys] = await db.query(
+      `SELECT * FROM book_journeys WHERE id = ? AND user_id = ?`,
+      [journeyId, userId]
+    );
+
+    if (journeys.length === 0) {
+      return res.status(404).json({ success: false, message: "الختمة غير موجودة" });
+    }
+
+    const journey = journeys[0];
+
+    // جلب بيانات القراءة للشهر المحدد
+    const [dailyProgress] = await db.query(
+      `SELECT DATE(read_at) as date, COUNT(*) as count
+       FROM journey_progress
+       WHERE journey_id = ? 
+         AND MONTH(read_at) = ? AND YEAR(read_at) = ?
+       GROUP BY DATE(read_at)
+       ORDER BY date`,
+      [journeyId, targetMonth, targetYear]
+    );
+
+    // تحويل إلى map لسهولة الوصول
+    const progressMap = {};
+    dailyProgress.forEach((day) => {
+      const dateStr = new Date(day.date).toISOString().split('T')[0];
+      progressMap[dateStr] = {
+        count: day.count,
+        completed: day.count >= journey.pace,
+        partial: day.count > 0 && day.count < journey.pace,
+      };
+    });
+
+    // إحصائيات الشهر
+    const completedDays = dailyProgress.filter((d) => d.count >= journey.pace).length;
+    const partialDays = dailyProgress.filter((d) => d.count > 0 && d.count < journey.pace).length;
+    const totalRead = dailyProgress.reduce((sum, d) => sum + d.count, 0);
+
+    res.json({
+      success: true,
+      calendar: {
+        month: targetMonth,
+        year: targetYear,
+        progress: progressMap,
+      },
+      stats: {
+        completed_days: completedDays,
+        partial_days: partialDays,
+        total_hadiths_read: totalRead,
+        average_per_day: dailyProgress.length > 0 ? (totalRead / dailyProgress.length).toFixed(1) : 0,
+        target_pace: journey.pace,
+      },
+    });
+  } catch (error) {
+    console.error("Error getting progress calendar:", error);
+    res.status(500).json({ success: false, message: "خطأ في جلب التقويم" });
   }
 };
 
@@ -1747,7 +2227,172 @@ const updateBookJourneyStatus = async (req, res) => {
   }
 };
 
+// =====================================================
+// APIs تعديل إعدادات الختمة
+// =====================================================
+
+/**
+ * PUT /api/book-journeys/:id/settings
+ * تحديث إعدادات الختمة (pace, pledge, وغيرها)
+ */
+const updateJourneySettings = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const journeyId = req.params.id;
+    const { pace, pledge, pledge_shared } = req.body;
+
+    // التحقق من ملكية الختمة
+    const [journeys] = await db.query(
+      `SELECT * FROM book_journeys WHERE id = ? AND user_id = ?`,
+      [journeyId, userId]
+    );
+
+    if (journeys.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "الختمة غير موجودة" });
+    }
+
+    const journey = journeys[0];
+
+    if (journey.status === "completed") {
+      return res
+        .status(400)
+        .json({ success: false, message: "لا يمكن تعديل ختمة مكتملة" });
+    }
+
+    // بناء query التحديث ديناميكياً
+    const updates = [];
+    const values = [];
+
+    if (pace !== undefined && pace >= 1 && pace <= 20) {
+      updates.push("pace = ?");
+      values.push(pace);
+    }
+
+    if (pledge !== undefined && pledge.trim().length > 0) {
+      updates.push("pledge = ?");
+      values.push(pledge.trim());
+    }
+
+    if (pledge_shared !== undefined) {
+      updates.push("pledge_shared = ?");
+      values.push(pledge_shared);
+    }
+
+    if (updates.length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "لا توجد إعدادات للتحديث" });
+    }
+
+    values.push(journeyId);
+
+    await db.query(
+      `UPDATE book_journeys SET ${updates.join(", ")} WHERE id = ?`,
+      values
+    );
+
+    // إعادة حساب الأيام المتبقية
+    const [readCount] = await db.query(
+      `SELECT COUNT(*) as count FROM journey_progress WHERE journey_id = ?`,
+      [journeyId]
+    );
+
+    const newPace = pace || journey.pace;
+    const remaining = journey.total_hadiths - readCount[0].count;
+    const remainingDays = Math.ceil(remaining / newPace);
+
+    console.log(`⚙️ Journey ${journeyId} settings updated: pace=${newPace}, remaining days=${remainingDays}`);
+
+    res.json({
+      success: true,
+      message: "تم تحديث الإعدادات بنجاح",
+      settings: {
+        pace: newPace,
+        pledge: pledge || journey.pledge,
+        remaining_hadiths: remaining,
+        remaining_days: remainingDays,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating journey settings:", error);
+    res.status(500).json({ success: false, message: "خطأ في تحديث الإعدادات" });
+  }
+};
+
+/**
+ * POST /api/book-journeys/:id/reset
+ * إعادة ضبط تقدم الختمة (حذف التقدم والبدء من جديد)
+ */
+const resetJourneyProgress = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const journeyId = req.params.id;
+    const { confirm } = req.body;
+
+    if (!confirm) {
+      return res.status(400).json({
+        success: false,
+        message: "يرجى تأكيد إعادة الضبط عن طريق إرسال confirm: true",
+      });
+    }
+
+    // التحقق من ملكية الختمة
+    const [journeys] = await db.query(
+      `SELECT * FROM book_journeys WHERE id = ? AND user_id = ?`,
+      [journeyId, userId]
+    );
+
+    if (journeys.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "الختمة غير موجودة" });
+    }
+
+    const journey = journeys[0];
+
+    // حذف التقدم
+    await db.query(`DELETE FROM journey_progress WHERE journey_id = ?`, [
+      journeyId,
+    ]);
+
+    // حذف بطاقات المراجعة المرتبطة
+    await db.query(`DELETE FROM review_cards WHERE journey_id = ?`, [
+      journeyId,
+    ]);
+
+    // إعادة ضبط الختمة
+    await db.query(
+      `UPDATE book_journeys 
+       SET current_position = 0, streak_count = 0, 
+           last_read_date = NULL, status = 'active',
+           completed_at = NULL, start_date = CURDATE()
+       WHERE id = ?`,
+      [journeyId]
+    );
+
+    console.log(`🔄 Journey ${journeyId} reset by user ${userId}`);
+
+    res.json({
+      success: true,
+      message: "تم إعادة ضبط الختمة بنجاح",
+      journey: {
+        id: journeyId,
+        book_name: journey.book_name,
+        total_hadiths: journey.total_hadiths,
+        pace: journey.pace,
+        status: "active",
+      },
+    });
+  } catch (error) {
+    console.error("Error resetting journey:", error);
+    res.status(500).json({ success: false, message: "خطأ في إعادة ضبط الختمة" });
+  }
+};
+
 module.exports = {
+
   // APIs الأساسية
   getAvailableBooks,
   getMyJourneys,
@@ -1759,6 +2404,16 @@ module.exports = {
   pauseJourney,
   resumeJourney,
   updatePace,
+  // APIs التعهد
+  updatePledge,
+  // APIs نظام الرفقة
+  requestBuddy,
+  acceptBuddy,
+  declineBuddy,
+  getBuddyInfo,
+  sendBuddyEncouragement,
+  // APIs التقويم
+  getProgressCalendar,
   // APIs الأصدقاء
   getShareLink,
   joinViaShareCode,
@@ -1782,4 +2437,9 @@ module.exports = {
   getBookJourneyDetails,
   getBookJourneyParticipants,
   updateBookJourneyStatus,
+
+  // APIs تعديل إعدادات الختمة
+  updateJourneySettings,
+  resetJourneyProgress,
 };
+

@@ -20,6 +20,13 @@ const {
 } = require("../utils/permissionsHelper");
 const db = require("../config/database");
 const mailService = require("../services/mailService");
+const telegramBotService = require("../services/telegramBotService");
+const {
+  addTelegramCohortCreatedJob,
+  addTelegramCohortUpdatedJob,
+  addCohortOpenedEmailJob,
+  addSupervisorEmailJob,
+} = require("../services/notificationQueue");
 const axios = require("axios");
 const { JSDOM } = require("jsdom");
 const shortid = require("shortid");
@@ -9066,14 +9073,33 @@ const createCampCohort = async (req, res) => {
       [result.insertId]
     );
 
-    // Send emails to subscribers if requested
-    let emailsSent = 0;
+    // ========== BACKGROUND JOBS (BullMQ) ==========
+    // إرسال جميع الإشعارات في الخلفية باستخدام Queue لتحسين الأداء
+    
+    // 1. Send Telegram notification via Queue
+    try {
+      await addTelegramCohortCreatedJob({
+        campName: camp.name,
+        cohortNumber: nextCohortNumber,
+        startDate: normalizedStartDate,
+        endDate: calculatedEndDate,
+        maxParticipants: max_participants,
+        status: status,
+        announcementMessage: announcement_message,
+        shareLink: camp.share_link || id,
+      });
+      console.log("📱 Telegram notification job added to queue");
+    } catch (queueError) {
+      console.error("Error adding Telegram job to queue:", queueError);
+    }
+
+    // 2. Send emails to subscribers via Queue if requested
     if (
       send_email_to_subscribers === true ||
       send_email_to_subscribers === "true"
     ) {
       try {
-        // Get all active subscribers (subscription_type = 'cohorts' or 'both')
+        // Get all active subscribers
         const [subscribers] = await db.query(
           `SELECT email, unsubscribe_token 
            FROM camp_notification_subscribers 
@@ -9089,34 +9115,25 @@ const createCampCohort = async (req, res) => {
         const campName = campDetails[0]?.name || camp.name;
         const campShareLink = campDetails[0]?.share_link || id;
 
-        // Send email to each subscriber
-        for (const subscriber of subscribers) {
-          try {
-            await mailService.sendCohortOpenedEmail(
-              subscriber.email,
-              campName,
-              campShareLink,
-              nextCohortNumber,
-              subscriber.unsubscribe_token,
-              announcement_message
-            );
-            emailsSent++;
-          } catch (emailError) {
-            console.error(
-              `Error sending email to ${subscriber.email}:`,
-              emailError
-            );
-          }
+        // Add email job to queue
+        if (subscribers.length > 0) {
+          await addCohortOpenedEmailJob({
+            subscribers,
+            campName,
+            campShareLink,
+            cohortNumber: nextCohortNumber,
+            announcementMessage: announcement_message,
+          });
+          console.log(`📧 Email job added to queue for ${subscribers.length} subscribers`);
         }
-      } catch (emailError) {
-        console.error("Error sending cohort announcement emails:", emailError);
-        // Don't fail the request if email sending fails
+      } catch (queueError) {
+        console.error("Error adding email job to queue:", queueError);
       }
     }
 
-    // Notify supervisors about new cohort creation
-    const supervisorNotificationResult =
-      await campManagementService.notifySupervisorsOnCohortCreation({
+    // 3. Notify supervisors via Queue
+    try {
+      await addSupervisorEmailJob({
         campId: id,
         cohortNumber: nextCohortNumber,
         startDate: normalizedStartDate,
@@ -9124,7 +9141,12 @@ const createCampCohort = async (req, res) => {
         announcementMessage: announcement_message,
         createdBy: userId,
       });
+      console.log("📧 Supervisor notification job added to queue");
+    } catch (queueError) {
+      console.error("Error adding supervisor email job to queue:", queueError);
+    }
 
+    // إرجاع الاستجابة فوراً دون انتظار الإشعارات
     res.status(201).json({
       success: true,
       message: "تم إنشاء الفوج بنجاح",
@@ -9134,10 +9156,7 @@ const createCampCohort = async (req, res) => {
           ? JSON.parse(newCohort[0].settings)
           : null,
       },
-      emails_sent: emailsSent,
-      supervisor_emails_sent: supervisorNotificationResult.supervisorEmailsSent,
-      supervisor_emails_failed:
-        supervisorNotificationResult.supervisorEmailsFailed,
+      notifications_queued: true, // الإشعارات في الطابور
     });
   } catch (error) {
     console.error("Error creating cohort:", error);
@@ -9300,6 +9319,47 @@ const updateCampCohort = async (req, res) => {
       }
     }
 
+    // ========== BACKGROUND JOB: Telegram notification for important changes ==========
+    const importantChanges = [];
+    
+    // Detect important changes
+    if (start_date !== undefined && start_date !== cohort.start_date) {
+      importantChanges.push({ field: "start_date", oldValue: cohort.start_date, newValue: start_date });
+    }
+    if (end_date !== undefined && end_date !== cohort.end_date) {
+      importantChanges.push({ field: "end_date", oldValue: cohort.end_date, newValue: end_date });
+    }
+    if (status !== undefined && status !== oldStatus) {
+      importantChanges.push({ field: "status", oldValue: oldStatus, newValue: status });
+    }
+    if (is_open !== undefined && (is_open === 1 || is_open === true ? 1 : 0) !== oldIsOpen) {
+      importantChanges.push({ field: "is_open", oldValue: oldIsOpen === 1, newValue: is_open === 1 || is_open === true });
+    }
+    if (max_participants !== undefined && max_participants !== cohort.max_participants) {
+      importantChanges.push({ field: "max_participants", oldValue: cohort.max_participants, newValue: max_participants });
+    }
+
+    // Send Telegram notification via Queue (non-blocking)
+    if (importantChanges.length > 0) {
+      try {
+        const [campInfo] = await db.query(
+          "SELECT name FROM quran_camps WHERE id = ?",
+          [id]
+        );
+        const campName = campInfo[0]?.name || "المخيم";
+
+        await addTelegramCohortUpdatedJob({
+          campName,
+          cohortNumber: parseInt(cohortNumber),
+          changes: importantChanges,
+        });
+        console.log("📱 Telegram update notification job added to queue");
+      } catch (queueError) {
+        console.error("Error adding Telegram update job to queue:", queueError);
+      }
+    }
+
+    // إرجاع الاستجابة فوراً
     res.json({
       success: true,
       message: "تم تحديث الفوج بنجاح",
@@ -9309,6 +9369,7 @@ const updateCampCohort = async (req, res) => {
           ? JSON.parse(updatedCohort[0].settings)
           : null,
       },
+      notifications_queued: importantChanges.length > 0,
     });
   } catch (error) {
     console.error("Error updating cohort:", error);
