@@ -35,13 +35,13 @@ import RamadanCountdown from "../components/ramadan/RamadanCountdown";
 import RamadanFloatingElements from "../components/ramadan/RamadanFloatingElements";
 import "../styles/book-journeys.css";
 
-// مكون بطاقة الكتاب
-const BookCard = ({ book, onStart, hasActiveJourney, index }) => {
+// مودال بدء الختمة
+const StartJourneyModal = ({ book, isOpen, onClose, onStart }) => {
   const [selectedPace, setSelectedPace] = useState(1);
   const [customPace, setCustomPace] = useState("");
-  const [showPaceSelector, setShowPaceSelector] = useState(false);
+  const [pledge, setPledge] = useState("");
+  const [isStarting, setIsStarting] = useState(false);
 
-  // حساب عدد الأيام المتوقعة
   const calculateDays = (pace) => {
     if (!pace || pace < 1) return 0;
     return Math.ceil(book.hadith_count / pace);
@@ -49,7 +49,6 @@ const BookCard = ({ book, onStart, hasActiveJourney, index }) => {
 
   const handlePaceChange = (e) => {
     const value = e.target.value;
-    // السماح فقط بالأرقام
     if (value === "" || /^\d+$/.test(value)) {
       setCustomPace(value);
       if (value && parseInt(value) >= 1 && parseInt(value) <= 50) {
@@ -63,222 +62,246 @@ const BookCard = ({ book, onStart, hasActiveJourney, index }) => {
     setCustomPace(pace.toString());
   };
 
-  const handleStart = () => {
-    if (hasActiveJourney) {
-      toast.error("لديك ختمة نشطة لهذا الكتاب بالفعل");
-      return;
-    }
+  const handleStart = async () => {
     if (selectedPace < 1 || selectedPace > 50) {
       toast.error("يجب أن يكون العدد بين 1 و 50");
       return;
     }
-    onStart(book.slug, selectedPace);
-    setShowPaceSelector(false);
-    setCustomPace("");
+    setIsStarting(true);
+    await onStart(book.slug, selectedPace, pledge.trim() || null);
+    setIsStarting(false);
   };
 
+  if (!isOpen) return null;
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.1 }}
-      className="journey-book-card"
-    >
-      {/* رأس البطاقة مع الصورة */}
-      <div className="journey-book-card-header relative">
-        {/* صورة الكتاب */}
-        {book.image && (
-          <div className="absolute top-0 left-0 right-0 bottom-0 opacity-20">
-            <img
-              src={book.image}
-              alt={book.name}
-              className="w-full h-full object-cover"
-            />
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 top-[60px] bg-black/50 z-50 flex items-center justify-center p-4"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.9, opacity: 0, y: 20 }}
+          className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* الهيدر */}
+          <div className="bg-gradient-to-r from-violet-600 to-purple-600 p-5 text-white">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                <Book className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg arabic-text">{book.name}</h3>
+                <p className="text-purple-200 text-sm">{book.hadith_count} حديث</p>
+              </div>
+            </div>
           </div>
-        )}
-        <div className="relative z-10 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* صورة الكتاب المصغرة */}
-            <div className="w-14 h-14 rounded-xl overflow-hidden shadow-lg border-2 border-white/30 flex-shrink-0">
-              {book.image ? (
-                <img
-                  src={book.image}
-                  alt={book.name}
-                  className="w-full h-full object-cover"
+
+          <div className="p-5 space-y-5">
+            {/* عدد الأحاديث يومياً */}
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-3 arabic-text">
+                كم حديث تريد قراءته يومياً؟
+              </p>
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={customPace}
+                  onChange={handlePaceChange}
+                  placeholder="أدخل العدد"
+                  className="w-full px-4 py-3 text-xl font-bold text-center border-2 border-purple-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all"
                 />
-              ) : (
-                <div className="w-full h-full bg-white/20 flex items-center justify-center">
-                  <Book className="w-6 h-6" />
-                </div>
+              </div>
+              
+              {/* اختيارات سريعة */}
+              <div className="flex gap-2 flex-wrap mt-3">
+                {[1, 3, 5, 10].map((pace) => (
+                  <button
+                    key={pace}
+                    onClick={() => handleQuickSelect(pace)}
+                    className={`flex-1 min-w-[60px] px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                      selectedPace === pace
+                        ? "bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-md"
+                        : "bg-purple-50 text-purple-700 hover:bg-purple-100"
+                    }`}
+                  >
+                    {pace}
+                  </button>
+                ))}
+              </div>
+
+              {/* المدة المتوقعة */}
+              {selectedPace >= 1 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-3 text-center"
+                >
+                  <span className="inline-flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-700 rounded-xl text-sm font-medium">
+                    <Calendar className="w-4 h-4" />
+                    ستنتهي في {calculateDays(selectedPace)} يوم
+                  </span>
+                </motion.div>
               )}
             </div>
-            <div>
-              <h3 className="font-bold text-lg arabic-text">{book.name}</h3>
-              <p className="text-purple-100 text-sm">{book.author}</p>
+
+            {/* التعهد */}
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-200">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="w-5 h-5 text-amber-600" />
+                <p className="text-sm font-bold text-gray-800 arabic-text">
+                  ما هي نيتك من هذه الختمة؟
+                </p>
+              </div>
+              <textarea
+                value={pledge}
+                onChange={(e) => setPledge(e.target.value)}
+                placeholder="أتعهد بإتمام هذا الكتاب تقرباً إلى الله..."
+                className="w-full p-3 border border-amber-200 rounded-xl resize-none h-20 text-sm focus:ring-2 focus:ring-amber-300 focus:border-amber-400 outline-none arabic-text bg-white"
+                dir="rtl"
+              />
+              <p className="text-xs text-amber-600 mt-1">
+                💡 التعهد اختياري لكنه يساعدك على الاستمرار
+              </p>
             </div>
-          </div>
-          {hasActiveJourney && (
-            <span className="bg-white/20 text-xs px-2 py-1 rounded-full">
-              نشط
-            </span>
-          )}
-        </div>
-      </div>
 
-      {/* محتوى البطاقة */}
-      <div className="p-4">
-        <p className="text-gray-600 text-sm mb-4 line-clamp-2 arabic-text">
-          {book.description}
-        </p>
-
-        {/* إحصائيات */}
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          <div className="journey-stat-card">
-            <p className="journey-stat-value">{book.hadith_count}</p>
-            <p className="journey-stat-label">حديث</p>
-          </div>
-          <div className="journey-stat-card">
-            <p className="journey-stat-value text-blue-600">
-              {book.active_readers}
-            </p>
-            <p className="journey-stat-label">قارئ</p>
-          </div>
-          <div className="journey-stat-card">
-            <p className="journey-stat-value text-amber-600">
-              {book.total_completions}
-            </p>
-            <p className="journey-stat-label">ختمة</p>
-          </div>
-        </div>
-
-        {/* اختيار السرعة */}
-        <AnimatePresence>
-          {showPaceSelector && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mb-4 space-y-4"
-            >
-              {/* إدخال عدد الأحاديث يدوياً */}
-              <div>
-                <p className="text-sm text-gray-600 mb-2 arabic-text">
-                  أدخل عدد الأحاديث يومياً:
-                </p>
-                <div className="flex items-center gap-3">
-                  <div className="relative flex-1">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={customPace}
-                      onChange={handlePaceChange}
-                      placeholder="مثال: 5"
-                      className="w-full px-4 py-3 text-lg font-bold text-center border-2 border-purple-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all"
-                    />
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
-                      حديث/يوم
-                    </span>
-                  </div>
-                </div>
-
-                {/* عرض المدة المتوقعة */}
-                {selectedPace >= 1 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-2 text-center"
-                  >
-                    <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-sm">
-                      <Calendar className="w-4 h-4" />
-                      ستنتهي في حوالي{" "}
-                      <strong>{calculateDays(selectedPace)}</strong> يوم
-                    </span>
-                  </motion.div>
-                )}
-              </div>
-
-              {/* اختيارات سريعة */}
-              <div>
-                <p className="text-xs text-gray-500 mb-2 arabic-text">
-                  أو اختر من الخيارات السريعة:
-                </p>
-                <div className="flex gap-2 flex-wrap">
-                  {[1, 3, 5, 10].map((pace) => (
-                    <button
-                      key={pace}
-                      onClick={() => handleQuickSelect(pace)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        selectedPace === pace
-                          ? "bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-md"
-                          : "bg-purple-50 text-purple-700 hover:bg-purple-100"
-                      }`}
-                    >
-                      {pace} حديث
-                      <span className="block text-xs opacity-75">
-                        {calculateDays(pace)} يوم
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* أزرار */}
-        <div className="flex gap-2">
-          {showPaceSelector ? (
-            <>
+            {/* الأزرار */}
+            <div className="flex gap-3">
               <button
-                onClick={() => {
-                  setShowPaceSelector(false);
-                  setCustomPace("");
-                  setSelectedPace(1);
-                }}
-                className="journey-btn-secondary flex-1"
+                onClick={onClose}
+                className="flex-1 py-3 px-4 border-2 border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-colors"
               >
                 إلغاء
               </button>
               <button
                 onClick={handleStart}
-                disabled={selectedPace < 1}
-                className={`journey-btn-primary flex-1 ${
-                  selectedPace < 1 ? "opacity-50 cursor-not-allowed" : ""
-                }`}
+                disabled={selectedPace < 1 || isStarting}
+                className="flex-1 py-3 px-4 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl font-medium hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                <span className="flex items-center justify-center gap-2">
-                  <Play className="w-4 h-4" />
-                  ابدأ الختمة
-                </span>
+                {isStarting ? (
+                  <span>جاري البدء...</span>
+                ) : (
+                  <>
+                    <Play className="w-5 h-5" />
+                    ابدأ الختمة
+                  </>
+                )}
               </button>
-            </>
-          ) : (
-            <button
-              onClick={() => setShowPaceSelector(true)}
-              disabled={hasActiveJourney}
-              className={`w-full py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 transition-colors ${
-                hasActiveJourney
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                  : "journey-btn-primary"
-              }`}
-            >
-              {hasActiveJourney ? (
-                <>
-                  <CheckCircle className="w-4 h-4" />
-                  لديك ختمة نشطة
-                </>
-              ) : (
-                <>
-                  <Plus className="w-4 h-4" />
-                  ابدأ الختمة
-                </>
-              )}
-            </button>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
+// مكون بطاقة الكتاب
+const BookCard = ({ book, onStart, hasActiveJourney, index }) => {
+  const [showModal, setShowModal] = useState(false);
+
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.1 }}
+        className="journey-book-card"
+      >
+        {/* رأس البطاقة مع الصورة */}
+        <div className="journey-book-card-header relative">
+          {book.image && (
+            <div className="absolute top-0 left-0 right-0 bottom-0 opacity-20">
+              <img src={book.image} alt={book.name} className="w-full h-full object-cover" />
+            </div>
           )}
+          <div className="relative z-10 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 rounded-xl overflow-hidden shadow-lg border-2 border-white/30 flex-shrink-0">
+                {book.image ? (
+                  <img src={book.image} alt={book.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-white/20 flex items-center justify-center">
+                    <Book className="w-6 h-6" />
+                  </div>
+                )}
+              </div>
+              <div>
+                <h3 className="font-bold text-lg arabic-text">{book.name}</h3>
+                <p className="text-purple-100 text-sm">{book.author}</p>
+              </div>
+            </div>
+            {hasActiveJourney && (
+              <span className="bg-white/20 text-xs px-2 py-1 rounded-full">نشط</span>
+            )}
+          </div>
         </div>
-      </div>
-    </motion.div>
+
+        {/* محتوى البطاقة */}
+        <div className="p-4">
+          <p className="text-gray-600 text-sm mb-4 line-clamp-2 arabic-text">
+            {book.description}
+          </p>
+
+          {/* إحصائيات */}
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="journey-stat-card">
+              <p className="journey-stat-value">{book.hadith_count}</p>
+              <p className="journey-stat-label">حديث</p>
+            </div>
+            <div className="journey-stat-card">
+              <p className="journey-stat-value text-blue-600">{book.active_readers}</p>
+              <p className="journey-stat-label">قارئ</p>
+            </div>
+            <div className="journey-stat-card">
+              <p className="journey-stat-value text-amber-600">{book.total_completions}</p>
+              <p className="journey-stat-label">ختمة</p>
+            </div>
+          </div>
+
+          {/* زر البدء */}
+          <button
+            onClick={() => !hasActiveJourney && setShowModal(true)}
+            disabled={hasActiveJourney}
+            className={`w-full py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 transition-colors ${
+              hasActiveJourney
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "journey-btn-primary"
+            }`}
+          >
+            {hasActiveJourney ? (
+              <>
+                <CheckCircle className="w-4 h-4" />
+                لديك ختمة نشطة
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4" />
+                ابدأ الختمة
+              </>
+            )}
+          </button>
+        </div>
+      </motion.div>
+
+      {/* Modal بدء الختمة */}
+      <StartJourneyModal
+        book={book}
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onStart={async (slug, pace, pledge) => {
+          await onStart(slug, pace, pledge);
+          setShowModal(false);
+        }}
+      />
+    </>
   );
 };
 
@@ -444,7 +467,7 @@ const BookJourneysPage = () => {
     }
   };
 
-  const handleStartJourney = async (bookSlug, pace) => {
+  const handleStartJourney = async (bookSlug, pace, pledge = null) => {
     if (!user) {
       toast.error("يجب تسجيل الدخول أولاً");
       navigate("/login");
@@ -452,7 +475,7 @@ const BookJourneysPage = () => {
     }
 
     try {
-      const result = await startJourney(bookSlug, pace);
+      const result = await startJourney(bookSlug, pace, pledge);
       if (result.success) {
         toast.success(result.message || "تم بدء الختمة بنجاح!");
         navigate(`/book-journeys/${result.journey.id}`);

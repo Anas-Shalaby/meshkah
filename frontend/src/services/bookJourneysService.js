@@ -31,12 +31,111 @@ export const getMyJourneys = async () => {
  * بدء ختمة جديدة
  * @param {string} bookSlug - معرف الكتاب
  * @param {number} pace - عدد الأحاديث يومياً
+ * @param {string} pledge - التعهد (اختياري)
  */
-export const startJourney = async (bookSlug, pace = 1) => {
+export const startJourney = async (bookSlug, pace = 1, pledge = null) => {
   const response = await axiosInstance.post(`${API_BASE}/start`, {
     book_slug: bookSlug,
     pace,
+    pledge,
   });
+  return response.data;
+};
+
+/**
+ * تحديث التعهد
+ * @param {number} journeyId - معرف الختمة
+ * @param {string} pledge - التعهد
+ * @param {boolean} pledgeShared - هل التعهد مشارك
+ */
+export const updatePledge = async (journeyId, pledge, pledgeShared = false) => {
+  const response = await axiosInstance.put(`${API_BASE}/${journeyId}/pledge`, {
+    pledge,
+    pledge_shared: pledgeShared,
+  });
+  return response.data;
+};
+
+// =====================================================
+// APIs نظام الرفقة (Buddy System)
+// =====================================================
+
+/**
+ * جلب معلومات الرفيق
+ * @param {number} journeyId - معرف الختمة
+ */
+export const getBuddyInfo = async (journeyId) => {
+  const response = await axiosInstance.get(`${API_BASE}/${journeyId}/buddy`);
+  return response.data;
+};
+
+/**
+ * طلب رفيق جديد
+ * @param {number} journeyId - معرف الختمة
+ * @param {number} targetUserId - معرف المستخدم المستهدف
+ */
+export const requestBuddy = async (journeyId, targetUserId) => {
+  const response = await axiosInstance.post(
+    `${API_BASE}/${journeyId}/buddy/request`,
+    { target_user_id: targetUserId }
+  );
+  return response.data;
+};
+
+/**
+ * قبول طلب الرفقة
+ * @param {number} journeyId - معرف الختمة
+ * @param {number} buddyRequestId - معرف طلب الرفقة
+ */
+export const acceptBuddyRequest = async (journeyId, buddyRequestId) => {
+  const response = await axiosInstance.put(
+    `${API_BASE}/${journeyId}/buddy/accept/${buddyRequestId}`
+  );
+  return response.data;
+};
+
+/**
+ * رفض طلب الرفقة
+ * @param {number} journeyId - معرف الختمة
+ * @param {number} buddyRequestId - معرف طلب الرفقة
+ */
+export const declineBuddyRequest = async (journeyId, buddyRequestId) => {
+  const response = await axiosInstance.put(
+    `${API_BASE}/${journeyId}/buddy/decline/${buddyRequestId}`
+  );
+  return response.data;
+};
+
+/**
+ * إرسال تشجيع للرفيق
+ * @param {number} journeyId - معرف الختمة
+ * @param {string} message - رسالة التشجيع
+ */
+export const sendBuddyEncouragement = async (journeyId, message) => {
+  const response = await axiosInstance.post(
+    `${API_BASE}/${journeyId}/buddy/encourage`,
+    { message }
+  );
+  return response.data;
+};
+
+// =====================================================
+// APIs التقويم
+// =====================================================
+
+/**
+ * جلب بيانات التقويم الشهري
+ * @param {number} journeyId - معرف الختمة
+ * @param {number} month - الشهر (اختياري)
+ * @param {number} year - السنة (اختياري)
+ */
+export const getProgressCalendar = async (journeyId, month = null, year = null) => {
+  const params = new URLSearchParams();
+  if (month) params.append('month', month);
+  if (year) params.append('year', year);
+  
+  const query = params.toString() ? `?${params.toString()}` : '';
+  const response = await axiosInstance.get(`${API_BASE}/${journeyId}/calendar${query}`);
   return response.data;
 };
 
@@ -110,6 +209,31 @@ export const updatePace = async (journeyId, pace) => {
   });
   return response.data;
 };
+
+/**
+ * تحديث إعدادات الختمة (pace, pledge, وغيرها)
+ * @param {number} journeyId - معرف الختمة
+ * @param {object} settings - الإعدادات { pace?: number, pledge?: string, pledge_shared?: boolean }
+ */
+export const updateJourneySettings = async (journeyId, settings) => {
+  const response = await axiosInstance.put(
+    `${API_BASE}/${journeyId}/settings`,
+    settings
+  );
+  return response.data;
+};
+
+/**
+ * إعادة ضبط الختمة (حذف التقدم والبدء من جديد)
+ * @param {number} journeyId - معرف الختمة
+ */
+export const resetJourneyProgress = async (journeyId) => {
+  const response = await axiosInstance.post(`${API_BASE}/${journeyId}/reset`, {
+    confirm: true,
+  });
+  return response.data;
+};
+
 
 // =====================================================
 // APIs مشاركة التقدم مع الأصدقاء
@@ -248,14 +372,31 @@ export default {
   pauseJourney,
   resumeJourney,
   updatePace,
+  // التعهد
+  updatePledge,
+  // الرفقة
+  getBuddyInfo,
+  requestBuddy,
+  acceptBuddyRequest,
+  declineBuddyRequest,
+  sendBuddyEncouragement,
+  // التقويم
+  getProgressCalendar,
+  // الأصدقاء
   getShareLink,
   joinViaShareCode,
   getJourneyFriends,
   getFriendsActivity,
   unfollowFriend,
+  // الشهادات
   checkCertificateEligibility,
   generateCertificate,
   getCertificate,
   downloadCertificate,
   verifyCertificate,
+  // إعدادات الختمة
+  updateJourneySettings,
+  resetJourneyProgress,
 };
+
+

@@ -63,22 +63,22 @@ const HadithDisplay = ({ card, showAnswer, onReveal, onHintUsed }) => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-3xl shadow-xl p-12 text-center border-2 border-purple-100"
+          className="bg-white rounded-2xl sm:rounded-3xl shadow-xl p-6 sm:p-12 text-center border-2 border-purple-100"
         >
-          <div className="mb-8">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-100 to-indigo-100 rounded-full text-purple-700 font-medium mb-4">
-              <Brain className="w-5 h-5" />
+          <div className="mb-4 sm:mb-8">
+            <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-purple-100 to-indigo-100 rounded-full text-purple-700 font-medium mb-3 sm:mb-4 text-sm sm:text-base">
+              <Brain className="w-4 h-4 sm:w-5 sm:h-5" />
               {card.book_name} - حديث رقم {card.hadith.idInBook}
             </div>
           </div>
 
-          <Brain className="w-20 h-20 text-purple-400 mx-auto mb-8" />
+          <Brain className="w-14 h-14 sm:w-20 sm:h-20 text-purple-400 mx-auto mb-4 sm:mb-8" />
           
-          <h3 className="text-3xl font-bold text-gray-800 mb-6 arabic-text">
+          <h3 className="text-xl sm:text-3xl font-bold text-gray-800 mb-4 sm:mb-6 arabic-text">
             ما هو نص هذا الحديث؟
           </h3>
           
-          <p className="text-gray-500 mb-8">
+          <p className="text-gray-500 mb-6 sm:mb-8 text-sm sm:text-base">
             حاول تذكر الحديث كاملاً قبل الكشف عن الإجابة
           </p>
 
@@ -87,37 +87,37 @@ const HadithDisplay = ({ card, showAnswer, onReveal, onHintUsed }) => {
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-8 bg-amber-50 border-2 border-amber-200 rounded-2xl p-6"
+              className="mb-6 sm:mb-8 bg-amber-50 border-2 border-amber-200 rounded-xl sm:rounded-2xl p-4 sm:p-6"
             >
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <MessageSquare className="w-5 h-5 text-amber-600" />
-                <span className="text-amber-700 font-medium text-sm">
+              <div className="flex items-center justify-center gap-2 mb-3 sm:mb-4">
+                <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
+                <span className="text-amber-700 font-medium text-xs sm:text-sm">
                   مساعدة ({hintLevel}/3)
                 </span>
               </div>
-              <p className="text-lg leading-relaxed text-gray-700 arabic-text text-center amiri-regular">
+              <p className="text-base sm:text-lg leading-relaxed text-gray-700 arabic-text text-center amiri-regular">
                 {getHint()}
                 {hintLevel < 3 && canShowMoreHint && <span className="text-amber-500">...</span>}
               </p>
             </motion.div>
           )}
 
-          <div className="flex gap-3 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
             {canShowMoreHint && (
               <button
                 onClick={handleShowHint}
-                className="px-6 py-3 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-xl font-medium transition-colors flex items-center gap-2"
+                className="px-4 sm:px-6 py-2.5 sm:py-3 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
               >
-                <MessageSquare className="w-5 h-5" />
+                <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
                 {hintLevel === 0 ? "احتاج مساعدة" : "مساعدة إضافية"}
               </button>
             )}
             
             <button
               onClick={onReveal}
-              className="journey-btn-primary px-8 py-3"
+              className="journey-btn-primary px-6 sm:px-8 py-2.5 sm:py-3 text-sm sm:text-base"
             >
-              <RotateCcw className="w-5 h-5 inline-block ml-2" />
+              <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5 inline-block ml-2" />
               اكشف الإجابة
             </button>
           </div>
@@ -129,24 +129,24 @@ const HadithDisplay = ({ card, showAnswer, onReveal, onHintUsed }) => {
           )}
         </motion.div>
       ) : (
-        // الإجابة (نفس الكود السابق)
+        // الإجابة
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-gradient-to-br from-purple-50 via-white to-indigo-50 rounded-3xl shadow-xl p-12 border-2 border-purple-200"
+          className="bg-gradient-to-br from-purple-50 via-white to-indigo-50 rounded-2xl sm:rounded-3xl shadow-xl p-6 sm:p-12 border-2 border-purple-200"
         >
-          <div className="flex items-center justify-center gap-2 mb-8">
-            <CheckCircle className="w-6 h-6 text-green-500" />
-            <span className="text-green-600 font-medium">الإجابة الصحيحة</span>
+          <div className="flex items-center justify-center gap-2 mb-4 sm:mb-8">
+            <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-green-500" />
+            <span className="text-green-600 font-medium text-sm sm:text-base">الإجابة الصحيحة</span>
           </div>
 
-          <div className="bg-white rounded-2xl p-8 shadow-sm border border-purple-100">
-            <p className="text-2xl leading-[3] text-gray-800 arabic-text text-center amiri-regular font-normal">
+          <div className="bg-white rounded-xl sm:rounded-2xl p-5 sm:p-8 shadow-sm border border-purple-100">
+            <p className="text-lg sm:text-2xl leading-[2.5] sm:leading-[3] text-gray-800 arabic-text text-center amiri-regular font-normal">
               {displayText}
             </p>
             
             {isLongHadith && (
-              <div className="text-center mt-6">
+              <div className="text-center mt-4 sm:mt-6">
                 <button
                   onClick={() => setShowFullText(!showFullText)}
                   className="text-purple-600 hover:text-purple-700 font-medium text-sm flex items-center gap-1 mx-auto transition-colors"
@@ -167,8 +167,8 @@ const HadithDisplay = ({ card, showAnswer, onReveal, onHintUsed }) => {
             )}
           </div>
 
-          <div className="mt-8 text-center">
-            <p className="text-gray-600 mb-6">
+          <div className="mt-6 sm:mt-8 text-center">
+            <p className="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">
               الآن قيّم مستوى حفظك لهذا الحديث
             </p>
           </div>
@@ -229,7 +229,7 @@ const QualityButtons = ({ onSelect, disabled }) => {
   ];
 
   return (
-    <div className="grid grid-cols-5 gap-4 max-w-5xl mx-auto">
+    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-4 max-w-5xl mx-auto">
       {qualities.map((quality) => (
         <motion.button
           key={quality.value}
@@ -237,18 +237,18 @@ const QualityButtons = ({ onSelect, disabled }) => {
           whileTap={{ scale: disabled ? 1 : 0.98 }}
           onClick={() => !disabled && onSelect(quality.value)}
           disabled={disabled}
-          className={`relative bg-white rounded-2xl p-6 border-2 ${quality.borderColor} shadow-lg hover:shadow-xl transition-all ${
+          className={`relative bg-white rounded-xl sm:rounded-2xl p-3 sm:p-6 border-2 ${quality.borderColor} shadow-lg hover:shadow-xl transition-all ${
             disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
           }`}
         >
           {/* الخلفية الملونة */}
-          <div className={`absolute inset-0 bg-gradient-to-br ${quality.color} opacity-5 rounded-2xl`} />
+          <div className={`absolute inset-0 bg-gradient-to-br ${quality.color} opacity-5 rounded-xl sm:rounded-2xl`} />
           
           <div className="relative">
-            <div className={`text-base font-bold mb-1 ${quality.textColor}`}>
+            <div className={`text-xs sm:text-base font-bold mb-0.5 sm:mb-1 ${quality.textColor}`}>
               {quality.label}
             </div>
-            <div className="text-xs text-gray-500">
+            <div className="text-[10px] sm:text-xs text-gray-500 hidden sm:block">
               {quality.description}
             </div>
           </div>
@@ -443,16 +443,12 @@ const ReviewsPage = () => {
         keywords="مراجعة، حفظ، أحاديث، spaced repetition، تكرار متباعد"
       />
 
-      {/* Ramadan Countdown */}
-      {isRamadanThemeActive && <RamadanCountdown />}
-
+     
       {/* Floating Elements */}
       {isRamadanThemeActive && <RamadanFloatingElements />}
 
       {/* الهيدر */}
-      <div className={`journey-header text-white  py-6 px-4 ${
-        isRamadanThemeActive ? "pt-32 md:pt-28 z-0" : ""
-      }`}>
+      <div className={`journey-header text-white  py-6 px-4 `}>
         
         <div className="max-w-4xl mx-auto">
         <button

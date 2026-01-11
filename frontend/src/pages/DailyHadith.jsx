@@ -308,12 +308,11 @@ const DailyHadith = () => {
           : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"
       }`}
     >
-      {/* Ramadan Theme Elements */}
-      {isRamadanThemeActive && <RamadanCountdown />}
+ 
       {isRamadanThemeActive && <RamadanFloatingElements />}
 
       {/* Add padding when countdown is fixed */}
-      <div className={isRamadanThemeActive ? "pt-28 md:pt-20" : ""}>
+      <div>
         {/* Enhanced Background Elements */}
         {!isRamadanThemeActive && (
           <div className="absolute inset-0">

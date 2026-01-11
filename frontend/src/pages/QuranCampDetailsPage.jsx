@@ -467,15 +467,12 @@ const QuranCampDetailsPage = () => {
         canonicalUrl={`${window.location.origin}/quran-camps/${id}`}
       />
 
-      {/* Ramadan Countdown */}
-      {isRamadanThemeActive && <RamadanCountdown />}
+     
       {isRamadanThemeActive && <RamadanFloatingElements />}
 
       {/* Cinematic Hero Section */}
       <div
-        className={`camp-hero-section relative flex items-center justify-center overflow-hidden ${
-          isRamadanThemeActive ? "pt-28 md:pt-16" : ""
-        }`}
+        className={`camp-hero-section relative flex items-center justify-center overflow-hidden`}
       >
         {/* Cinematic Background */}
         {camp.banner_image ? (

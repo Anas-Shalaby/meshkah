@@ -26,6 +26,8 @@ import {
   Facebook,
   MessageCircle,
   Lightbulb,
+  Heart,
+  Settings,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
@@ -39,13 +41,19 @@ import {
   resumeJourney,
   getShareLink,
   getJourneyFriends,
+  getBuddyInfo,
+  requestBuddy,
 } from "../services/bookJourneysService";
 import SEO from "../components/SEO";
 import JourneyCertificate from "../components/book-journeys/JourneyCertificate";
+import PledgeCard from "../components/book-journeys/PledgeCard";
+import BuddyCard from "../components/book-journeys/BuddyCard";
+import ProgressCalendar from "../components/book-journeys/ProgressCalendar";
 import RamadanCountdown from "../components/ramadan/RamadanCountdown";
 import RamadanFloatingElements from "../components/ramadan/RamadanFloatingElements";
 import "../styles/book-journeys.css";
 import FullPageLoadingScreen from "../components/FullPageLoadingScreen";
+import JourneySettingsModal from "../components/book-journeys/JourneySettingsModal";
 
 // مكون عرض حديث واحد في المنتصف
 const FocusedHadithCard = ({
@@ -128,7 +136,7 @@ const FocusedHadithCard = ({
           <div className="text-center py-4 bg-green-50 rounded-xl">
             <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
             <p className="text-green-600 font-medium arabic-text">
-              تمت القراءة ✓
+              تمت القراءة 
             </p>
           </div>
         )}
@@ -317,7 +325,7 @@ const ShareProgressModal = ({ isOpen, onClose, journey, progress }) => {
 };
 
 // مكون تقدم الأصدقاء
-const FriendsProgress = ({ friends }) => {
+const FriendsProgress = ({ friends, hasBuddy, onRequestBuddy, requesting }) => {
   if (!friends || friends.length === 0) {
     return (
       <div className="journey-empty-state">
@@ -359,16 +367,36 @@ const FriendsProgress = ({ friends }) => {
                 <span>{friend.progress_percent}%</span>
               </div>
             </div>
-            {friend.completed_today ? (
-              <span className="journey-status-completed text-xs px-2 py-1 rounded-full flex items-center gap-1">
-                <CheckCircle className="w-3 h-3" />
-                أكمل اليوم
-              </span>
-            ) : (
-              <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">
-                لم يكمل
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {friend.completed_today ? (
+                <span className="journey-status-completed text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3" />
+                  أكمل
+                </span>
+              ) : (
+                <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">
+                  لم يكمل
+                </span>
+              )}
+              {/* زر طلب الرفقة */}
+              {!hasBuddy && onRequestBuddy && (
+                <button
+                  onClick={() => onRequestBuddy(friend.user_id)}
+                  disabled={requesting === friend.user_id}
+                  className="text-xs px-3 py-1.5 bg-gradient-to-r from-purple-500 to-violet-600 text-white rounded-lg hover:shadow-md transition-all disabled:opacity-50 flex items-center gap-1"
+                  title="اطلب أن يكون رفيقك في هذه الختمة"
+                >
+                  {requesting === friend.user_id ? (
+                    <span>جاري...</span>
+                  ) : (
+                    <>
+                      <Heart className="w-3 h-3" />
+                      <span className="hidden sm:inline">رفقة</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </motion.div>
       ))}
@@ -509,6 +537,11 @@ const JourneyDetailsPage = () => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showProgressShareModal, setShowProgressShareModal] = useState(false);
   const [showCertificate, setShowCertificate] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  
+  // بيانات الرفيق
+  const [buddyData, setBuddyData] = useState({ has_buddy: false, buddy: null, pending_requests: [] });
+  const [requestingBuddy, setRequestingBuddy] = useState(null);
 
   // الحديث الحالي المعروض
   const [currentHadithIndex, setCurrentHadithIndex] = useState(0);
@@ -541,12 +574,13 @@ const JourneyDetailsPage = () => {
   const loadJourneyData = async (resetHadithIndex = true) => {
     try {
       setLoading(true);
-      const [journeyRes, todayRes, progressRes, friendsRes] = await Promise.all(
+      const [journeyRes, todayRes, progressRes, friendsRes, buddyRes] = await Promise.all(
         [
           getJourneyDetails(id),
           getTodayHadiths(id).catch(() => null),
           getJourneyProgress(id),
           getJourneyFriends(id).catch(() => ({ friends: [] })),
+          getBuddyInfo(id).catch(() => ({ has_buddy: false, buddy: null, pending_requests: [] })),
         ]
       );
 
@@ -554,6 +588,7 @@ const JourneyDetailsPage = () => {
       setTodayData(todayRes);
       setProgressData(progressRes);
       setFriends(friendsRes.friends || []);
+      setBuddyData(buddyRes);
 
       // إعادة تعيين مؤشر الحديث فقط إذا كان مطلوباً
       if (resetHadithIndex) {
@@ -584,6 +619,22 @@ const JourneyDetailsPage = () => {
         } else {
           toast.success(result.message);
         }
+
+        // تحديث الحديث الحالي ليصبح مقروء محلياً
+        setTodayData((prev) => {
+          if (!prev?.today?.hadiths) return prev;
+          const updatedHadiths = prev.today.hadiths.map((h) =>
+            h.id === hadithId ? { ...h, is_read: true } : h
+          );
+          return {
+            ...prev,
+            today: {
+              ...prev.today,
+              hadiths: updatedHadiths,
+              completed: (prev.today.completed || 0) + 1,
+            },
+          };
+        });
 
         // تحديث البيانات محلياً بدلاً من إعادة التحميل الكامل
         if (result.progress) {
@@ -647,6 +698,20 @@ const JourneyDetailsPage = () => {
     }
   };
 
+  // طلب رفيق
+  const handleRequestBuddy = async (targetUserId) => {
+    try {
+      setRequestingBuddy(targetUserId);
+      const result = await requestBuddy(id, targetUserId);
+      toast.success(result.message || "تم إرسال طلب الرفقة! 🤝");
+      loadJourneyData(false);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "حدث خطأ في إرسال الطلب");
+    } finally {
+      setRequestingBuddy(null);
+    }
+  };
+
   // التنقل بين الأحاديث
   const handleNextHadith = () => {
     if (
@@ -691,7 +756,7 @@ const JourneyDetailsPage = () => {
       </div>
     );
   }
-
+  console.log(journey)
   return (
     <div
       className={`min-h-screen pb-20 relative ${
@@ -712,17 +777,12 @@ const JourneyDetailsPage = () => {
         canonicalUrl={window.location.href}
       />
 
-      {/* Ramadan Countdown */}
-      {isRamadanThemeActive && <RamadanCountdown />}
-
       {/* Floating Elements */}
       {isRamadanThemeActive && <RamadanFloatingElements />}
 
       {/* الهيدر */}
       <div
-        className={`journey-header text-white py-6 px-4 relative z-10 ${
-          isRamadanThemeActive ? "pt-32 md:pt-28" : ""
-        }`}
+        className={`journey-header text-white py-6 px-4 relative z-10 `}
       >
         <div className="max-w-4xl mx-auto relative z-10">
           {/* زر الرجوع */}
@@ -757,7 +817,7 @@ const JourneyDetailsPage = () => {
                 {journey.streak_count > 0 && (
                   <span className="journey-streak-badge">
                     <Flame className="w-4 h-4" />
-                    {journey.streak_count} حديث متتالي
+                    {progressData?.stats?.streak || journey.streak_count} يوم متتالي
                   </span>
                 )}
               </div>
@@ -788,16 +848,25 @@ const JourneyDetailsPage = () => {
                 <Users className="w-5 h-5" />
               </button>
               {journey.status != 'completed' && (
-                <button
-                  onClick={handlePauseResume}
-                  className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
-                >
-                  {journey.status === "active" ? (
-                    <Pause className="w-5 h-5" />
-                  ) : (
-                    <Play className="w-5 h-5" />
-                  )}
-                </button>
+                <>
+                  <button
+                    onClick={() => setShowSettingsModal(true)}
+                    className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
+                    title="إعدادات الختمة"
+                  >
+                    <Settings className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={handlePauseResume}
+                    className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
+                  >
+                    {journey.status === "active" ? (
+                      <Pause className="w-5 h-5" />
+                    ) : (
+                      <Play className="w-5 h-5" />
+                    )}
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -805,16 +874,16 @@ const JourneyDetailsPage = () => {
           {/* شريط التقدم */}
           <div className="mt-4">
             <div className="flex items-center justify-between text-sm mb-2">
-              <span>التقدم: {journey.progress_percent}%</span>
+              <span>التقدم: {progressData?.progress?.percent || journey.progress_percent}%</span>
               <span>
                 {progressData?.progress?.read_count || 0} /{" "}
-                {journey.total_hadiths} حديث
+                {progressData?.progress?.total || journey.total_hadiths} حديث
               </span>
             </div>
             <div className="journey-progress-bar h-3 bg-white/20">
               <motion.div
                 initial={{ width: 0 }}
-                animate={{ width: `${journey.progress_percent}%` }}
+                animate={{ width: `${progressData?.progress?.percent || journey.progress_percent}%` }}
                 transition={{ duration: 1 }}
                 className="journey-progress-bar-fill h-full"
               />
@@ -880,13 +949,15 @@ const JourneyDetailsPage = () => {
                   <p className="text-gray-600 mb-4 arabic-text">
                     اضغط على زر الاستئناف لمتابعة القراءة
                   </p>
-                  <button
+                  <div className="flex justify-center items-center">
+                    <button
                     onClick={handlePauseResume}
                     className="journey-btn-primary"
                   >
                     <Play className="w-5 h-5 ml-2" />
                     استئناف الختمة
                   </button>
+                  </div>
                 </div>
               ) : journey.status === "completed" ? (
                 <div className="journey-book-card text-center py-12">
@@ -932,7 +1003,7 @@ const JourneyDetailsPage = () => {
                     <div className="journey-streak-badge text-lg px-4 py-2">
                       <Flame className="w-6 h-6 journey-fire-icon" />
                       <span className="font-bold">
-                        {journey.streak_count} حديث متتالي
+                        {progressData?.stats?.streak || journey.streak_count} يوم متتالي
                       </span>
                     </div>
                   </div>
@@ -948,21 +1019,38 @@ const JourneyDetailsPage = () => {
                   </div>
                 </div>
               ) : currentHadith ? (
-                <FocusedHadithCard
-                  hadith={currentHadith}
-                  position={currentHadith.position}
-                  total={journey.total_hadiths}
-                  onMarkRead={handleMarkRead}
-                  isReading={readingHadith === currentHadith.id}
-                  isMarkingRead={isMarkingRead}
-                  onNext={handleNextHadith}
-                  onPrev={handlePrevHadith}
-                  hasPrev={currentHadithIndex > 0}
-                  hasNext={
-                    currentHadithIndex <
-                    (todayData?.today?.hadiths?.length || 0) - 1
-                  }
-                />
+                <>
+                  {/* تذكير بالتعهد */}
+                  {journey?.pledge && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mb-4 bg-gradient-to-r from-violet-50 to-purple-50 border border-purple-100 rounded-xl p-3 flex items-center gap-3"
+                    >
+                      <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Sparkles className="w-4 h-4 text-white" />
+                      </div>
+                      <p className="text-sm text-gray-700 arabic-text leading-relaxed line-clamp-1">
+                        {journey.pledge}
+                      </p>
+                    </motion.div>
+                  )}
+                  <FocusedHadithCard
+                    hadith={currentHadith}
+                    position={currentHadith.position}
+                    total={journey.total_hadiths}
+                    onMarkRead={handleMarkRead}
+                    isReading={readingHadith === currentHadith.id}
+                    isMarkingRead={isMarkingRead}
+                    onNext={handleNextHadith}
+                    onPrev={handlePrevHadith}
+                    hasPrev={currentHadithIndex > 0}
+                    hasNext={
+                      currentHadithIndex <
+                      (todayData?.today?.hadiths?.length || 0) - 1
+                    }
+                  />
+                </>
               ) : (
                 <div className="journey-book-card text-center py-12">
                   <Award className="w-16 h-16 text-amber-500 mx-auto mb-4 journey-milestone" />
@@ -1010,7 +1098,20 @@ const JourneyDetailsPage = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
+              className="space-y-6"
             >
+              {/* بطاقة التعهد */}
+              <PledgeCard 
+                pledge={journey?.pledge}
+                journeyId={id}
+                isOwner={journey?.is_owner}
+                onPledgeUpdated={(newPledge) => setJourney({ ...journey, pledge: newPledge })}
+              />
+              
+              {/* تقويم التقدم */}
+              <ProgressCalendar journeyId={id} />
+              
+              {/* الإحصائيات */}
               <div className="journey-book-card p-6">
                 <h3 className="text-lg font-bold text-gray-800 mb-4 arabic-text">
                   الإحصائيات
@@ -1087,7 +1188,17 @@ const JourneyDetailsPage = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
+              className="space-y-6"
             >
+              {/* بطاقة الرفيق */}
+              <BuddyCard 
+                buddy={buddyData?.buddy}
+                pendingRequests={buddyData?.pending_requests}
+                journeyId={id}
+                onRefresh={() => loadJourneyData(false)}
+              />
+              
+              {/* قائمة الأصدقاء */}
               <div className="journey-book-card p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-bold text-gray-800 arabic-text">
@@ -1102,7 +1213,12 @@ const JourneyDetailsPage = () => {
                   </button>
                 </div>
 
-                <FriendsProgress friends={friends} />
+                <FriendsProgress 
+                  friends={friends}
+                  hasBuddy={buddyData?.has_buddy}
+                  onRequestBuddy={handleRequestBuddy}
+                  requesting={requestingBuddy}
+                />
               </div>
             </motion.div>
           )}
@@ -1141,6 +1257,20 @@ const JourneyDetailsPage = () => {
           />
         )}
       </AnimatePresence>
+
+      {/* Modal إعدادات الختمة */}
+      <JourneySettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        journey={journey}
+        onUpdate={(settings) => {
+          if (settings?.reset) {
+            loadJourneyData(true);
+          } else {
+            loadJourneyData(false);
+          }
+        }}
+      />
     </div>
   );
 };

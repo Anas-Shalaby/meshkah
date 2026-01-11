@@ -990,12 +990,11 @@ const HadithPage = () => {
             : "bg-gradient-to-br from-[#f7f6fb] via-[#f3edff] to-[#e9e4f5]"
         }`}
       >
-        {/* Ramadan Theme Elements */}
-        {isRamadanThemeActive && <RamadanCountdown />}
+   
         {isRamadanThemeActive && <RamadanFloatingElements />}
 
         {/* Add padding when countdown is fixed */}
-        <div className={isRamadanThemeActive ? "pt-28 md:pt-20" : ""}>
+        <div>
           <SEO
             title={`شرح حديث ${hadithDetails.title?.substring(0, 50)}...`}
             description={hadithDetails.explanation}
