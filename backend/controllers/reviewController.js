@@ -38,21 +38,43 @@ const loadBookData = (bookSlug) => {
   }
 };
 
-const getHadithById = (hadithIdInBook, bookSlug) => {
+const getHadithById = (hadithId, bookSlug, hadithIdInBook = null) => {
   const bookData = loadBookData(bookSlug);
-  if (!bookData || !bookData.hadiths) return null;
+  if (!bookData || !bookData.hadiths) {
+    console.warn(`[getHadithById] Book data not found for slug: ${bookSlug}`);
+    return null;
+  }
   
-  const searchId = parseInt(hadithIdInBook);
+  const searchId = parseInt(hadithId);
+  const searchIdInBook = hadithIdInBook ? parseInt(hadithIdInBook) : null;
   
-  // البحث أولاً بـ id (للكتب المحلية من Islamic Library)
-  let hadith = bookData.hadiths.find(h => h.id === searchId);
+  let hadith = null;
   
-  // إذا لم يُوجد، البحث بـ idInBook (للكتب من Book Journeys)
+  // 1. البحث أولاً بـ id الفريد (الطريقة الرئيسية)
+  hadith = bookData.hadiths.find(h => h.id === searchId);
+  
+  // 2. إذا لم يُوجد وهناك hadithIdInBook، نبحث به
+  if (!hadith && searchIdInBook) {
+    hadith = bookData.hadiths.find(h => h.idInBook === searchIdInBook || h.id === searchIdInBook);
+  }
+  
+  // 3. إذا لم يُوجد، نبحث بـ idInBook مباشرة
   if (!hadith) {
     hadith = bookData.hadiths.find(h => h.idInBook === searchId);
   }
   
-  if (!hadith) return null;
+  // 4. البحث في index array كـ fallback أخير (لبعض الكتب القديمة)
+  if (!hadith && searchId <= bookData.hadiths.length) {
+    const indexHadith = bookData.hadiths[searchId - 1];
+    if (indexHadith) {
+      hadith = indexHadith;
+    }
+  }
+  
+  if (!hadith) {
+    console.warn(`[getHadithById] Hadith not found - id: ${searchId}, idInBook: ${searchIdInBook}, book: ${bookSlug}, total hadiths: ${bookData.hadiths.length}`);
+    return null;
+  }
   
   // تنسيق الحديث للعرض
   return {
@@ -62,6 +84,7 @@ const getHadithById = (hadithIdInBook, bookSlug) => {
     english: hadith.english?.text || hadith.english || ''
   };
 };
+
 
 /**
  * إنشاء بطاقة مراجعة تلقائياً عند قراءة حديث
@@ -144,15 +167,18 @@ const getDueReviews = async (req, res) => {
     // جلب تفاصيل الأحاديث
     const cardsWithHadiths = [];
     for (const card of cards) {
-      let hadith = getHadithById(card.hadith_id, card.book_slug);
+      // تمرير hadith_id_in_book للبحث الأدق
+      let hadith = getHadithById(card.hadith_id, card.book_slug, card.hadith_id_in_book);
       
-      // إذا لم يُعثر على الحديث في الملف، استخدم بيانات وهمية
+      // إذا لم يُعثر على الحديث في الملف، استخدم بيانات وهمية مع رقم الحديث في الكتاب
+      const displayIdInBook = card.hadith_id_in_book || card.hadith_id;
       if (!hadith) {
+        console.warn(`[getDueReviews] Using fallback data for card ${card.id}, hadith_id: ${card.hadith_id}, book: ${card.book_slug}`);
         hadith = {
           id: card.hadith_id,
-          idInBook: card.hadith_id,
-          arabic: `نص الحديث رقم ${card.hadith_id} من كتاب ${card.book_name}. (سيتم تحميل النص الكامل لاحقاً)`,
-          english: `Hadith #${card.hadith_id} from ${card.book_name}. (Full text will be loaded later)`
+          idInBook: displayIdInBook,
+          arabic: `نص الحديث رقم ${displayIdInBook} من كتاب ${card.book_name}. (حدث خطأ في تحميل النص)`,
+          english: `Hadith #${displayIdInBook} from ${card.book_name}. (Error loading text)`
         };
       }
       

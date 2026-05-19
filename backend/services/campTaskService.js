@@ -125,6 +125,18 @@ const getCampDailyTasks = async ({ campId, axisId, cohortNumber, userId }) => {
       } else {
         task.attachments = [];
       }
+
+      // Parse content_ref_meta (used by non-Quran camp types like hadith)
+      if (task.content_ref_meta) {
+        try {
+          task.content_ref_meta =
+            typeof task.content_ref_meta === "string"
+              ? JSON.parse(task.content_ref_meta)
+              : task.content_ref_meta;
+        } catch (e) {
+          task.content_ref_meta = null;
+        }
+      }
     });
 
     // Add friend information if userId provided

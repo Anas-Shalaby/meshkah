@@ -18,21 +18,21 @@ router.get("/hadith-ids", async (req, res) => {
 router.get("/hadith/random", async (req, res) => {
   try {
     const [rows] = await db.query(
-      "SELECT id FROM hadiths ORDER BY RAND() LIMIT 4"
+      "SELECT id FROM hadiths ORDER BY RAND() LIMIT 4",
     );
     const idList = rows.map((row) => row.id);
     const randomHadiths = await Promise.all(
       idList.map(async (id) => {
         const response = await axios.get(
-          `https://hadeethenc.com/api/v1/hadeeths/one/?language=ar&id=${id}`
+          `https://hadeethenc.com/api/v1/hadeeths/one/?language=ar&id=${id}`,
         );
         return response.data;
-      })
+      }),
     );
 
     // جلب أسماء الفئات
     const categoriesNames = await getCategoriesNamesFromIds(
-      randomHadiths.map((hadith) => hadith.categories)
+      randomHadiths.map((hadith) => hadith.categories),
     );
 
     const hadithsArray = randomHadiths.map((hadith, index) => ({
@@ -76,6 +76,8 @@ router.get("/hadith/:id/details", async (req, res) => {
     const { id } = req.params;
     const { language = "ar" } = req.query;
 
+    const userAgent = req.headers["user-agent"] || "";
+
     if (!id) {
       return res.status(400).json({
         success: false,
@@ -83,15 +85,101 @@ router.get("/hadith/:id/details", async (req, res) => {
       });
     }
 
+    // طلبات الـ API (مثلاً تطبيق Flutter) تفضّل JSON؛ المتصفح يفضّل HTML
+    const prefersHtmlOverJson =
+      req.accepts(["text/html", "application/json"]) === "text/html";
+
+    const playStoreUrl =
+      "https://play.google.com/store/apps/details?id=com.mishkat_almasabih.app";
+
+    const escapeHtml = (s) =>
+      String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+
+    const safeId = escapeHtml(id);
+
+    const notAvailableYetHtml = `
+            <!DOCTYPE html>
+            <html dir="rtl" lang="ar">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>مشكاة - حديث رقم ${safeId}</title>
+                <style>
+                    body {
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        background-color: #f4f7f6;
+                        color: #333;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        min-height: 100vh;
+                        margin: 0;
+                        text-align: center;
+                    }
+                    .container {
+                        background-color: #fff;
+                        padding: 40px;
+                        border-radius: 12px;
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+                        max-width: 500px;
+                        width: 90%;
+                    }
+                    h1 { color: #2c3e50; margin-bottom: 10px; }
+                    p { font-size: 18px; line-height: 1.6; color: #555; }
+                    .badges { margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+                    .badge-android {
+                        padding: 10px 20px;
+                        background-color: #27ae60;
+                        color: white;
+                        border-radius: 8px;
+                        font-weight: bold;
+                        text-decoration: none;
+                    }
+                    .badge-ios {
+                        padding: 10px 20px;
+                        background-color: #7f8c8d;
+                        color: white;
+                        border-radius: 8px;
+                        font-weight: bold;
+                        text-decoration: none;
+                        cursor: not-allowed;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>منصة مشكاة</h1>
+                    <p>أنت تحاول الوصول للحديث رقم: <strong>${safeId}</strong></p>
+                    <p>تطبيق مشكاة متاح حالياً على أندرويد فقط. نسخة iOS قيد التطوير وستُتاح قريباً إن شاء الله.</p>
+                    <div class="badges">
+                        <a href="${playStoreUrl}" class="badge-android">حمل التطبيق على أندرويد</a>
+                        <span class="badge-ios">قريباً على iOS</span>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+
+    if (prefersHtmlOverJson) {
+      if (/android/i.test(userAgent)) {
+        return res.redirect(302, playStoreUrl);
+      }
+      // آيفون، آيباد، أو متصفح كمبيوتر — نفس صفحة التوضيح
+      return res.type("html").send(notAvailableYetHtml);
+    }
+
     // Get hadith details from external API
-    const axios = require("axios");
     let hadithData = null;
     let hadithCategories = [];
 
     try {
       // Fetch hadith details from external API
       const hadithResponse = await axios.get(
-        `https://hadeethenc.com/api/v1/hadeeths/one/?language=${language}&id=${id}`
+        `https://hadeethenc.com/api/v1/hadeeths/one/?language=${language}&id=${id}`,
       );
 
       hadithData = hadithResponse.data;
@@ -100,14 +188,14 @@ router.get("/hadith/:id/details", async (req, res) => {
       if (hadithData.categories && hadithData.categories.length > 0) {
         // Fetch all categories first
         const categoriesResponse = await axios.get(
-          `https://hadeethenc.com/api/v1/categories/list/?language=${language}`
+          `https://hadeethenc.com/api/v1/categories/list/?language=${language}`,
         );
 
         const allCategories = categoriesResponse.data;
 
         // Filter categories that belong to this hadith
         hadithCategories = allCategories.filter((category) =>
-          hadithData.categories.includes(category.id.toString())
+          hadithData.categories.includes(category.id.toString()),
         );
       }
     } catch (error) {
@@ -172,7 +260,7 @@ router.get("/hadith/:id/simple", async (req, res) => {
     try {
       // Fetch hadith details from external API
       const hadithResponse = await axios.get(
-        `https://hadeethenc.com/api/v1/hadeeths/one/?language=${language}&id=${id}`
+        `https://hadeethenc.com/api/v1/hadeeths/one/?language=${language}&id=${id}`,
       );
 
       hadithData = hadithResponse.data;
@@ -181,14 +269,14 @@ router.get("/hadith/:id/simple", async (req, res) => {
       if (hadithData.categories && hadithData.categories.length > 0) {
         // Fetch all categories first
         const categoriesResponse = await axios.get(
-          `https://hadeethenc.com/api/v1/categories/list/?language=${language}`
+          `https://hadeethenc.com/api/v1/categories/list/?language=${language}`,
         );
 
         const allCategories = categoriesResponse.data;
 
         // Filter categories that belong to this hadith
         hadithCategories = allCategories.filter((category) =>
-          hadithData.categories.includes(category.id.toString())
+          hadithData.categories.includes(category.id.toString()),
         );
       }
     } catch (error) {
@@ -230,10 +318,10 @@ router.get("/hadith/:id/simple", async (req, res) => {
 router.get("/daily-hadith", async (req, res) => {
   try {
     const [hadithId] = await db.query(
-      "SELECT id FROM hadiths ORDER BY RAND() LIMIT 1"
+      "SELECT id FROM hadiths ORDER BY RAND() LIMIT 1",
     );
     let randomHadith = await axios.get(
-      `https://hadeethenc.com/api/v1/hadeeths/one/?language=ar&id=${hadithId[0].id}`
+      `https://hadeethenc.com/api/v1/hadeeths/one/?language=ar&id=${hadithId[0].id}`,
     );
 
     // جلب أسماء الفئات
@@ -243,13 +331,13 @@ router.get("/daily-hadith", async (req, res) => {
       randomHadith.data.categories.length > 0
     ) {
       const categoriesResponse = await axios.get(
-        "https://hadeethenc.com/api/v1/categories/list/?language=ar"
+        "https://hadeethenc.com/api/v1/categories/list/?language=ar",
       );
       const allCategories = categoriesResponse.data;
 
       categoryNames = allCategories
         .filter((cat) =>
-          randomHadith.data.categories.includes(cat.id.toString())
+          randomHadith.data.categories.includes(cat.id.toString()),
         )
         .map((cat) => ({ id: cat.id, title: cat.title }));
     }
@@ -259,13 +347,13 @@ router.get("/daily-hadith", async (req, res) => {
     let dayOfWeek = today.getDay();
     if (dayOfWeek === 5 || dayOfWeek === "5") {
       const categoryResponse = await axios.get(
-        `https://hadeethenc.com/api/v1/hadeeths/list/?language=ar&category_id=477`
+        `https://hadeethenc.com/api/v1/hadeeths/list/?language=ar&category_id=477`,
       );
       let category = categoryResponse.data.data;
       let getRandomId =
         category[Math.floor(Math.random() * category.length)].id;
       let hadithResponse = await axios.get(
-        `https://hadeethenc.com/api/v1/hadeeths/one/?language=ar&id=${getRandomId}`
+        `https://hadeethenc.com/api/v1/hadeeths/one/?language=ar&id=${getRandomId}`,
       );
       randomHadith = hadithResponse;
     }
@@ -297,7 +385,7 @@ router.get("/daily-hadith", async (req, res) => {
 
 async function getCategoriesNamesFromIds(categoriesIds) {
   const categories = await axios.get(
-    "https://hadeethenc.com/api/v1/categories/list/?language=ar"
+    "https://hadeethenc.com/api/v1/categories/list/?language=ar",
   );
   const flatArray = categoriesIds.flat();
   const finalArray = flatArray.map((item) => [parseInt(item, 10)]);

@@ -1303,9 +1303,22 @@ const getProgressCalendar = async (req, res) => {
     );
 
     // تحويل إلى map لسهولة الوصول
+    // ملاحظة: نتجنب toISOString() لأنها تحول للـ UTC مما يسبب فرق يوم
     const progressMap = {};
     dailyProgress.forEach((day) => {
-      const dateStr = new Date(day.date).toISOString().split('T')[0];
+      // استخدام التاريخ كما هو من قاعدة البيانات
+      let dateStr;
+      if (day.date instanceof Date) {
+        // تنسيق التاريخ بدون تحويل timezone
+        const year = day.date.getFullYear();
+        const month = String(day.date.getMonth() + 1).padStart(2, '0');
+        const dayNum = String(day.date.getDate()).padStart(2, '0');
+        dateStr = `${year}-${month}-${dayNum}`;
+      } else {
+        // إذا كان التاريخ string من MySQL
+        dateStr = String(day.date).split('T')[0];
+      }
+      
       progressMap[dateStr] = {
         count: day.count,
         completed: day.count >= journey.pace,
@@ -1336,6 +1349,120 @@ const getProgressCalendar = async (req, res) => {
   } catch (error) {
     console.error("Error getting progress calendar:", error);
     res.status(500).json({ success: false, message: "خطأ في جلب التقويم" });
+  }
+};
+
+/**
+ * GET /api/book-journeys/:id/day/:date
+ * جلب أحاديث يوم محدد للمراجعة
+ * مثال: /api/book-journeys/5/day/2026-01-10
+ */
+const getDayHadiths = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const journeyId = req.params.id;
+    const { date } = req.params;
+
+    // التحقق من صيغة التاريخ
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!date || !dateRegex.test(date)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "صيغة التاريخ غير صحيحة. استخدم: YYYY-MM-DD" 
+      });
+    }
+
+    // التحقق من ملكية الختمة
+    const [journeys] = await db.query(
+      `SELECT * FROM book_journeys WHERE id = ? AND user_id = ?`,
+      [journeyId, userId]
+    );
+
+    if (journeys.length === 0) {
+      return res.status(404).json({ success: false, message: "الختمة غير موجودة" });
+    }
+
+    const journey = journeys[0];
+
+    // جلب الأحاديث المقروءة في هذا اليوم
+    // ملاحظة: نستخدم SELECT * لتجنب أخطاء الأعمدة المفقودة
+    let progressRecords;
+    try {
+      const [records] = await db.query(
+        `SELECT hadith_id, notes, read_at
+         FROM journey_progress
+         WHERE journey_id = ? AND DATE(read_at) = ?
+         ORDER BY read_at ASC`,
+        [journeyId, date]
+      );
+      progressRecords = records;
+      console.log(`[getDayHadiths] Found ${records.length} records for journey ${journeyId} on ${date}`);
+    } catch (error) {
+      console.error(`[getDayHadiths] Query error:`, error);
+      return res.status(500).json({ success: false, message: "خطأ في قاعدة البيانات" });
+    }
+
+    if (progressRecords.length === 0) {
+      console.log(`[getDayHadiths] No hadiths found for journey ${journeyId} on date ${date}`);
+      return res.json({
+        success: true,
+        date,
+        hadiths: [],
+        count: 0,
+        message: "لم تقرأ أي أحاديث في هذا اليوم"
+      });
+    }
+
+    // جلب بيانات الكتاب
+    const bookData = loadBookData(journey.book_slug);
+    if (!bookData) {
+      return res.status(404).json({ success: false, message: "بيانات الكتاب غير موجودة" });
+    }
+
+    // جلب تفاصيل الأحاديث
+    const hadithsWithDetails = progressRecords.map(record => {
+      // البحث بـ hadith_id فقط (الموجود في قاعدة البيانات)
+      const hadith = bookData.hadiths?.find(h => h.id === record.hadith_id);
+
+      if (hadith) {
+        return {
+          id: hadith.id,
+          idInBook: hadith.idInBook || hadith.id,
+          arabic: hadith.arabic,
+          english: hadith.english?.text || hadith.english || '',
+          notes: record.notes,
+          read_at: record.read_at
+        };
+      }
+
+      // fallback إذا لم يُعثر على الحديث
+      console.warn(`[getDayHadiths] Hadith ${record.hadith_id} not found in book ${journey.book_slug}`);
+      return {
+        id: record.hadith_id,
+        idInBook: record.hadith_id,
+        arabic: `حديث رقم ${record.hadith_id}`,
+        english: '',
+        notes: record.notes,
+        read_at: record.read_at
+      };
+    });
+
+    res.json({
+      success: true,
+      date,
+      journey: {
+        id: journey.id,
+        book_name: journey.book_name,
+        book_slug: journey.book_slug
+      },
+      hadiths: hadithsWithDetails,
+      count: hadithsWithDetails.length,
+      message: `قرأت ${hadithsWithDetails.length} حديث في ${date}`
+    });
+
+  } catch (error) {
+    console.error("Error getting day hadiths:", error);
+    res.status(500).json({ success: false, message: "خطأ في جلب أحاديث اليوم" });
   }
 };
 
@@ -2414,6 +2541,7 @@ module.exports = {
   sendBuddyEncouragement,
   // APIs التقويم
   getProgressCalendar,
+  getDayHadiths,
   // APIs الأصدقاء
   getShareLink,
   joinViaShareCode,

@@ -12,6 +12,7 @@ const campDetailsService = require("../services/campDetailsService");
 const campProgressService = require("../services/campProgressService");
 const campReflectionService = require("../services/campReflectionService");
 const campTestService = require("../services/campTestService");
+const campTypeRegistry = require("../services/campTypeRegistry");
 const {
   verifyAccess,
   isAdmin,
@@ -136,7 +137,7 @@ const getCurrentCohortNumber = async (campId) => {
 // Get all Quran camps
 const getAllCamps = async (req, res) => {
   try {
-    const { status } = req.query;
+    const { status, type } = req.query;
     const userId = req.user?.id || null;
 
     // Get basic camp info without dates (dates come from cohorts)
@@ -155,7 +156,12 @@ const getAllCamps = async (req, res) => {
         qc.visibility_mode,
         qc.max_participants,
         qc.auto_start_camp,
-        qc.is_template
+        qc.is_template,
+        qc.camp_type,
+        qc.content_source_type,
+        qc.content_source_slug,
+        qc.content_meta,
+        qc.enable_cohorts
       FROM quran_camps qc
     `;
 
@@ -173,6 +179,12 @@ const getAllCamps = async (req, res) => {
     if (status) {
       query += ` AND qc.status = ?`;
       params.push(status);
+    }
+
+    // Filter by camp type (e.g. quran / hadith)
+    if (type && ["quran", "hadith"].includes(type)) {
+      query += ` AND qc.camp_type = ?`;
+      params.push(type);
     }
 
     query += ` ORDER BY qc.id DESC`;
@@ -246,8 +258,29 @@ const getAllCamps = async (req, res) => {
           isEnrolled = enrollment.length > 0 ? 1 : 0;
         }
 
+        // Parse content_meta JSON for safe consumption on the frontend
+        let contentMeta = null;
+        if (c.content_meta) {
+          try {
+            contentMeta =
+              typeof c.content_meta === "string"
+                ? JSON.parse(c.content_meta)
+                : c.content_meta;
+          } catch {
+            contentMeta = null;
+          }
+        }
+
+        const campType = c.camp_type || "quran";
+        const enableCohorts = c.enable_cohorts === 0 ? false : true;
+
         return {
           ...c,
+          camp_type: campType,
+          content_source_type: c.content_source_type || null,
+          content_source_slug: c.content_source_slug || null,
+          content_meta: contentMeta,
+          enable_cohorts: enableCohorts,
           current_cohort_number: currentCohortNumber,
           status: cohortStatus, // Use cohort status instead of camp status
           status_ar: getStatusAr(cohortStatus), // Translate cohort status
@@ -430,11 +463,26 @@ const enrollInCamp = async (req, res) => {
   const userId = req.user.id;
   const { hide_identity = false, cohort_number, referral_code } = req.body;
 
+  // For self-paced camps (e.g. hadith), force the synthetic cohort_number=1
+  // so the user starts immediately without picking a cohort.
+  let effectiveCohortNumber = cohort_number;
+  try {
+    const [campRows] = await db.query(
+      `SELECT enable_cohorts FROM quran_camps WHERE id = ? LIMIT 1`,
+      [id]
+    );
+    if (campRows.length > 0 && campRows[0].enable_cohorts === 0) {
+      effectiveCohortNumber = 1;
+    }
+  } catch (e) {
+    // If lookup fails, fall through to existing cohort behavior
+  }
+
   const result = await campUserService.enrollUser({
     campId: id,
     userId,
     hideIdentity: hide_identity,
-    cohortNumber: cohort_number,
+    cohortNumber: effectiveCohortNumber,
     referralCode: referral_code, // إضافة كود الإحالة
   });
 
@@ -592,35 +640,130 @@ const createCamp = async (req, res) => {
       opening_surah_name,
       opening_youtube_url,
       tags,
+      // ==== Camps multi-type fields ====
+      camp_type: rawCampType = "quran",
+      content_source_type = null,
+      content_source_slug = null,
+      content_meta = null,
     } = req.body;
 
+    const camp_type = ["quran", "hadith"].includes(rawCampType)
+      ? rawCampType
+      : "quran";
+    const typeDef = campTypeRegistry.getCampType(camp_type);
+
+    // Validate the content source per type (Quran needs surah, Hadith needs book slug)
+    const sourceValidation = typeDef.validateSource({
+      surah_number,
+      surah_name,
+      content_source_slug,
+    });
+    if (!sourceValidation.ok) {
+      return res.status(400).json({
+        success: false,
+        message: sourceValidation.message,
+      });
+    }
+
+    // Cohort behavior follows the camp type by default
+    const enable_cohorts = typeDef.defaultEnableCohorts ? 1 : 0;
+    // For self-paced types, force start_date to today so the synthetic cohort
+    // is "active" immediately and users can join/start right away.
+    const effective_start_date = enable_cohorts
+      ? start_date
+      : start_date || new Date().toISOString().split("T")[0];
+    // Hadith camps default to ~14 days if duration not provided
+    const effective_duration =
+      duration_days || (camp_type === "hadith" ? 14 : null);
+
     const share_link = shortid.generate();
+    const contentMetaJson = content_meta ? JSON.stringify(content_meta) : null;
 
     const [result] = await db.query(
       `
-      INSERT INTO quran_camps (name, description, surah_number, surah_name, start_date, duration_days, banner_image, opening_surah_number, opening_surah_name, opening_youtube_url , share_link , tags)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ,?)
+      INSERT INTO quran_camps (
+        name, description, surah_number, surah_name, start_date, duration_days,
+        banner_image, opening_surah_number, opening_surah_name, opening_youtube_url,
+        share_link, tags,
+        camp_type, content_source_type, content_source_slug, content_meta, enable_cohorts
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
       [
         name,
         description,
-        surah_number,
-        surah_name,
-        start_date,
-        duration_days,
-        banner_image,
+        surah_number || null,
+        surah_name || null,
+        effective_start_date,
+        effective_duration,
+        banner_image || null,
         opening_surah_number || null,
         opening_surah_name || null,
         opening_youtube_url || null,
         share_link,
         tags || null,
+        camp_type,
+        content_source_type,
+        content_source_slug,
+        contentMetaJson,
+        enable_cohorts,
       ]
     );
+
+    const campId = result.insertId;
+
+    // For self-paced camps (e.g. Hadith), bootstrap a single synthetic cohort
+    // so the rest of the camp engine (enrollment, tasks, progress, notifications)
+    // continues to work without changes. The frontend hides cohort UI when
+    // enable_cohorts=false.
+    if (!enable_cohorts) {
+      try {
+        const startDateForCohort =
+          effective_start_date || new Date().toISOString().split("T")[0];
+        const endDate = new Date(startDateForCohort);
+        endDate.setDate(
+          endDate.getDate() + (Number(effective_duration) || 14)
+        );
+        const endDateStr = endDate.toISOString().split("T")[0];
+        await db.query(
+          `INSERT INTO camp_cohorts
+            (camp_id, cohort_number, start_date, end_date, status, created_by, is_open)
+           VALUES (?, 1, ?, ?, 'active', ?, 1)`,
+          [campId, startDateForCohort, endDateStr, req.user?.id || null]
+        );
+      } catch (cohortErr) {
+        console.error(
+          "[createCamp] failed to bootstrap synthetic cohort:",
+          cohortErr.message
+        );
+      }
+    }
+
+    // Auto-generate daily tasks for camp types that support it (e.g. hadith)
+    try {
+      await typeDef.generateTasks({
+        db,
+        campId,
+        contentSourceSlug: content_source_slug,
+        durationDays: effective_duration,
+      });
+    } catch (gErr) {
+      console.error(
+        "[createCamp] generateTasks for type",
+        camp_type,
+        "failed:",
+        gErr.message
+      );
+    }
 
     res.json({
       success: true,
       message: "تم إنشاء المخيم بنجاح",
-      data: { campId: result.insertId, share_link },
+      data: {
+        campId,
+        share_link,
+        camp_type,
+        enable_cohorts: Boolean(enable_cohorts),
+      },
     });
   } catch (error) {
     console.error("Error creating camp:", error);

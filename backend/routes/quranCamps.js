@@ -317,6 +317,12 @@ router.param("campId", async (req, res, next, val) => {
 const { optionalAuthMiddleware } = require("../middleware/authMiddleware");
 router.get("/", optionalAuthMiddleware, getAllCamps);
 
+// List supported camp types (public)
+const { listCampTypes } = require("../services/campTypeRegistry");
+router.get("/types", (req, res) => {
+  res.json({ success: true, data: listCampTypes() });
+});
+
 // Get shared reflection by share_link (public - optional auth to let the author see themselves)
 router.get("/shared/:shareLink", optionalAuthMiddleware, getSharedReflection);
 
@@ -776,11 +782,17 @@ router.get(
 // Update camp status (admin only)
 router.put("/:id/status", authMiddleware, adminMiddleware, updateCampStatus);
 
+const {
+  requireCohortsEnabled,
+  requireSupervisorsEnabled,
+} = require("../middleware/campTypeGuard");
+
 // Start a new cohort for a camp (admin only) - Backward compatibility
 router.post(
   "/admin/:id/cohorts/start",
   authMiddleware,
   adminMiddleware,
+  requireCohortsEnabled,
   startNewCohort
 );
 
@@ -807,6 +819,7 @@ router.post(
   "/admin/:id/cohorts",
   authMiddleware,
   adminMiddleware,
+  requireCohortsEnabled,
   createCampCohort
 );
 
@@ -815,6 +828,7 @@ router.put(
   "/admin/:id/cohorts/:cohortNumber",
   authMiddleware,
   adminMiddleware,
+  requireCohortsEnabled,
   updateCampCohort
 );
 
@@ -823,6 +837,7 @@ router.delete(
   "/admin/:id/cohorts/:cohortNumber",
   authMiddleware,
   adminMiddleware,
+  requireCohortsEnabled,
   deleteCampCohort
 );
 
@@ -831,6 +846,7 @@ router.post(
   "/admin/:id/cohorts/:cohortNumber/start",
   authMiddleware,
   adminMiddleware,
+  requireCohortsEnabled,
   startCampCohort
 );
 
@@ -839,6 +855,7 @@ router.post(
   "/admin/:id/cohorts/:cohortNumber/complete",
   authMiddleware,
   adminMiddleware,
+  requireCohortsEnabled,
   completeCampCohort
 );
 
@@ -847,6 +864,7 @@ router.post(
   "/admin/:id/cohorts/:cohortNumber/cancel",
   authMiddleware,
   adminMiddleware,
+  requireCohortsEnabled,
   cancelCampCohort
 );
 
@@ -855,6 +873,7 @@ router.post(
   "/admin/:id/cohorts/:cohortNumber/open",
   authMiddleware,
   adminMiddleware,
+  requireCohortsEnabled,
   openCampCohort
 );
 
@@ -863,6 +882,7 @@ router.post(
   "/admin/:id/cohorts/:cohortNumber/close",
   authMiddleware,
   adminMiddleware,
+  requireCohortsEnabled,
   closeCampCohort
 );
 
@@ -1308,6 +1328,7 @@ router.post(
   "/:id/supervisors",
   authMiddleware,
   adminMiddleware,
+  requireSupervisorsEnabled,
   addCampSupervisor
 );
 
@@ -1316,6 +1337,7 @@ router.post(
   "/:id/cohorts/:cohortNumber/supervisors",
   authMiddleware,
   adminMiddleware,
+  requireSupervisorsEnabled,
   addCampSupervisor
 );
 
@@ -1324,6 +1346,7 @@ router.delete(
   "/:id/supervisors/:userId",
   authMiddleware,
   adminMiddleware,
+  requireSupervisorsEnabled,
   removeCampSupervisor
 );
 
@@ -1332,6 +1355,7 @@ router.delete(
   "/:id/cohorts/:cohortNumber/supervisors/:userId",
   authMiddleware,
   adminMiddleware,
+  requireSupervisorsEnabled,
   removeCampSupervisor
 );
 

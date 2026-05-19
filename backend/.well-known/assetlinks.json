@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.mishkat_almasabih.app",
+      "sha256_cert_fingerprints": [
+        "75:20:73:02:4F:4C:28:C8:DF:35:40:D8:89:AD:A1:72:D1:A1:C4:01:CB:2F:9B:86:62:73:87:5D:32:C2:3E:4D",
+        "CD:BE:0D:1F:2F:BB:FF:9D:0A:8C:D0:11:35:C6:A9:3B:71:63:41:5C:B3:C6:8A:E8:A3:86:C8:56:BD:7C:01:87"
+      ]
+    }
+  }
+]

@@ -141,8 +141,29 @@ const getCampDetails = async ({campId , userId}) => {
     const cohortStatus = cohorts.length > 0 ? cohorts[0].status : 'completed';
     const isReadOnly = cohortStatus === 'completed' || cohortStatus === 'cancelled';
 
+    // Parse content_meta JSON safely
+    let parsedContentMeta = null;
+    if (camps[0].content_meta) {
+      try {
+        parsedContentMeta =
+          typeof camps[0].content_meta === "string"
+            ? JSON.parse(camps[0].content_meta)
+            : camps[0].content_meta;
+      } catch {
+        parsedContentMeta = null;
+      }
+    }
+
+    const campTypeValue = camps[0].camp_type || "quran";
+    const enableCohortsBool = camps[0].enable_cohorts === 0 ? false : true;
+
     const camp = {
       ...camps[0],
+      camp_type: campTypeValue,
+      content_source_type: camps[0].content_source_type || null,
+      content_source_slug: camps[0].content_source_slug || null,
+      content_meta: parsedContentMeta,
+      enable_cohorts: enableCohortsBool,
       current_cohort_number: currentCohortNumber,
       status: cohortStatus, // Use cohort status instead of camp status
       status_ar: getStatusAr(cohortStatus), // Translate cohort status
@@ -155,38 +176,73 @@ const getCampDetails = async ({campId , userId}) => {
         : [],
       end_date: cohortEndDate, // Use cohort end date
       enable_public_enrollment: Boolean(camps[0].enable_public_enrollment),
-      available_cohorts: availableCohorts.map((cohort) => ({
-        cohort_number: cohort.cohort_number,
-        start_date: cohort.start_date,
-        end_date: cohort.end_date,
-        status: cohort.status,
-        is_open: Boolean(cohort.is_open),
-        max_participants: cohort.max_participants,
-        participants_count: cohort.participants_count,
-        // Do NOT include supervisor information (hidden from regular users)
-      })),
+      available_cohorts: enableCohortsBool
+        ? availableCohorts.map((cohort) => ({
+            cohort_number: cohort.cohort_number,
+            start_date: cohort.start_date,
+            end_date: cohort.end_date,
+            status: cohort.status,
+            is_open: Boolean(cohort.is_open),
+            max_participants: cohort.max_participants,
+            participants_count: cohort.participants_count,
+            // Do NOT include supervisor information (hidden from regular users)
+          }))
+        : [],
     };
     let joinedLate = false;
     let missedDaysCount = 0;
     let nowDayNumber = 1;
 
-    // حساب اليوم الحالي بالنسبة لبدء الفوج (1..duration_days)
-    try {
-      if (camp.start_date && camp.duration_days) {
-        const start = new Date(camp.start_date); // This is now cohort start_date
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        start.setHours(0, 0, 0, 0);
-        const msPerDay = 1000 * 60 * 60 * 24;
-        const daysSinceStart = Math.floor((today - start) / msPerDay) + 1; // اليوم الأول = 1
-        const clamped = Math.max(
-          1,
-          Math.min(daysSinceStart, Number(camp.duration_days))
+    // For self-paced (hadith) camps, day_number is calculated from the user's
+    // own enrollment date, not from a cohort start date.
+    if (
+      !enableCohortsBool &&
+      userId &&
+      camp.is_enrolled &&
+      camp.duration_days
+    ) {
+      try {
+        const [enrollment] = await db.query(
+          `SELECT created_at FROM camp_enrollments
+           WHERE user_id = ? AND camp_id = ? AND cohort_number = ?
+           LIMIT 1`,
+          [userId, campId, currentCohortNumber]
         );
-        nowDayNumber = isFinite(clamped) ? clamped : 1;
+        if (enrollment.length > 0) {
+          const start = new Date(enrollment[0].created_at);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          start.setHours(0, 0, 0, 0);
+          const msPerDay = 1000 * 60 * 60 * 24;
+          const daysSinceStart = Math.floor((today - start) / msPerDay) + 1;
+          const clamped = Math.max(
+            1,
+            Math.min(daysSinceStart, Number(camp.duration_days))
+          );
+          nowDayNumber = isFinite(clamped) ? clamped : 1;
+        }
+      } catch (_) {
+        nowDayNumber = 1;
       }
-    } catch (_) {
-      nowDayNumber = 1;
+    } else {
+      // حساب اليوم الحالي بالنسبة لبدء الفوج (1..duration_days)
+      try {
+        if (camp.start_date && camp.duration_days) {
+          const start = new Date(camp.start_date); // This is now cohort start_date
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          start.setHours(0, 0, 0, 0);
+          const msPerDay = 1000 * 60 * 60 * 24;
+          const daysSinceStart = Math.floor((today - start) / msPerDay) + 1; // اليوم الأول = 1
+          const clamped = Math.max(
+            1,
+            Math.min(daysSinceStart, Number(camp.duration_days))
+          );
+          nowDayNumber = isFinite(clamped) ? clamped : 1;
+        }
+      } catch (_) {
+        nowDayNumber = 1;
+      }
     }
 
     // إذا كان المستخدم مسجل، احسب إذا انضم متأخراً وعدد الأيام الفائتة

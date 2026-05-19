@@ -39,7 +39,7 @@ router.get(
        LEFT JOIN user_plans up ON mp.id = up.plan_id
        WHERE mp.id = ?
        GROUP BY mp.id`,
-        [planId]
+        [planId],
       );
 
       if (plans.length === 0) {
@@ -57,7 +57,7 @@ router.get(
          JOIN hadiths h ON ph.hadith_id = h.id
          WHERE ph.plan_id = ?
          ORDER BY ph.order_in_plan`,
-        [planId]
+        [planId],
       );
 
       // Get plan users with their start and end dates
@@ -66,7 +66,7 @@ router.get(
          FROM users u
          JOIN user_plans up ON u.id = up.user_id
          WHERE up.plan_id = ?`,
-        [planId]
+        [planId],
       );
 
       const response = {
@@ -92,7 +92,7 @@ router.get(
         error: "حدث خطأ أثناء جلب تفاصيل الخطة",
       });
     }
-  }
+  },
 );
 
 // User Management Routes
@@ -100,14 +100,14 @@ router.get(
   "/users",
   authMiddleware,
   restrictTo("admin"),
-  adminController.getAllUsers
+  adminController.getAllUsers,
 );
 
 router.get(
   "/users/stats",
   authMiddleware,
   restrictTo("admin"),
-  adminController.getUserStats
+  adminController.getUserStats,
 );
 
 router.patch(
@@ -118,14 +118,14 @@ router.patch(
     body("role").optional().isIn(["user", "admin"]),
     body("active").optional().isBoolean(),
   ],
-  adminController.updateUser
+  adminController.updateUser,
 );
 
 router.delete(
   "/users/:id",
   authMiddleware,
   restrictTo("admin"),
-  adminController.deleteUser
+  adminController.deleteUser,
 );
 
 // Content Management Routes
@@ -133,7 +133,7 @@ router.get(
   "/content/stats",
   authMiddleware,
   restrictTo("admin"),
-  adminController.getContentStats
+  adminController.getContentStats,
 );
 
 // Analytics Routes
@@ -146,16 +146,16 @@ router.get(
   async (req, res) => {
     try {
       const [totalUsers] = await db.query(
-        "SELECT COUNT(*) as count FROM users"
+        "SELECT COUNT(*) as count FROM users",
       );
       const [totalPrintRequests] = await db.query(
-        "SELECT COUNT(*) as count FROM print_requests"
+        "SELECT COUNT(*) as count FROM print_requests",
       );
       const [pendingRequests] = await db.query(
-        "SELECT COUNT(*) as count FROM print_requests WHERE status = 'pending'"
+        "SELECT COUNT(*) as count FROM print_requests WHERE status = 'pending'",
       );
       const [completedRequests] = await db.query(
-        "SELECT COUNT(*) as count FROM print_requests WHERE status = 'approved'"
+        "SELECT COUNT(*) as count FROM print_requests WHERE status = 'approved'",
       );
 
       res.json({
@@ -168,7 +168,7 @@ router.get(
       console.error("Error fetching dashboard stats:", error);
       res.status(500).json({ message: "خطأ في جلب إحصائيات لوحة التحكم" });
     }
-  }
+  },
 );
 
 // Get all memorization plans
@@ -187,7 +187,7 @@ router.get(
        LEFT JOIN plan_hadiths ph ON mp.id = ph.plan_id
        LEFT JOIN user_plans up ON mp.id = up.plan_id
        GROUP BY mp.id
-       ORDER BY mp.created_at DESC`
+       ORDER BY mp.created_at DESC`,
       );
 
       res.json({ data: { plans } });
@@ -195,7 +195,7 @@ router.get(
       console.error("Error fetching plans:", error);
       res.status(500).json({ error: "Failed to fetch plans" });
     }
-  }
+  },
 );
 
 // Create new memorization plan
@@ -216,7 +216,7 @@ router.post(
         `INSERT INTO memorization_plans 
        (name, description, hadiths_per_day , quiz_link , total_hadiths) 
        VALUES (?, ?, ?, ? , ?)`,
-        [name, description, 1, quiz_link, selectedHadiths.length]
+        [name, description, 1, quiz_link, selectedHadiths.length],
       );
 
       // Add hadiths to the plan
@@ -225,7 +225,7 @@ router.post(
           `INSERT INTO plan_hadiths 
          (plan_id, hadith_id, order_in_plan) 
          VALUES (?, ?, ?)`,
-          [plan.insertId, selectedHadiths[i], i + 1]
+          [plan.insertId, selectedHadiths[i], i + 1],
         );
       }
 
@@ -241,7 +241,7 @@ router.post(
     } finally {
       connection.release();
     }
-  }
+  },
 );
 
 // Update memorization plan
@@ -269,7 +269,7 @@ router.put(
         `UPDATE memorization_plans 
        SET name = ?, description = ?, start_date = ?, end_date = ?, hadiths_per_day = ?
        WHERE id = ?`,
-        [name, description, startDate, endDate, hadithsPerDay, id]
+        [name, description, startDate, endDate, hadithsPerDay, id],
       );
 
       // If hadiths are provided, update them
@@ -284,7 +284,7 @@ router.put(
           startDate,
           endDate,
           hadithsPerDay,
-          selectedHadiths.length
+          selectedHadiths.length,
         );
 
         for (let i = 0; i < selectedHadiths.length; i++) {
@@ -292,7 +292,7 @@ router.put(
             `INSERT INTO plan_hadiths 
            (plan_id, hadith_id, order_in_plan, scheduled_date) 
            VALUES (?, ?, ?, ?)`,
-            [id, selectedHadiths[i], i + 1, scheduledDates[i]]
+            [id, selectedHadiths[i], i + 1, scheduledDates[i]],
           );
         }
       }
@@ -306,7 +306,7 @@ router.put(
     } finally {
       connection.release();
     }
-  }
+  },
 );
 
 // Delete memorization plan
@@ -328,7 +328,7 @@ router.delete(
       await connection.query("DELETE FROM user_plans WHERE plan_id = ?", [id]);
       await connection.query(
         "DELETE FROM memorization_progress WHERE plan_id = ?",
-        [id]
+        [id],
       );
 
       // Delete the plan
@@ -345,7 +345,7 @@ router.delete(
     } finally {
       connection.release();
     }
-  }
+  },
 );
 
 // Get available hadiths for plan creation
@@ -358,7 +358,7 @@ router.get(
       const [hadiths] = await db.query(
         `SELECT id, title_ar, hadith_text_ar
        FROM hadiths
-       ORDER BY id ASC`
+       ORDER BY id ASC`,
       );
 
       res.json({ data: hadiths });
@@ -366,7 +366,7 @@ router.get(
       console.error("Error fetching hadiths:", error);
       res.status(500).json({ error: "Failed to fetch hadiths" });
     }
-  }
+  },
 );
 
 // Assign plan to user
@@ -385,7 +385,7 @@ router.post(
       // Check if user already has this plan
       const [existing] = await connection.query(
         "SELECT id FROM user_plans WHERE user_id = ? AND plan_id = ?",
-        [userId, planId]
+        [userId, planId],
       );
 
       if (existing.length > 0) {
@@ -395,7 +395,7 @@ router.post(
       // Assign plan to user
       await connection.query(
         "INSERT INTO user_plans (user_id, plan_id) VALUES (?, ?)",
-        [userId, planId]
+        [userId, planId],
       );
 
       await connection.commit();
@@ -407,7 +407,7 @@ router.post(
     } finally {
       connection.release();
     }
-  }
+  },
 );
 
 // get plan user
@@ -423,7 +423,7 @@ router.get(
        FROM user_plans up
        JOIN users u ON up.user_id = u.id
        WHERE up.plan_id = ?`,
-        [planId]
+        [planId],
       );
 
       res.json(planUsers);
@@ -431,7 +431,7 @@ router.get(
       console.error("Error fetching plans:", error);
       res.status(500).json({ error: "Failed to fetch plans" });
     }
-  }
+  },
 );
 
 // Helper function to calculate scheduled dates
@@ -439,7 +439,7 @@ function calculateScheduledDates(
   startDate,
   endDate,
   hadithsPerDay,
-  totalHadiths
+  totalHadiths,
 ) {
   const start = new Date(startDate);
   const end = new Date(endDate);
@@ -482,7 +482,7 @@ router.get(
         LEFT JOIN user_plans up ON mp.id = up.plan_id
         WHERE mp.id = ?
         GROUP BY mp.id`,
-        [planId]
+        [planId],
       );
 
       if (!planDetails[0]) {
@@ -500,7 +500,7 @@ router.get(
         FROM user_plans up
         JOIN memorization_progress mp ON up.user_id = mp.user_id
         WHERE up.plan_id = ? AND mp.updated_at >= ?`,
-        [planId, thirtyDaysAgo]
+        [planId, thirtyDaysAgo],
       );
 
       // Get completed hadiths
@@ -508,7 +508,7 @@ router.get(
         `SELECT COUNT(*) as count
         FROM memorization_progress
         WHERE plan_id = ? AND status = 'completed'`,
-        [planId]
+        [planId],
       );
 
       // Get daily progress for the last 30 days
@@ -520,7 +520,7 @@ router.get(
         AND updated_at >= ?
         GROUP BY DATE(updated_at)
         ORDER BY date ASC`,
-        [planId, thirtyDaysAgo]
+        [planId, thirtyDaysAgo],
       );
 
       // Get top 10 users' progress
@@ -537,7 +537,7 @@ router.get(
         GROUP BY u.id, u.username
         ORDER BY completed_hadiths DESC
         LIMIT 10`,
-        [planId, planId]
+        [planId, planId],
       );
 
       // Calculate average completion rate
@@ -568,7 +568,7 @@ router.get(
       console.error("Error fetching plan analytics:", error);
       return res.status(500).json({ error: "Internal server error" });
     }
-  }
+  },
 );
 
 // إضافة route استقبال رسائل التواصل
@@ -587,7 +587,7 @@ router.post("/contact-us", async (req, res) => {
         <p><strong>الرسالة:</strong></p>
         <div style="background:#f8f7fa;padding:16px;border-radius:8px;margin-top:8px;">${message.replace(
           /\n/g,
-          "<br>"
+          "<br>",
         )}</div>
       </div>
     `;
@@ -595,7 +595,7 @@ router.post("/contact-us", async (req, res) => {
       "Meshkah@hadith-shareef.com",
       subject,
       message,
-      html
+      html,
     );
     res.json({ message: "تم إرسال الرسالة بنجاح!" });
   } catch (error) {

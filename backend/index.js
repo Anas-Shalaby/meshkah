@@ -76,7 +76,7 @@ app.use(
       "Cache-Control",
     ],
     credentials: true,
-  })
+  }),
 );
 
 // Middleware
@@ -93,13 +93,24 @@ app.use(
       res.set("Cross-Origin-Resource-Policy", "cross-origin");
       res.set("Access-Control-Allow-Origin", "*");
     },
-  })
+  }),
+);
+
+// Serve the deep linking files
+app.use(
+  "/.well-known",
+  express.static(path.join(__dirname, ".well-known"), {
+    setHeaders: (res, filePath) => {
+      res.set("Content-Type", "application/json");
+    },
+  }),
 );
 
 // Routes
 app.use("/api/auth", require("./routes/auth")); // done
-app.use("/api/quran-camps", require("./routes/quranCamps")); // إضافة نظام المخيمات القرآنية
-
+const campsRouter = require("./routes/quranCamps"); // unified camps router
+app.use("/api/camps", campsRouter); // unified namespace (multi-type)
+app.use("/api/quran-camps", campsRouter); // backward-compatible alias
 // app.use("/api/print-requests", require("./routes/printRequest"));
 app.use("/api/bookmarks", require("./routes/bookmarks")); // done
 app.use("/api/islamic-bookmarks", require("./routes/islamicBookmarks")); // Islamic Library Bookmarks

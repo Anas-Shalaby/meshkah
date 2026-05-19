@@ -270,6 +270,17 @@ router.get(
   bookJourneysController.getProgressCalendar
 );
 
+/**
+ * GET /api/book-journeys/:id/day/:date
+ * جلب أحاديث يوم محدد للمراجعة
+ * Params: date - تاريخ اليوم بصيغة YYYY-MM-DD
+ */
+router.get(
+  "/:id/day/:date",
+  authMiddleware,
+  bookJourneysController.getDayHadiths
+);
+
 // =====================================================
 // مسارات نظام الرفقة (Buddy System)
 // =====================================================

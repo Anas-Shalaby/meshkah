@@ -20,7 +20,7 @@ exports.getUserStats = async (req, res) => {
 
     // Users by Role
     const [usersByRole] = await db.query(
-      "SELECT role, COUNT(*) as count FROM users GROUP BY role"
+      "SELECT role, COUNT(*) as count FROM users GROUP BY role",
     );
 
     res.status(200).json({
@@ -43,7 +43,7 @@ exports.getContentStats = async (req, res) => {
       `SELECT 
           COUNT(*) as totalBookmarks,
           COUNT(DISTINCT user_id) as usersWithBookmarks
-        FROM bookmarks`
+        FROM bookmarks`,
     );
 
     res.status(200).json({
@@ -69,7 +69,7 @@ exports.getDashboardAnalytics = async (req, res) => {
         db.query("SELECT COUNT(*) as total FROM bookmarks"),
         // Implement visitor tracking logic or use a fixed number
         db.query("SELECT 3750 as visitors"),
-      ]
+      ],
     );
 
     res.status(200).json({
@@ -99,7 +99,7 @@ exports.getAllUsers = async (req, res) => {
        FROM users 
        ORDER BY created_at DESC
        LIMIT ? OFFSET ?`,
-      [limit, offset]
+      [limit, offset],
     );
 
     // Get total user count
@@ -139,7 +139,7 @@ exports.updateUser = async (req, res) => {
 
     const [result] = await db.query(
       "UPDATE users SET role = ?, active = ? WHERE id = ?",
-      [role, active, id]
+      [role, active, id],
     );
 
     if (result.affectedRows === 0) {
@@ -191,7 +191,7 @@ exports.sendCohortCompletionNotifications = async (req, res) => {
     // Call the service function
     const result = await CampNotificationService.sendCohortCompletionToAll(
       parseInt(campId),
-      parseInt(cohortNumber)
+      parseInt(cohortNumber),
     );
 
     if (result.success) {
@@ -226,7 +226,7 @@ exports.getRamadanThemeStatus = async (req, res) => {
   try {
     const [rows] = await db.query(
       "SELECT setting_value, updated_at FROM site_settings WHERE setting_key = ?",
-      ["ramadan_theme_enabled"]
+      ["ramadan_theme_enabled"],
     );
 
     if (rows.length === 0) {
@@ -237,7 +237,7 @@ exports.getRamadanThemeStatus = async (req, res) => {
           "ramadan_theme_enabled",
           "false",
           "تفعيل أو إلغاء الثيم الرمضاني للموقع",
-        ]
+        ],
       );
 
       return res.status(200).json({
@@ -280,7 +280,7 @@ exports.updateRamadanThemeStatus = async (req, res) => {
 
     await db.query(
       "UPDATE site_settings SET setting_value = ?, updated_by = ?, updated_at = NOW() WHERE setting_key = ?",
-      [enabled ? "true" : "false", userId, "ramadan_theme_enabled"]
+      [enabled ? "true" : "false", userId, "ramadan_theme_enabled"],
     );
 
     res.status(200).json({
@@ -305,7 +305,7 @@ exports.getRamadanDate = async (req, res) => {
   try {
     const [rows] = await db.query(
       "SELECT setting_value, updated_at FROM site_settings WHERE setting_key = ?",
-      ["ramadan_start_date"]
+      ["ramadan_start_date"],
     );
 
     if (rows.length === 0) {
@@ -313,7 +313,7 @@ exports.getRamadanDate = async (req, res) => {
       const defaultDate = "2026-02-18";
       await db.query(
         "INSERT INTO site_settings (setting_key, setting_value, description) VALUES (?, ?, ?)",
-        ["ramadan_start_date", defaultDate, "تاريخ بداية شهر رمضان المبارك"]
+        ["ramadan_start_date", defaultDate, "تاريخ بداية شهر رمضان المبارك"],
       );
 
       return res.status(200).json({
@@ -365,7 +365,7 @@ exports.updateRamadanDate = async (req, res) => {
     // تحديث التاريخ
     const [result] = await db.query(
       "UPDATE site_settings SET setting_value = ?, updated_by = ?, updated_at = NOW() WHERE setting_key = ?",
-      [startDate, userId, "ramadan_start_date"]
+      [startDate, userId, "ramadan_start_date"],
     );
 
     // إذا لم يكن موجود، أضفه
@@ -377,7 +377,7 @@ exports.updateRamadanDate = async (req, res) => {
           startDate,
           "تاريخ بداية شهر رمضان المبارك",
           userId,
-        ]
+        ],
       );
     }
 
