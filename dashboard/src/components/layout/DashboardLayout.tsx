@@ -44,15 +44,16 @@ const menuItems = [
     href: "/dashboard/memorization-plans",
   },
   {
-    label: "المخيمات القرآنية",
+    label: "المخيمات",
     icon: GraduationCap,
-    href: "/dashboard/quran-camps",
+    href: "/dashboard/camps",
   },
   {
     label: "ختمات الكتب",
     icon: BookOpen,
     href: "/dashboard/book-journeys",
   },
+
   {
     label: "الثيم الرمضاني",
     icon: Palette,

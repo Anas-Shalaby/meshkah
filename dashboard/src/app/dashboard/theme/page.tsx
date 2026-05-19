@@ -15,6 +15,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import Cookies from "js-cookie";
+import { apiService } from "@/services/api";
 
 export default function ThemePage() {
   const [ramadanEnabled, setRamadanEnabled] = useState(false);
@@ -30,11 +31,11 @@ export default function ThemePage() {
     fetchRamadanDate();
   }, []);
 
+  const api = apiService.getApi();
+
   async function fetchThemeStatus() {
     try {
-      const response = await fetch(
-        `https://api.hadith-shareef.com/api/admin/theme/ramadan`
-      );
+      const response = await fetch(`${api}/admin/theme/ramadan`);
       const data = await response.json();
 
       if (data.success) {
@@ -50,9 +51,7 @@ export default function ThemePage() {
 
   async function fetchRamadanDate() {
     try {
-      const response = await fetch(
-        `https://api.hadith-shareef.com/api/admin/theme/ramadan-date`
-      );
+      const response = await fetch(`${api}/admin/theme/ramadan-date`);
       const data = await response.json();
 
       if (data.success) {
@@ -73,17 +72,14 @@ export default function ThemePage() {
     setUpdatingDate(true);
     try {
       const token = Cookies.get("token");
-      const response = await fetch(
-        `https://api.hadith-shareef.com/api/admin/theme/ramadan-date`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            "x-auth-token": token || "",
-          },
-          body: JSON.stringify({ startDate: newRamadanDate }),
-        }
-      );
+      const response = await fetch(`${api}/admin/theme/ramadan-date`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "x-auth-token": token || "",
+        },
+        body: JSON.stringify({ startDate: newRamadanDate }),
+      });
 
       const data = await response.json();
 
@@ -110,17 +106,14 @@ export default function ThemePage() {
     setUpdating(true);
     try {
       const token = Cookies.get("token");
-      const response = await fetch(
-        `https://api.hadith-shareef.com/api/admin/theme/ramadan`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            "x-auth-token": token || "",
-          },
-          body: JSON.stringify({ enabled: !ramadanEnabled }),
-        }
-      );
+      const response = await fetch(`${api}/admin/theme/ramadan`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "x-auth-token": token || "",
+        },
+        body: JSON.stringify({ enabled: !ramadanEnabled }),
+      });
 
       const data = await response.json();
 

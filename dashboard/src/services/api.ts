@@ -25,8 +25,12 @@ api.interceptors.response.use(
       }
     }
     return Promise.reject(error);
-  }
+  },
 );
+
+export const apiService = {
+  getApi: () => "http://localhost:4000/api",
+};
 
 export const authService = {
   async login(email: string, password: string) {
@@ -110,7 +114,7 @@ export const dashboardService = {
       {},
       {
         headers: { "x-auth-token": Cookies.get("token") },
-      }
+      },
     );
     return response.data;
   },
@@ -120,7 +124,7 @@ export const dashboardService = {
       { status },
       {
         headers: { "x-auth-token": Cookies.get("token") },
-      }
+      },
     );
     return response.data;
   },
@@ -129,7 +133,7 @@ export const dashboardService = {
       `/admin/memorization/plans/${planId}/analytics`,
       {
         headers: { "x-auth-token": Cookies.get("token") },
-      }
+      },
     );
     return response.data;
   },
@@ -153,7 +157,7 @@ export const dashboardService = {
       .then((res) => res.data),
   getBookJourneyParticipants: (
     id: number,
-    params?: { page?: number; limit?: number }
+    params?: { page?: number; limit?: number },
   ) =>
     api
       .get(`/book-journeys/admin/${id}/participants`, { params })
@@ -192,7 +196,7 @@ export const dashboardService = {
     api.get(`/quran-camps/admin/${id}/day-challenges`).then((res) => res.data),
   saveCampDayChallenge: (
     id: string,
-    payload: { day_number: number; title: string; description: string }
+    payload: { day_number: number; title: string; description: string },
   ) =>
     api
       .post(`/quran-camps/admin/${id}/day-challenges`, payload)
@@ -269,7 +273,7 @@ export const dashboardService = {
 
   startNewCohort: (
     id: string,
-    data?: { start_date?: string; status?: string }
+    data?: { start_date?: string; status?: string },
   ) =>
     api
       .post(`/quran-camps/admin/${id}/cohorts/start`, data || {})
@@ -278,7 +282,7 @@ export const dashboardService = {
   // Cohorts Management APIs
   getCampCohorts: (
     id: string,
-    params?: { status?: string; page?: number; limit?: number; sort?: string }
+    params?: { status?: string; page?: number; limit?: number; sort?: string },
   ) =>
     api
       .get(`/quran-camps/admin/${id}/cohorts`, { params })
@@ -296,7 +300,7 @@ export const dashboardService = {
   deleteCampCohort: (
     id: string,
     cohortNumber: number,
-    params?: { migrateToCohort?: number; deleteParticipants?: boolean }
+    params?: { migrateToCohort?: number; deleteParticipants?: boolean },
   ) =>
     api
       .delete(`/quran-camps/admin/${id}/cohorts/${cohortNumber}`, { params })
@@ -332,7 +336,12 @@ export const dashboardService = {
   getCohortParticipants: (
     id: string,
     cohortNumber: number,
-    params?: { page?: number; limit?: number; search?: string; status?: string }
+    params?: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      status?: string;
+    },
   ) =>
     api
       .get(`/quran-camps/admin/${id}/cohorts/${cohortNumber}/participants`, {
@@ -342,36 +351,41 @@ export const dashboardService = {
   getCohortParticipantsForAdmin: (
     id: string,
     cohortNumber: number,
-    params?: { page?: number; limit?: number; search?: string; status?: string }
+    params?: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      status?: string;
+    },
   ) =>
     api
       .get(
         `/quran-camps/admin/${id}/cohorts/${cohortNumber}/participants/all`,
         {
           params,
-        }
+        },
       )
       .then((res) => res.data),
   migrateUserBetweenCohorts: (
     id: string,
     cohortNumber: number,
-    data: { user_id: number; target_cohort_number: number }
+    data: { user_id: number; target_cohort_number: number },
   ) =>
     api
       .post(
         `/quran-camps/admin/${id}/cohorts/${cohortNumber}/migrate-user`,
-        data
+        data,
       )
       .then((res) => res.data),
   bulkMigrateUsersBetweenCohorts: (
     id: string,
     cohortNumber: number,
-    data: { user_ids: number[]; target_cohort_number: number }
+    data: { user_ids: number[]; target_cohort_number: number },
   ) =>
     api
       .post(
         `/quran-camps/admin/${id}/cohorts/${cohortNumber}/bulk-migrate`,
-        data
+        data,
       )
       .then((res) => res.data),
   getScheduledCohorts: (id: string) =>
@@ -381,7 +395,7 @@ export const dashboardService = {
   scheduleCampCohort: (
     id: string,
     cohortNumber: number,
-    data: { start_date: string }
+    data: { start_date: string },
   ) =>
     api
       .post(`/quran-camps/admin/${id}/cohorts/${cohortNumber}/schedule`, data)
@@ -389,24 +403,24 @@ export const dashboardService = {
   sendCohortNotification: (id: string, cohortNumber: number) =>
     api
       .post(
-        `/quran-camps/admin/${id}/cohorts/${cohortNumber}/send-notification`
+        `/quran-camps/admin/${id}/cohorts/${cohortNumber}/send-notification`,
       )
       .then((res) => res.data),
   sendCohortAnnouncement: (
     id: string,
     cohortNumber: number,
-    announcementMessage?: string
+    announcementMessage?: string,
   ) =>
     api
       .post(
         `/quran-camps/admin/${id}/cohorts/${cohortNumber}/send-announcement`,
-        { announcement_message: announcementMessage }
+        { announcement_message: announcementMessage },
       )
       .then((res) => res.data),
   sendCohortCompletionNotifications: (id: string, cohortNumber: number) =>
     api
       .post(
-        `/admin/quran-camps/${id}/cohorts/${cohortNumber}/send-completion-notification`
+        `/admin/quran-camps/${id}/cohorts/${cohortNumber}/send-completion-notification`,
       )
       .then((res) => res.data),
 
@@ -416,20 +430,20 @@ export const dashboardService = {
       .get(
         cohortNumber
           ? `/quran-camps/${id}/cohorts/${cohortNumber}/supervisors`
-          : `/quran-camps/${id}/supervisors`
+          : `/quran-camps/${id}/supervisors`,
       )
       .then((res) => res.data),
 
   addCampSupervisor: (
     id: string,
-    data: { userId: number; cohortNumber?: number }
+    data: { userId: number; cohortNumber?: number },
   ) =>
     api
       .post(
         data.cohortNumber
           ? `/quran-camps/${id}/cohorts/${data.cohortNumber}/supervisors`
           : `/quran-camps/${id}/supervisors`,
-        { userId: data.userId }
+        { userId: data.userId },
       )
       .then((res) => res.data),
   removeCampSupervisor: (id: string, userId: number, cohortNumber?: number) =>
@@ -437,7 +451,7 @@ export const dashboardService = {
       .delete(
         cohortNumber
           ? `/quran-camps/${id}/cohorts/${cohortNumber}/supervisors/${userId}`
-          : `/quran-camps/${id}/supervisors/${userId}`
+          : `/quran-camps/${id}/supervisors/${userId}`,
       )
       .then((res) => res.data),
 
@@ -449,22 +463,22 @@ export const dashboardService = {
   removeParticipantBySupervisor: (
     id: string,
     cohortNumber: number,
-    userId: number
+    userId: number,
   ) =>
     api
       .delete(
-        `/quran-camps/${id}/supervisor/cohort/${cohortNumber}/participants/${userId}`
+        `/quran-camps/${id}/supervisor/cohort/${cohortNumber}/participants/${userId}`,
       )
       .then((res) => res.data),
   migrateParticipantBySupervisor: (
     id: string,
     cohortNumber: number,
-    data: { user_id: number; target_cohort_number: number }
+    data: { user_id: number; target_cohort_number: number },
   ) =>
     api
       .post(
         `/quran-camps/${id}/supervisor/cohort/${cohortNumber}/migrate-participant`,
-        data
+        data,
       )
       .then((res) => res.data),
   getSupervisorCohortStats: (id: string, cohortNumber: number) =>
@@ -713,7 +727,7 @@ export const dashboardService = {
           } else {
             link.setAttribute(
               "download",
-              `camp-${id}-tasks-${new Date().toISOString().split("T")[0]}.csv`
+              `camp-${id}-tasks-${new Date().toISOString().split("T")[0]}.csv`,
             );
           }
           document.body.appendChild(link);

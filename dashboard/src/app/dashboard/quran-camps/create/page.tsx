@@ -241,7 +241,7 @@ const Modal = ({
         ) : null}
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };
 
@@ -249,12 +249,12 @@ export default function CreateQuranCampPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"choose" | "fromScratch" | "fromTemplate">(
-    "choose"
+    "choose",
   );
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(
-    null
+    null,
   );
   const [newCampNameFromTemplate, setNewCampNameFromTemplate] = useState("");
   const [currentStep, setCurrentStep] = useState(1);
@@ -270,7 +270,24 @@ export default function CreateQuranCampPage() {
     opening_surah_number: undefined as number | undefined,
     opening_surah_name: undefined as string | undefined,
     opening_youtube_url: undefined as string | undefined,
+    camp_type: "quran" as "quran" | "hadith",
+    content_source_type: "surah" as string | null,
+    content_source_slug: "" as string,
   });
+
+  const HADITH_BOOKS = [
+    { slug: "nawawi40", name: "الأربعين النووية" },
+    { slug: "qudsi40", name: "الأحاديث القدسية" },
+    { slug: "riyad_assalihin", name: "رياض الصالحين" },
+    { slug: "bulugh_almaram", name: "بلوغ المرام" },
+    { slug: "hisnulmuslim", name: "حصن المسلم" },
+    { slug: "shamail_muhammadiyah", name: "الشمائل المحمدية" },
+    { slug: "aladab_almufrad", name: "الأدب المفرد" },
+    { slug: "riyadiah40", name: "الأربعون الرياضية" },
+    { slug: "shahwaliullah40", name: "أربعين شاه ولي الله" },
+    { slug: "malik", name: "موطأ مالك" },
+    { slug: "darimi", name: "سنن الدارمي" },
+  ];
 
   const [dailyTasks, setDailyTasks] = useState<DailyTask[]>([]);
   const [taskGroups, setTaskGroups] = useState<TaskGroup[]>([]);
@@ -280,7 +297,7 @@ export default function CreateQuranCampPage() {
   const [editingGroup, setEditingGroup] = useState<TaskGroup | null>(null);
   const [editingTaskIndex, setEditingTaskIndex] = useState<number | null>(null);
   const [editingGroupIndex, setEditingGroupIndex] = useState<number | null>(
-    null
+    null,
   );
   const [newTask, setNewTask] = useState<DailyTask>({
     day_number: 1,
@@ -322,7 +339,7 @@ export default function CreateQuranCampPage() {
 
   const openGroupModal = (
     group: TaskGroup | null = null,
-    index: number | null = null
+    index: number | null = null,
   ) => {
     if (group && index !== null) {
       setEditingGroup(group);
@@ -361,8 +378,8 @@ export default function CreateQuranCampPage() {
         prev.map((group, i) =>
           i === editingGroupIndex
             ? { ...newGroup, order_in_camp: group.order_in_camp }
-            : group
-        )
+            : group,
+        ),
       );
     } else {
       setTaskGroups((prev) => [
@@ -379,8 +396,8 @@ export default function CreateQuranCampPage() {
       // Remove group_id from tasks that reference this group
       setDailyTasks((prev) =>
         prev.map((task) =>
-          task.group_id === index ? { ...task, group_id: null } : task
-        )
+          task.group_id === index ? { ...task, group_id: null } : task,
+        ),
       );
     }
   };
@@ -388,7 +405,7 @@ export default function CreateQuranCampPage() {
   const openTaskModal = (
     task: DailyTask | null = null,
     index: number | null = null,
-    dayNumber?: number
+    dayNumber?: number,
   ) => {
     if (task && index !== null) {
       setEditingTask(task);
@@ -431,7 +448,7 @@ export default function CreateQuranCampPage() {
 
     if (editingTaskIndex !== null) {
       setDailyTasks((prev) =>
-        prev.map((task, i) => (i === editingTaskIndex ? newTask : task))
+        prev.map((task, i) => (i === editingTaskIndex ? newTask : task)),
       );
     } else {
       setDailyTasks((prev) => [...prev, newTask]);
@@ -454,25 +471,39 @@ export default function CreateQuranCampPage() {
     try {
       setLoading(true);
 
-      // Create camp
-      const campResponse = await dashboardService.createQuranCamp(campData);
+      const payload = {
+        ...campData,
+        // Hadith camps auto-start: backend will create synthetic cohort + tasks.
+        // We still send a default start_date if absent.
+        start_date:
+          campData.start_date ||
+          (campData.camp_type === "hadith"
+            ? new Date().toISOString().split("T")[0]
+            : ""),
+      };
+
+      const campResponse = await dashboardService.createQuranCamp(payload);
       const campId = campResponse.data.campId;
 
-      // Create task groups first
+      // For Hadith camps the backend auto-generates daily tasks.
+      // Skip the manual task/group creation flow and go straight to listing.
+      if (campData.camp_type === "hadith") {
+        router.push("/dashboard/camps");
+        return;
+      }
+
+      // Quran camps: create groups + tasks as before
       for (const group of taskGroups) {
         if (group.title.trim()) {
           await dashboardService.createTaskGroup(campId, group);
         }
       }
 
-      // Fetch created groups to get their IDs
       const groupsResponse = await dashboardService.getCampTaskGroups(campId);
       const createdGroups = groupsResponse.data || [];
 
-      // Map tasks to groups - convert group index to actual group ID
       const tasksWithGroups = dailyTasks.map((task) => {
         if (task.group_id !== null && task.group_id !== undefined) {
-          // task.group_id is the index in taskGroups array
           const groupIndex = task.group_id as number;
           if (groupIndex >= 0 && groupIndex < createdGroups.length) {
             return {
@@ -487,12 +518,11 @@ export default function CreateQuranCampPage() {
         };
       });
 
-      // Add daily tasks if any
       if (tasksWithGroups.length > 0) {
         await dashboardService.addDailyTasks(campId, tasksWithGroups);
       }
 
-      router.push("/dashboard/quran-camps");
+      router.push("/dashboard/camps");
     } catch (error) {
       console.error("Error creating camp:", error);
       alert("حدث خطأ في إنشاء المخيم");
@@ -528,7 +558,7 @@ export default function CreateQuranCampPage() {
       setLoading(true);
       const res = await dashboardService.createCampFromTemplate(
         selectedTemplateId,
-        newCampNameFromTemplate.trim()
+        newCampNameFromTemplate.trim(),
       );
       const newId = res.newCampId;
       router.push(`/dashboard/quran-camps/${newId}`);
@@ -549,8 +579,8 @@ export default function CreateQuranCampPage() {
             mode === "fromScratch"
               ? `خطوة ${currentStep} من 2`
               : mode === "fromTemplate"
-              ? "اختر قالباً لبدء المخيم"
-              : "اختر طريقة الإنشاء"
+                ? "اختر قالباً لبدء المخيم"
+                : "اختر طريقة الإنشاء"
           }
           secondaryActions={
             mode !== "choose" ? (
@@ -743,6 +773,47 @@ export default function CreateQuranCampPage() {
               <BookOpen className="h-5 w-5 text-primary-100" />
             </header>
 
+            {/* Camp type selector (multi-type system) */}
+            <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2">
+              {[
+                {
+                  id: "quran",
+                  title: "مخيم قرآن",
+                  desc: "أفواج وإشراف وتدرّج جماعي بسورة محددة.",
+                },
+                {
+                  id: "hadith",
+                  title: "مخيم حديث",
+                  desc: "ذاتي السرعة، يبدأ تلقائيًا فور الاشتراك بدون أفواج.",
+                },
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() =>
+                    setCampData((prev) => ({
+                      ...prev,
+                      camp_type: opt.id as "quran" | "hadith",
+                      content_source_type:
+                        opt.id === "hadith" ? "book" : "surah",
+                      content_source_slug:
+                        opt.id === "hadith" ? prev.content_source_slug : "",
+                    }))
+                  }
+                  className={`rounded-2xl border p-4 text-right transition ${
+                    campData.camp_type === opt.id
+                      ? "border-primary/60 bg-primary/15"
+                      : "border-slate-800 bg-slate-950/60 hover:border-primary/40"
+                  }`}
+                >
+                  <div className="font-semibold text-slate-100 mb-1">
+                    {opt.title}
+                  </div>
+                  <div className="text-xs text-slate-400">{opt.desc}</div>
+                </button>
+              ))}
+            </div>
+
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <label className="block space-y-2">
                 <span className="text-sm font-medium text-slate-300">
@@ -757,22 +828,52 @@ export default function CreateQuranCampPage() {
                 />
               </label>
 
-              <label className="block space-y-2">
-                <span className="text-sm font-medium text-slate-300">
-                  السورة <span className="text-rose-400">*</span>
-                </span>
-                <select
-                  value={campData.surah_number}
-                  onChange={(e) => handleSurahChange(parseInt(e.target.value))}
-                  className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-slate-100 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                >
-                  {SURAH_LIST.map((surah) => (
-                    <option key={surah.number} value={surah.number}>
-                      {surah.number}. {surah.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {campData.camp_type === "quran" ? (
+                <label className="block space-y-2">
+                  <span className="text-sm font-medium text-slate-300">
+                    السورة <span className="text-rose-400">*</span>
+                  </span>
+                  <select
+                    value={campData.surah_number}
+                    onChange={(e) =>
+                      handleSurahChange(parseInt(e.target.value))
+                    }
+                    className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-slate-100 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    {SURAH_LIST.map((surah) => (
+                      <option key={surah.number} value={surah.number}>
+                        {surah.number}. {surah.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <label className="block space-y-2">
+                  <span className="text-sm font-medium text-slate-300">
+                    كتاب الحديث <span className="text-rose-400">*</span>
+                  </span>
+                  <select
+                    value={campData.content_source_slug}
+                    onChange={(e) =>
+                      handleCampDataChange(
+                        "content_source_slug",
+                        e.target.value,
+                      )
+                    }
+                    className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-slate-100 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    <option value="">اختر كتابًا...</option>
+                    {HADITH_BOOKS.map((b) => (
+                      <option key={b.slug} value={b.slug}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-slate-400">
+                    سيتم توليد المهام اليومية تلقائيًا من هذا الكتاب.
+                  </p>
+                </label>
+              )}
 
               <label className="block space-y-2">
                 <span className="text-sm font-medium text-slate-300">
@@ -800,7 +901,7 @@ export default function CreateQuranCampPage() {
                   onChange={(e) =>
                     handleCampDataChange(
                       "duration_days",
-                      parseInt(e.target.value)
+                      parseInt(e.target.value),
                     )
                   }
                   className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-slate-100 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -867,7 +968,7 @@ export default function CreateQuranCampPage() {
                       value={campData.opening_surah_number || ""}
                       onChange={(e) =>
                         handleOpeningSurahChange(
-                          e.target.value ? parseInt(e.target.value) : 0
+                          e.target.value ? parseInt(e.target.value) : 0,
                         )
                       }
                       className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-slate-100 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -891,7 +992,7 @@ export default function CreateQuranCampPage() {
                       onChange={(e) =>
                         handleCampDataChange(
                           "opening_youtube_url",
-                          e.target.value
+                          e.target.value,
                         )
                       }
                       className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-slate-100 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -905,10 +1006,31 @@ export default function CreateQuranCampPage() {
               </div>
             </div>
 
-            <div className="mt-6 flex justify-end">
+            <div className="mt-6 flex justify-end gap-3">
+              {campData.camp_type === "hadith" && (
+                <button
+                  onClick={handleSubmit}
+                  disabled={
+                    loading || !campData.name || !campData.content_source_slug
+                  }
+                  className="inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-500/20 px-5 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loading ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-emerald-100" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  {loading ? "جاري الإنشاء..." : "إنشاء المخيم (يبدأ تلقائيًا)"}
+                </button>
+              )}
               <button
                 onClick={() => setCurrentStep(2)}
-                disabled={!campData.name || !campData.start_date}
+                disabled={
+                  !campData.name ||
+                  (campData.camp_type === "quran" && !campData.start_date) ||
+                  (campData.camp_type === "hadith" &&
+                    !campData.content_source_slug)
+                }
                 className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/20 px-5 py-2 text-sm font-medium text-primary-100 transition hover:bg-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 التالي
@@ -1032,7 +1154,7 @@ export default function CreateQuranCampPage() {
                       if (!acc[day]) acc[day] = [];
                       acc[day].push(task);
                       return acc;
-                    }, {})
+                    }, {}),
                   )
                     .sort(([a], [b]) => Number(a) - Number(b))
                     .map(([day, dayTasks]: [string, DailyTask[]]) => (
@@ -1065,7 +1187,7 @@ export default function CreateQuranCampPage() {
                             .sort((a, b) => a.order_in_day - b.order_in_day)
                             .map((task, index) => {
                               const taskIndex = dailyTasks.findIndex(
-                                (t) => t === task
+                                (t) => t === task,
                               );
                               return (
                                 <div
@@ -1258,7 +1380,7 @@ export default function CreateQuranCampPage() {
                   {taskGroups
                     .filter(
                       (group, i) =>
-                        !editingGroupIndex || i !== editingGroupIndex
+                        !editingGroupIndex || i !== editingGroupIndex,
                     )
                     .map((group, i) => (
                       <option key={i} value={i}>

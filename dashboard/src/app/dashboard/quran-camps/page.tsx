@@ -52,6 +52,23 @@ type Camp = {
   banner_image?: string;
   created_at: string;
   tags?: string[];
+  camp_type?: "quran" | "hadith";
+  enable_cohorts?: boolean;
+  content_source_slug?: string | null;
+};
+
+const HADITH_BOOK_NAMES_AR: Record<string, string> = {
+  nawawi40: "الأربعين النووية",
+  qudsi40: "الأحاديث القدسية",
+  riyad_assalihin: "رياض الصالحين",
+  bulugh_almaram: "بلوغ المرام",
+  hisnulmuslim: "حصن المسلم",
+  shamail_muhammadiyah: "الشمائل المحمدية",
+  aladab_almufrad: "الأدب المفرد",
+  riyadiah40: "الأربعون الرياضية",
+  shahwaliullah40: "أربعين شاه ولي الله",
+  malik: "موطأ مالك",
+  darimi: "سنن الدارمي",
 };
 
 type SortOption = "name" | "date" | "participants" | "duration";
@@ -113,6 +130,9 @@ export default function QuranCampsPage() {
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [selectedCamps, setSelectedCamps] = useState<number[]>([]);
   const [showAddSupervisorModal, setShowAddSupervisorModal] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<"all" | "quran" | "hadith">(
+    "all"
+  );
 
   // Calculate max enrollment for initial filter range
   const maxEnrollment = useMemo(() => {
@@ -160,6 +180,10 @@ export default function QuranCampsPage() {
         (filters.status === "completed" && camp.status === "reopened");
 
       if (!matchesStatus) return false;
+
+      // Type filter (multi-type system: quran / hadith)
+      const campTypeValue = camp.camp_type || "quran";
+      if (typeFilter !== "all" && campTypeValue !== typeFilter) return false;
 
       const surahNumber = Number(camp.surah_number);
       if (
@@ -239,7 +263,7 @@ export default function QuranCampsPage() {
     });
 
     return filtered;
-  }, [camps, filters]);
+  }, [camps, filters, typeFilter]);
 
   useEffect(() => {
     const fetchCamps = async () => {
@@ -456,8 +480,8 @@ export default function QuranCampsPage() {
     <DashboardLayout>
       <div className="space-y-8">
         <ActionToolbar
-          title="المخيمات القرآنية"
-          subtitle="كل ما تحتاجه لمتابعة المخيمات، الأداء، والتحديثات اليومية"
+          title="المخيمات"
+          subtitle="إدارة موحّدة لمخيمات القرآن والحديث في مكان واحد"
           meta={
             <span className="inline-flex items-center gap-1 text-xs text-slate-400">
               <Calendar className="h-4 w-4" />
@@ -634,6 +658,43 @@ export default function QuranCampsPage() {
         </section>
 
         <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-lg">
+          {/* Camp type pills */}
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-slate-400">
+              نوع المخيم:
+            </span>
+            {[
+              { id: "all", label: "الكل" },
+              { id: "quran", label: "قرآن" },
+              { id: "hadith", label: "حديث" },
+            ].map((opt) => {
+              const count =
+                opt.id === "all"
+                  ? camps.length
+                  : camps.filter((c) => (c.camp_type || "quran") === opt.id)
+                      .length;
+              const active = typeFilter === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setTypeFilter(opt.id as typeof typeFilter)}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition",
+                    active
+                      ? "border-primary/60 bg-primary/15 text-primary-100"
+                      : "border-slate-700 text-slate-300 hover:bg-slate-800"
+                  )}
+                >
+                  <span>{opt.label}</span>
+                  <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-[10px] text-slate-300">
+                    {count.toLocaleString("ar-EG")}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
           <div className="flex flex-wrap items-center gap-3">
             {statusFilters.map(({ value, label, count }) => {
               const isActive = filters.status === value;
@@ -744,7 +805,7 @@ export default function QuranCampsPage() {
                         onChange={() => toggleCampSelection(camp.id)}
                       />
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="text-lg font-semibold text-slate-100">
                             {camp.name}
                           </h3>
@@ -756,9 +817,29 @@ export default function QuranCampsPage() {
                           >
                             {camp.status_ar}
                           </span>
+                          <span
+                            className={cn(
+                              "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold border",
+                              (camp.camp_type || "quran") === "hadith"
+                                ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
+                                : "border-purple-500/40 bg-purple-500/10 text-purple-300"
+                            )}
+                          >
+                            {(camp.camp_type || "quran") === "hadith"
+                              ? "حديث"
+                              : "قرآن"}
+                          </span>
                         </div>
                         <p className="mt-1 text-sm text-slate-400">
-                          سورة {camp.surah_name} • {camp.duration_days} أيام
+                          {(camp.camp_type || "quran") === "hadith"
+                            ? `كتاب ${
+                                camp.content_source_slug
+                                  ? HADITH_BOOK_NAMES_AR[
+                                      camp.content_source_slug
+                                    ] || camp.content_source_slug
+                                  : "غير محدد"
+                              } • ${camp.duration_days} أيام`
+                            : `سورة ${camp.surah_name} • ${camp.duration_days} أيام`}
                         </p>
                       </div>
                     </div>
