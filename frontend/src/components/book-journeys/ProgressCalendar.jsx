@@ -1,6 +1,7 @@
 /**
  * مكون تقويم التقدم - Progress Calendar Component
  * يعرض تقويم شهري ملون حسب إنجاز القراءة اليومية
+ * مع إمكانية النقر على الأيام لمراجعة الأحاديث
  */
 
 import { useState, useEffect } from "react";
@@ -12,15 +13,21 @@ import {
   TrendingUp,
   Target,
   Flame,
+  Eye,
 } from "lucide-react";
 import { getProgressCalendar } from "../../services/bookJourneysService";
+import DayReviewModal from "./DayReviewModal";
 
-const ProgressCalendar = ({ journeyId }) => {
+const ProgressCalendar = ({ journeyId, bookName }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [calendarData, setCalendarData] = useState(null);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // حالة مودال المراجعة
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [showDayModal, setShowDayModal] = useState(false);
 
   // أسماء الأشهر بالعربية
   const arabicMonths = [
@@ -91,6 +98,7 @@ const ProgressCalendar = ({ journeyId }) => {
         progress,
         isToday: isToday(dateStr),
         isFuture: isFutureDate(dateStr),
+        hasProgress: progress?.count > 0,
       });
     }
     
@@ -124,6 +132,14 @@ const ProgressCalendar = ({ journeyId }) => {
     return "bg-gray-100 text-gray-500";
   };
 
+  // النقر على يوم لعرض الأحاديث
+  const handleDayClick = (dayData) => {
+    if (dayData.hasProgress && !dayData.isFuture) {
+      setSelectedDate(dayData.dateStr);
+      setShowDayModal(true);
+    }
+  };
+
   if (loading) {
     return (
       <div className="bg-white rounded-2xl p-6 animate-pulse">
@@ -140,105 +156,128 @@ const ProgressCalendar = ({ journeyId }) => {
   const calendarDays = generateCalendarDays();
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl p-6 shadow-sm"
-    >
-      {/* الهيدر */}
-      <div className="flex items-center justify-between mb-6">
-        <button
-          onClick={goToPreviousMonth}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <ChevronRight className="w-5 h-5 text-gray-600" />
-        </button>
-        
-        <h3 className="text-lg font-bold text-gray-800 arabic-text flex items-center gap-2">
-          <CalendarDays className="w-5 h-5 text-purple-600" />
-          {arabicMonths[currentMonth - 1]} {currentYear}
-        </h3>
-        
-        <button
-          onClick={goToNextMonth}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <ChevronLeft className="w-5 h-5 text-gray-600" />
-        </button>
-      </div>
-
-      {/* أسماء الأيام */}
-      <div className="grid grid-cols-7 gap-1 mb-2">
-        {arabicDays.map((day) => (
-          <div
-            key={day}
-            className="text-center text-xs font-medium text-gray-500 py-2 arabic-text"
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-2xl p-6 shadow-sm"
+      >
+        {/* الهيدر */}
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={goToPreviousMonth}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            {day}
-          </div>
-        ))}
-      </div>
-
-      {/* أيام التقويم */}
-      <div className="grid grid-cols-7 gap-1">
-        {calendarDays.map((dayData, index) => (
-          <motion.div
-            key={index}
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: index * 0.01 }}
-            className={`
-              relative h-10 flex flex-col items-center justify-center rounded-lg text-sm font-medium
-              transition-all cursor-default
-              ${getDayClass(dayData)}
-            `}
-            title={dayData.progress ? `${dayData.progress.count} حديث` : ""}
+            <ChevronRight className="w-5 h-5 text-gray-600" />
+          </button>
+          
+          <h3 className="text-lg font-bold text-gray-800 arabic-text flex items-center gap-2">
+            <CalendarDays className="w-5 h-5 text-purple-600" />
+            {arabicMonths[currentMonth - 1]} {currentYear}
+          </h3>
+          
+          <button
+            onClick={goToNextMonth}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            {dayData.day}
-            {dayData.progress?.count > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-white text-[10px] font-bold text-purple-600 rounded-full flex items-center justify-center shadow">
-                {dayData.progress.count}
-              </span>
-            )}
-          </motion.div>
-        ))}
-      </div>
+            <ChevronLeft className="w-5 h-5 text-gray-600" />
+          </button>
+        </div>
 
-      {/* دليل الألوان */}
-      <div className="flex items-center justify-center gap-4 mt-6 text-xs">
-        <div className="flex items-center gap-1">
-          <div className="w-4 h-4 bg-gradient-to-br from-green-400 to-emerald-500 rounded"></div>
-          <span className="text-gray-600 arabic-text">أكمل الورد</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-4 h-4 bg-gradient-to-br from-amber-300 to-orange-400 rounded"></div>
-          <span className="text-gray-600 arabic-text">جزئي</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-4 h-4 bg-gray-100 rounded"></div>
-          <span className="text-gray-600 arabic-text">لا قراءة</span>
-        </div>
-      </div>
+        {/* تلميح للنقر */}
+        <p className="text-xs text-gray-400 text-center mb-4 arabic-text">
+          💡 انقر على يوم ملون لمراجعة أحاديثه
+        </p>
 
-      {/* الإحصائيات */}
-      {stats && (
-        <div className="mt-6 grid grid-cols-3 gap-3">
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-3 rounded-xl text-center">
-            <div className="text-2xl font-bold text-green-600">{stats.completed_days}</div>
-            <div className="text-xs text-gray-500 arabic-text">يوم مكتمل</div>
+        {/* أسماء الأيام */}
+        <div className="grid grid-cols-7 gap-1 mb-2">
+          {arabicDays.map((day) => (
+            <div
+              key={day}
+              className="text-center text-xs font-medium text-gray-500 py-2 arabic-text"
+            >
+              {day}
+            </div>
+          ))}
+        </div>
+
+        {/* أيام التقويم */}
+        <div className="grid grid-cols-7 gap-1">
+          {calendarDays.map((dayData, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: index * 0.01 }}
+              onClick={() => handleDayClick(dayData)}
+              className={`
+                relative h-10 flex flex-col items-center justify-center rounded-lg text-sm font-medium
+                transition-all
+                ${getDayClass(dayData)}
+                ${dayData.hasProgress && !dayData.isFuture ? 'cursor-pointer hover:scale-105 hover:shadow-md' : 'cursor-default'}
+              `}
+              title={dayData.progress ? `${dayData.progress.count} حديث - انقر للمراجعة` : ""}
+            >
+              {dayData.day}
+              {dayData.progress?.count > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-white text-[10px] font-bold text-purple-600 rounded-full flex items-center justify-center shadow">
+                  {dayData.progress.count}
+                </span>
+              )}
+              {/* أيقونة العين للأيام القابلة للنقر */}
+              {dayData.hasProgress && !dayData.isFuture && (
+                <Eye className="absolute bottom-0.5 w-3 h-3 opacity-50" />
+              )}
+            </motion.div>
+          ))}
+        </div>
+
+        {/* دليل الألوان */}
+        <div className="flex items-center justify-center gap-4 mt-6 text-xs">
+          <div className="flex items-center gap-1">
+            <div className="w-4 h-4 bg-gradient-to-br from-green-400 to-emerald-500 rounded"></div>
+            <span className="text-gray-600 arabic-text">أكمل الورد</span>
           </div>
-          <div className="bg-gradient-to-br from-purple-50 to-violet-50 p-3 rounded-xl text-center">
-            <div className="text-2xl font-bold text-purple-600">{stats.total_hadiths_read}</div>
-            <div className="text-xs text-gray-500 arabic-text">حديث مقروء</div>
+          <div className="flex items-center gap-1">
+            <div className="w-4 h-4 bg-gradient-to-br from-amber-300 to-orange-400 rounded"></div>
+            <span className="text-gray-600 arabic-text">جزئي</span>
           </div>
-          <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-3 rounded-xl text-center">
-            <div className="text-2xl font-bold text-amber-600">{stats.average_per_day}</div>
-            <div className="text-xs text-gray-500 arabic-text">متوسط يومي</div>
+          <div className="flex items-center gap-1">
+            <div className="w-4 h-4 bg-gray-100 rounded"></div>
+            <span className="text-gray-600 arabic-text">لا قراءة</span>
           </div>
         </div>
-      )}
-    </motion.div>
+
+        {/* الإحصائيات */}
+        {stats && (
+          <div className="mt-6 grid grid-cols-3 gap-3">
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-3 rounded-xl text-center">
+              <div className="text-2xl font-bold text-green-600">{stats.completed_days}</div>
+              <div className="text-xs text-gray-500 arabic-text">يوم مكتمل</div>
+            </div>
+            <div className="bg-gradient-to-br from-purple-50 to-violet-50 p-3 rounded-xl text-center">
+              <div className="text-2xl font-bold text-purple-600">{stats.total_hadiths_read}</div>
+              <div className="text-xs text-gray-500 arabic-text">حديث مقروء</div>
+            </div>
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-3 rounded-xl text-center">
+              <div className="text-2xl font-bold text-amber-600">{stats.average_per_day}</div>
+              <div className="text-xs text-gray-500 arabic-text">متوسط يومي</div>
+            </div>
+          </div>
+        )}
+      </motion.div>
+
+      {/* مودال مراجعة اليوم */}
+      <DayReviewModal
+        isOpen={showDayModal}
+        onClose={() => setShowDayModal(false)}
+        journeyId={journeyId}
+        date={selectedDate}
+        bookName={bookName}
+      />
+    </>
   );
 };
 
 export default ProgressCalendar;
+

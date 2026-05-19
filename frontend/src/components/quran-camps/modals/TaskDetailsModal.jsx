@@ -17,6 +17,7 @@ import {
   Send,
   AlertCircle,
 } from "lucide-react";
+import HadithContentRenderer from "../../camps/types/HadithContentRenderer";
 
 /**
  * TaskDetailsModal - Enhanced task details and reflection modal
@@ -220,6 +221,11 @@ const TaskDetailsModal = ({
                     </div>
                   </div>
                 )}
+
+                {camp?.camp_type === "hadith" &&
+                  task?.content_ref_meta?.hadith_id && (
+                    <HadithContentRenderer meta={task.content_ref_meta} />
+                  )}
 
                 {/* Description */}
                 <div className="prose prose-sm max-w-none">

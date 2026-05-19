@@ -23,6 +23,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import IdentityChoiceModal from "./modals/IdentityChoiceModal";
+import HadithContentRenderer from "../camps/types/HadithContentRenderer";
 
 const CampPublicView = ({
   camp,
@@ -113,6 +114,16 @@ const CampPublicView = ({
                       </div>
                     </div>
                   )}
+
+                  {camp?.camp_type === "hadith" &&
+                    task?.content_ref_meta?.hadith_id && (
+                      <div className="mt-3">
+                        <HadithContentRenderer
+                          meta={task.content_ref_meta}
+                          compact
+                        />
+                      </div>
+                    )}
                 </div>
               ))}
             </div>
@@ -699,6 +710,8 @@ const CampPublicView = ({
                   <span>سجل دخولك للانضمام </span>
                 ) : camp.enable_public_enrollment === false ? (
                   <span>التسجيل مغلق من قبل الإدارة</span>
+                ) : camp.enable_cohorts === false ? (
+                  <span>ابدأ المخيم الآن</span>
                 ) : (
                   <span>انضم للرحلة الآن </span>
                 )}

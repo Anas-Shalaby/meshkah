@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { formatDate } from "../utils/campUtils";
+import { useTheme } from "../context/ThemeContext";
 
 const formatCountdown = (dateString) => {
   try {
@@ -80,6 +81,7 @@ const getStatusIcon = (status) => {
   }
 };
 const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
+  const { isNight } = useTheme();
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [isInView, setIsInView] = useState(false);
@@ -139,14 +141,20 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
         transition: { duration: 0.3, ease: "easeOut" },
       }}
       whileTap={{ scale: 0.98 }}
-      className="relative group min-h-[480px] overflow-hidden rounded-3xl border-2 border-[#e3d8fa] p-0 flex flex-col items-center text-center transition-all duration-300 cursor-pointer bg-white/90 backdrop-blur-xl camp-card"
+      className={`relative group camp-card flex min-h-[480px] cursor-pointer flex-col items-center overflow-hidden rounded-3xl border-2 p-0 text-center transition-all duration-300 ${
+        isNight
+          ? "border-white/10 bg-[#242428]/95 backdrop-blur-xl"
+          : "border-[#e3d8fa] bg-white/90 backdrop-blur-xl"
+      }`}
       style={{
         minHeight: 480,
         fontFamily: "Amiri, Cairo, serif",
-        background:
-          "linear-gradient(135deg, #f7f6fb 0%, #f3edff 60%, #e9e4f5 100%)",
-        boxShadow:
-          "0 2px 16px 0 rgba(116,64,233,0.08) inset, 0 15px 30px -10px rgba(116,64,233,0.2)",
+        background: isNight
+          ? "linear-gradient(135deg, #242428 0%, #2c2c31 60%, #1a1a1e 100%)"
+          : "linear-gradient(135deg, #f7f6fb 0%, #f3edff 60%, #e9e4f5 100%)",
+        boxShadow: isNight
+          ? "0 2px 16px 0 rgba(0,0,0,0.2) inset, 0 15px 30px -10px rgba(0,0,0,0.35)"
+          : "0 2px 16px 0 rgba(116,64,233,0.08) inset, 0 15px 30px -10px rgba(116,64,233,0.2)",
       }}
     >
       {/* زخرفة إسلامية أعلى البطاقة */}
@@ -358,8 +366,35 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
         </div>
       </motion.div>
 
-      {/* سورة */}
-      {camp.surah_name && (
+      {/* نوع المخيم (لإيضاح quran/hadith) */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.22 }}
+        className="px-4"
+      >
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          <span
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+              (camp.camp_type || "quran") === "hadith"
+                ? "bg-amber-50 text-amber-700 border-amber-200"
+                : "bg-purple-50 text-purple-700 border-purple-200"
+            }`}
+          >
+            {(camp.camp_type || "quran") === "hadith"
+              ? "مخيم حديث"
+              : "مخيم قرآن"}
+          </span>
+          {(camp.camp_type || "quran") === "hadith" && (
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              يبدأ تلقائيًا عند الاشتراك
+            </span>
+          )}
+        </div>
+      </motion.div>
+
+      {/* سورة (للمخيم القرآني فقط) */}
+      {camp.surah_name && (camp.camp_type || "quran") !== "hadith" && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -368,6 +403,34 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
           <div className="text-[#7440E9] font-bold mb-2 flex items-center gap-2">
             <BookOpen className="w-4 h-4" /> سورة{" "}
             {highlightText(camp.surah_name, searchQuery)}
+          </div>
+        </motion.div>
+      )}
+
+      {/* كتاب الحديث (للمخيم الحديثي) */}
+      {(camp.camp_type || "quran") === "hadith" && camp.content_source_slug && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+        >
+          <div className="text-amber-700 font-bold mb-2 flex items-center gap-2 px-4">
+            <BookOpen className="w-4 h-4" /> الكتاب:{" "}
+            {(
+              {
+                nawawi40: "الأربعين النووية",
+                qudsi40: "الأحاديث القدسية",
+                riyad_assalihin: "رياض الصالحين",
+                bulugh_almaram: "بلوغ المرام",
+                hisnulmuslim: "حصن المسلم",
+                shamail_muhammadiyah: "الشمائل المحمدية",
+                aladab_almufrad: "الأدب المفرد",
+                riyadiah40: "الأربعون الرياضية",
+                shahwaliullah40: "أربعين شاه ولي الله",
+                malik: "موطأ مالك",
+                darimi: "سنن الدارمي",
+              }[camp.content_source_slug] || camp.content_source_slug
+            )}
           </div>
         </motion.div>
       )}

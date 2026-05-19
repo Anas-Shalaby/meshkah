@@ -67,7 +67,7 @@ export const useRamadanTheme = () => {
   const context = useContext(RamadanThemeContext);
   if (context === undefined) {
     throw new Error(
-      "useRamadanTheme must be used within a RamadanThemeProvider"
+      "useRamadanTheme must be used within a RamadanThemeProvider",
     );
   }
   return {

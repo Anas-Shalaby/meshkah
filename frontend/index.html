@@ -1,12 +1,30 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ar">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      (function () {
+        try {
+          if (localStorage.getItem("mishkah_theme") === "night") {
+            document.documentElement.classList.add("dark", "night-theme");
+            document.documentElement.style.colorScheme = "dark";
+          }
+        } catch (e) {}
+      })();
+    </script>
     <!-- Update font preloading -->
     <style>
       @font-face {
         font-family: "MeshkahFont";
         src: url("/fonts/Foda-Free-Font.ttf") format("truetype");
+        font-display: swap;
+        font-weight: normal;
+        font-style: normal;
+      }
+
+      @font-face {
+        font-family: "AAJannatLT-Regular";
+        src: url("/assets/alfont_com_AAJannatLT-.ttf") format("truetype");
         font-display: swap;
         font-weight: normal;
         font-style: normal;

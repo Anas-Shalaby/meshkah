@@ -23,7 +23,7 @@ const CampBreadcrumbs = ({ camp, selectedDay, selectedTask, taskGroups }) => {
   // Home / Quran Camps
   breadcrumbs.push({
     type: "home",
-    label: "المخيمات القرآنية",
+    label: "المخيمات ",
     path: "/quran-camps",
     icon: Home,
   });

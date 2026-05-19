@@ -23,6 +23,8 @@ import {
 import { useBookmarks } from "../context/BookmarkContext";
 import { useAuth } from "../context/AuthContext";
 import { useRamadanTheme } from "../context/RamadanThemeContext";
+import { useTheme } from "../context/ThemeContext";
+import { getDashboardTheme } from "../components/home/dashboardTheme";
 import BookmarkModal from "../components/BookmarkModal";
 import RamadanCountdown from "../components/ramadan/RamadanCountdown";
 import RamadanFloatingElements from "../components/ramadan/RamadanFloatingElements";
@@ -46,6 +48,8 @@ const DailyHadith = () => {
   const { addBookmark, removeBookmark, bookmarks } = useBookmarks();
   const { user } = useAuth();
   const { isRamadanThemeActive } = useRamadanTheme();
+  const { isNight } = useTheme();
+  const t = getDashboardTheme(isNight);
 
   // جلب حديث عشوائي
   const fetchRandomHadith = async () => {
@@ -53,19 +57,19 @@ const DailyHadith = () => {
     try {
       // جلب قائمة IDs أولاً
       const idsResponse = await axios.get(
-        `${import.meta.env.VITE_API_URL}/hadith-ids`
+        `${import.meta.env.VITE_API_URL}/hadith-ids`,
       );
 
       if (idsResponse.data.ids && idsResponse.data.ids.length > 0) {
         // اختيار ID عشوائي
         const randomIndex = Math.floor(
-          Math.random() * idsResponse.data.ids.length
+          Math.random() * idsResponse.data.ids.length,
         );
         const randomHadith = idsResponse.data.ids[randomIndex];
 
         // جلب تفاصيل الحديث
         const hadithResponse = await axios.get(
-          `https://hadeethenc.com/api/v1/hadeeths/one/?language=ar&id=${randomHadith}`
+          `https://hadeethenc.com/api/v1/hadeeths/one/?language=ar&id=${randomHadith}`,
         );
 
         if (hadithResponse.data) {
@@ -88,7 +92,7 @@ const DailyHadith = () => {
               date: today,
               likes: 0, // إعادة تعيين الإعجابات
               isLiked: false, // إعادة تعيين حالة الـ like
-            })
+            }),
           );
         }
       }
@@ -142,7 +146,7 @@ const DailyHadith = () => {
         },
         {
           headers: { "x-auth-token": localStorage.getItem("token") },
-        }
+        },
       );
 
       if (response.data && response.data.analysis) {
@@ -230,7 +234,7 @@ const DailyHadith = () => {
     const text = `حديث اليوم من مشكاة:\n\n${dailyHadith.hadeeth}\n\n${window.location.origin}/daily-hadith`;
     const encodedText = encodeURIComponent(text);
     const encodedUrl = encodeURIComponent(
-      `${window.location.origin}/daily-hadith`
+      `${window.location.origin}/daily-hadith`,
     );
 
     let shareUrl = "";
@@ -241,7 +245,7 @@ const DailyHadith = () => {
         break;
       case "telegram":
         shareUrl = `https://t.me/share/url?url=${encodedUrl}&text=${encodeURIComponent(
-          `حديث اليوم من مشكاة:\n\n${dailyHadith.hadeeth}`
+          `حديث اليوم من مشكاة:\n\n${dailyHadith.hadeeth}`,
         )}`;
         break;
       case "twitter":
@@ -252,14 +256,14 @@ const DailyHadith = () => {
         break;
       case "qabilah":
         shareUrl = `https://qabilah.com/sharer?text=${encodeURIComponent(
-          text
+          text,
         )}&url=${encodeURIComponent(
-          "https://qabilah.com/profile/qabilah/posts"
+          "https://qabilah.com/profile/qabilah/posts",
         )}`;
         break;
       case "copy":
         navigator.clipboard.writeText(
-          `https://hadith-shareef.com/hadiths/hadith/${dailyHadith.id}`
+          `https://hadith-shareef.com/hadiths/hadith/${dailyHadith.id}`,
         );
         toast.success("تم نسخ الحديث للمشاركة");
         setShowShareModal(false);
@@ -302,13 +306,12 @@ const DailyHadith = () => {
 
   return (
     <div
-      className={`min-h-screen  overflow-hidden ${
+      className={`min-h-screen overflow-hidden ${
         isRamadanThemeActive
           ? "ramadan-bg-gradient ramadan-pattern-overlay"
-          : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"
+          : t.page
       }`}
     >
- 
       {isRamadanThemeActive && <RamadanFloatingElements />}
 
       {/* Add padding when countdown is fixed */}
@@ -326,7 +329,7 @@ const DailyHadith = () => {
                 repeat: Infinity,
                 ease: "linear",
               }}
-              className="absolute -top-20 -right-20 w-60 h-60 sm:w-80 sm:h-80 bg-purple-500/5 rounded-full blur-3xl"
+              className={`absolute -top-20 -right-20 h-60 w-60 rounded-full blur-3xl sm:h-80 sm:w-80 ${isNight ? "bg-white/[0.03]" : "bg-purple-500/5"}`}
             />
             <motion.div
               animate={{
@@ -338,7 +341,7 @@ const DailyHadith = () => {
                 repeat: Infinity,
                 ease: "linear",
               }}
-              className="absolute -bottom-20 -left-20 w-72 h-72 sm:w-96 sm:h-96 bg-blue-500/5 rounded-full blur-3xl"
+              className={`absolute -bottom-20 -left-20 h-72 w-72 rounded-full blur-3xl sm:h-96 sm:w-96 ${isNight ? "bg-white/[0.02]" : "bg-blue-500/5"}`}
             />
             <motion.div
               animate={{
@@ -350,7 +353,7 @@ const DailyHadith = () => {
                 repeat: Infinity,
                 ease: "easeInOut",
               }}
-              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-48 sm:w-64 sm:h-64 bg-indigo-500/5 rounded-full blur-2xl"
+              className={`absolute top-1/2 left-1/2 h-48 w-48 -translate-x-1/2 -translate-y-1/2 transform rounded-full blur-2xl sm:h-64 sm:w-64 ${isNight ? "bg-white/[0.02]" : "bg-indigo-500/5"}`}
             />
           </div>
         )}
@@ -365,10 +368,14 @@ const DailyHadith = () => {
           {/* Header */}
           <div className="relative mb-4 sm:mb-6 lg:mb-8">
             <div className="text-center px-2 relative">
-              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-800 mb-3 sm:mb-4 lg:mb-6 leading-tight">
+              <h2
+                className={`mb-3 text-2xl font-bold leading-tight sm:mb-4 sm:text-3xl md:text-4xl lg:mb-6 lg:text-5xl ${t.textHeading}`}
+              >
                 حديث اليوم
               </h2>
-              <p className="text-sm sm:text-base lg:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+              <p
+                className={`mx-auto max-w-3xl text-sm leading-relaxed sm:text-base lg:text-xl ${t.textBody}`}
+              >
                 حديث نبوي مختار يومياً مع تحليل سريع وفوائد عملية
               </p>
             </div>
@@ -380,19 +387,21 @@ const DailyHadith = () => {
             <div className="relative z-10 max-w-5xl mx-auto">
               <div className="space-y-4 sm:space-y-6">
                 {/* Main Hadith Card */}
-                <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 shadow-lg border border-gray-100">
+                <div className={t.cardSolid}>
                   {/* Hadith Text Section */}
-                  <div className="w-full bg-gradient-to-br from-white/80 to-purple-50/80 rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 mb-4 sm:mb-6 shadow-inner border border-purple-200/50">
+                  <div className={`mb-4 w-full sm:mb-6 ${t.cardInner}`}>
                     <div className="relative">
                       <p
-                        className="prose max-w-none text-lg sm:text-xl md:text-2xl text-gray-800 leading-loose amiri-regular text-right relative z-10"
+                        className={`prose amiri-regular relative z-10 max-w-none text-right text-lg leading-loose sm:text-xl md:text-2xl ${isNight ? "text-zinc-200" : "text-gray-800"}`}
                         style={{ lineHeight: "2.5" }}
                       >
                         {dailyHadith.hadeeth}
                       </p>
 
                       {dailyHadith.attribution && (
-                        <p className="text-right text-xs sm:text-sm text-gray-500 mt-4 sm:mt-6 font-sans flex items-center gap-1.5 sm:gap-2 justify-end">
+                        <p
+                          className={`mt-4 flex items-center justify-end gap-1.5 text-right font-sans text-xs sm:mt-6 sm:gap-2 sm:text-sm ${t.textMuted}`}
+                        >
                           <Users className="w-3 h-3 sm:w-4 sm:h-4" />
                           المحدث - {dailyHadith.attribution}
                         </p>
@@ -414,7 +423,7 @@ const DailyHadith = () => {
                     <div className="mb-4 sm:mb-6 text-center">
                       <Link
                         to={`/hadiths/hadith/${dailyHadith.id}`}
-                        className="group inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-[#7440E9] to-[#8B5CF6] text-white rounded-xl sm:rounded-2xl text-sm sm:text-base font-medium hover:shadow-lg transition-all duration-300"
+                        className={`group inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-300 hover:shadow-lg sm:gap-3 sm:rounded-2xl sm:px-6 sm:py-3 sm:text-base ${t.primaryBtn}`}
                       >
                         <ExternalLink className="w-4 h-4 sm:w-5 sm:h-5 group-hover:rotate-12 transition-transform duration-300" />
                         <span>عرض الحديث الكامل</span>
@@ -423,13 +432,17 @@ const DailyHadith = () => {
                   )}
 
                   {/* Action Buttons */}
-                  <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 pt-4 border-t border-gray-100">
+                  <div
+                    className={`flex flex-wrap items-center justify-center gap-2 border-t pt-4 sm:gap-3 ${t.divider}`}
+                  >
                     <button
                       onClick={toggleLike}
-                      className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 ${
+                      className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200 sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm ${
                         isLiked
                           ? "bg-red-500 text-white"
-                          : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
+                          : isNight
+                            ? "border border-white/10 bg-[#34343a] text-zinc-300 hover:bg-[#3f3f45]"
+                            : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
                       }`}
                     >
                       <Heart
@@ -442,7 +455,7 @@ const DailyHadith = () => {
 
                     <button
                       onClick={copyHadith}
-                      className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium bg-gradient-to-r from-[#7440E9] to-[#8B5CF6] text-white hover:shadow-lg transition-all duration-200"
+                      className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200 hover:shadow-lg sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm ${t.primaryBtn}`}
                     >
                       {isCopied ? (
                         <>
@@ -459,19 +472,21 @@ const DailyHadith = () => {
 
                     <button
                       onClick={shareHadith}
-                      className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-white/90 hover:bg-white transition-all duration-300 shadow-lg"
+                      className={`rounded-lg p-2 shadow-lg transition-all duration-300 sm:rounded-xl sm:p-3 ${isNight ? "bg-[#34343a] hover:bg-[#3f3f45]" : "bg-white/90 hover:bg-white"}`}
                       title="مشاركة"
                     >
-                      <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-[#7440E9]" />
+                      <Share2
+                        className={`h-4 w-4 sm:h-5 sm:w-5 ${t.textAccent}`}
+                      />
                     </button>
 
                     <button
                       onClick={handleBookmarkToggle}
-                      className="p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-300 shadow-lg bg-white/90 hover:bg-white"
+                      className={`rounded-lg p-2 shadow-lg transition-all duration-300 sm:rounded-xl sm:p-3 ${isNight ? "bg-[#34343a] hover:bg-[#3f3f45]" : "bg-white/90 hover:bg-white"}`}
                       title="حفظ"
                     >
                       <Bookmark
-                        className={`w-4 h-4 sm:w-5 sm:h-5 text-[#7440E9] ${
+                        className={`h-4 w-4 sm:h-5 sm:w-5 ${t.textAccent} ${
                           isBookmarked ? "fill-current" : ""
                         }`}
                       />
@@ -479,24 +494,28 @@ const DailyHadith = () => {
 
                     <button
                       onClick={fetchNewHadith}
-                      className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium bg-gradient-to-r from-[#7440E9] to-[#8B5CF6] text-white hover:shadow-lg transition-all duration-200"
+                      className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200 hover:shadow-lg sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm ${t.primaryBtn}`}
                     >
-                      <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <RefreshCw className="h-4 w-4 sm:h-5 sm:w-5" />
                       <span className="hidden sm:inline">حديث آخر</span>
                     </button>
                   </div>
                 </div>
 
                 {/* AI Analysis Section */}
-                <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 shadow-lg border border-gray-100">
-                  <div className="text-center mb-4 sm:mb-6">
-                    <div className="flex items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-                      <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-[#7440E9]" />
-                      <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">
+                <div className={t.cardSolid}>
+                  <div className="mb-4 text-center sm:mb-6">
+                    <div className="mb-3 flex items-center justify-center gap-2 sm:mb-4 sm:gap-3">
+                      <Sparkles
+                        className={`h-6 w-6 sm:h-8 sm:w-8 ${t.textAccent}`}
+                      />
+                      <h2
+                        className={`text-xl font-bold sm:text-2xl lg:text-3xl ${t.textHeading}`}
+                      >
                         تحليل سريع
                       </h2>
                     </div>
-                    <p className="text-gray-600 text-sm sm:text-base">
+                    <p className={`text-sm sm:text-base ${t.textBody}`}>
                       فهم أعمق للحديث مع فوائد عملية
                     </p>
                   </div>
@@ -506,7 +525,7 @@ const DailyHadith = () => {
                       <button
                         onClick={analyzeHadith}
                         disabled={analysisLoading}
-                        className="group flex items-center gap-2 sm:gap-3 px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-[#7440E9] to-[#8B5CF6] text-white rounded-xl sm:rounded-2xl text-sm sm:text-base lg:text-lg font-medium hover:shadow-lg transition-all duration-300 mx-auto"
+                        className={`group mx-auto flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-medium transition-all duration-300 hover:shadow-lg sm:gap-3 sm:rounded-2xl sm:px-8 sm:py-4 sm:text-base lg:text-lg ${t.primaryBtn}`}
                       >
                         {analysisLoading ? (
                           <>
@@ -522,14 +541,20 @@ const DailyHadith = () => {
                       </button>
                     </div>
                   ) : (
-                    <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8">
-                      <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-                        <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-[#7440E9]" />
-                        <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800">
+                    <div className={t.cardInner}>
+                      <div className="mb-3 flex items-center gap-2 sm:mb-4 sm:gap-3">
+                        <Sparkles
+                          className={`h-5 w-5 sm:h-6 sm:w-6 ${t.textAccent}`}
+                        />
+                        <h3
+                          className={`text-lg font-bold sm:text-xl lg:text-2xl ${t.textHeading}`}
+                        >
                           التحليل
                         </h3>
                       </div>
-                      <p className="text-gray-800 text-sm sm:text-base lg:text-lg leading-relaxed amiri-regular">
+                      <p
+                        className={`amiri-regular text-sm leading-relaxed sm:text-base lg:text-lg ${isNight ? "text-zinc-200" : "text-gray-800"}`}
+                      >
                         {analysis}
                       </p>
                     </div>
@@ -539,7 +564,7 @@ const DailyHadith = () => {
             </div>
           ) : (
             <div className="text-center py-20">
-              <p className="text-gray-600 text-lg">لم يتم العثور على حديث</p>
+              <p className={`text-lg ${t.textBody}`}>لم يتم العثور على حديث</p>
             </div>
           )}
         </div>
@@ -564,14 +589,14 @@ const DailyHadith = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              className={t.modalOverlay}
               onClick={() => setShowShareModal(false)}
             >
               <motion.div
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.8, opacity: 0 }}
-                className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl"
+                className={`${t.modal} max-w-sm w-full`}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="text-center mb-6">

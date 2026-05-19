@@ -27,7 +27,7 @@ const SharedReflectionPage = () => {
     const fetchSharedReflection = async () => {
       try {
         const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/quran-camps/shared/${shareLink}`
+          `${import.meta.env.VITE_API_URL}/quran-camps/shared/${shareLink}`,
         );
 
         const data = await response.json();
@@ -109,10 +109,10 @@ const SharedReflectionPage = () => {
 
   return (
     <>
-        <SEO
-          title={`${reflection.task.title} - ${reflection.camp.name} - مشكاة الأحاديث`}
-          description={`تدبر مشارك من ${reflection.camp.name}: ${reflection.task.title}`}
-          canonicalUrl={`${window.location.origin}/shared-reflection/${shareLink}`}
+      <SEO
+        title={`${reflection.task.title} - ${reflection.camp.name} - مشكاة الأحاديث`}
+        description={`تدبر مشارك من ${reflection.camp.name}: ${reflection.task.title}`}
+        canonicalUrl={`${window.location.origin}/shared-reflection/${shareLink}`}
         description={`تدبر قرآني من مخيم ${reflection.camp.name}`}
         keywords="تدبر, قرآن, مخيمات قرآنية, تفسير, فوائد قرآنية"
       />
@@ -296,7 +296,7 @@ const SharedReflectionPage = () => {
                     <Calendar className="w-3.5 h-3.5" />
                     <span>
                       {new Date(
-                        reflection.reflection.completed_at
+                        reflection.reflection.completed_at,
                       ).toLocaleDateString("ar-SA", {
                         day: "numeric",
                         month: "long",

@@ -23,10 +23,10 @@ const FullPageLoadingScreen = ({ message = "جاري التحميل..." }) => {
             autoplay
             loop
             src="/assets/LIghts.json"
-            style={{ 
-              width: "200px", 
+            style={{
+              width: "200px",
               height: "200px",
-              margin: "0 auto"
+              margin: "0 auto",
             }}
           />
         </motion.div>

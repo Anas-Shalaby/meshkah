@@ -59,7 +59,7 @@ const MyCampJourneyPage = () => {
             headers: {
               "x-auth-token": localStorage.getItem("token"),
             },
-          }
+          },
         );
 
         const data = await response.json();
@@ -71,11 +71,11 @@ const MyCampJourneyPage = () => {
           if (data.data.enrollment) {
             const daysSinceStart = Math.floor(
               (new Date() - new Date(data.data.enrollment.camp_start_date)) /
-                (1000 * 60 * 60 * 24)
+                (1000 * 60 * 60 * 24),
             );
             const currentDay = Math.min(
               Math.max(daysSinceStart + 1, 1),
-              data.data.enrollment.duration_days || 1
+              data.data.enrollment.duration_days || 1,
             );
             setSelectedDay(currentDay);
           }
@@ -104,7 +104,7 @@ const MyCampJourneyPage = () => {
           headers: {
             "x-auth-token": localStorage.getItem("token"),
           },
-        }
+        },
       );
       const data = await response.json();
       if (data.success) {
@@ -127,7 +127,7 @@ const MyCampJourneyPage = () => {
           headers: {
             "x-auth-token": localStorage.getItem("token"),
           },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -144,7 +144,7 @@ const MyCampJourneyPage = () => {
       const campName = progress?.camp?.name || "المخيم";
       const fileName = `ملاحظات_مخيم_${campName.replace(
         /\s+/g,
-        "_"
+        "_",
       )}.${format}`;
       a.download = fileName;
 
@@ -181,7 +181,7 @@ const MyCampJourneyPage = () => {
               benefits ? `الفوائد المستخرجة:\n${benefits}\n\n` : ""
             }${notes}`,
           }),
-        }
+        },
       );
 
       const data = await response.json();
@@ -194,7 +194,7 @@ const MyCampJourneyPage = () => {
             headers: {
               "x-auth-token": localStorage.getItem("token"),
             },
-          }
+          },
         );
         const progressData = await progressResponse.json();
         if (progressData.success) {
@@ -334,11 +334,11 @@ const MyCampJourneyPage = () => {
   const tasksByDay = groupTasksByDay(progress.tasks || []);
   const today = new Date().toDateString();
   const campStartDate = new Date(
-    progress.enrollment.camp_start_date
+    progress.enrollment.camp_start_date,
   ).toDateString();
   const daysSinceStart = Math.floor(
     (new Date() - new Date(progress.enrollment.camp_start_date)) /
-      (1000 * 60 * 60 * 24)
+      (1000 * 60 * 60 * 24),
   );
 
   // Check camp status
@@ -395,7 +395,7 @@ const MyCampJourneyPage = () => {
         title={`رحلتي في ${progress.enrollment.camp_name} - المخيمات القرآنية`}
         description={`تابع تقدمك في مخيم ${progress.enrollment.camp_name} للتعمق في سورة ${progress.enrollment.surah_name}`}
         keywords={`مخيم قرآني, ${progress.enrollment.surah_name}, حفظ القرآن, تقدم المخيم`}
-        canonicalUrl={`${window.location.origin}/my-camp-journey/${campId}`}
+        canonicalUrl={`${window.location.origin}/my-camp-journey/${id}`}
         noindex={true}
       />
 
@@ -462,7 +462,7 @@ const MyCampJourneyPage = () => {
                   {Math.round(
                     (notesStats.avgReflectionLength +
                       notesStats.avgBenefitsLength) /
-                      2
+                      2,
                   )}
                 </div>
                 <div className="text-sm text-gray-600">متوسط الطول</div>
@@ -656,8 +656,8 @@ const MyCampJourneyPage = () => {
                       {progress.progress.rank === 1
                         ? "🥇"
                         : progress.progress.rank === 2
-                        ? "🥈"
-                        : "🥉"}
+                          ? "🥈"
+                          : "🥉"}
                     </span>
                   )}
                 </div>
@@ -723,16 +723,16 @@ const MyCampJourneyPage = () => {
                     {progress.progress.progressPercentage >= 80
                       ? "أداء ممتاز! 🌟"
                       : progress.progress.progressPercentage >= 50
-                      ? "أداء جيد 👍"
-                      : "واصل الجهد 💪"}
+                        ? "أداء جيد 👍"
+                        : "واصل الجهد 💪"}
                   </span>
                 </div>
                 <div className="mt-4 text-sm text-blue-600 font-medium">
                   {progress.progress.progressPercentage >= 80
                     ? "أنت في الطريق الصحيح!"
                     : progress.progress.progressPercentage >= 50
-                    ? "استمر في التقدم"
-                    : "ابدأ اليوم!"}
+                      ? "استمر في التقدم"
+                      : "ابدأ اليوم!"}
                 </div>
               </div>
             </div>
@@ -787,10 +787,10 @@ const MyCampJourneyPage = () => {
                                 selectedDay === dayNumber
                                   ? "bg-gradient-to-br from-purple-500 via-blue-500 to-indigo-500 text-white shadow-2xl transform scale-105"
                                   : isCurrentDay
-                                  ? "bg-gradient-to-br from-green-400 via-emerald-500 to-teal-500 text-white shadow-xl"
-                                  : isPastDay
-                                  ? "bg-gradient-to-br from-gray-400 via-slate-400 to-zinc-400 text-white shadow-lg"
-                                  : "bg-white border-2 border-gray-300 text-gray-600 hover:border-purple-400 hover:bg-purple-50"
+                                    ? "bg-gradient-to-br from-green-400 via-emerald-500 to-teal-500 text-white shadow-xl"
+                                    : isPastDay
+                                      ? "bg-gradient-to-br from-gray-400 via-slate-400 to-zinc-400 text-white shadow-lg"
+                                      : "bg-white border-2 border-gray-300 text-gray-600 hover:border-purple-400 hover:bg-purple-50"
                               }`}
                             >
                               <div className="flex flex-col items-center justify-center h-full">
@@ -828,7 +828,7 @@ const MyCampJourneyPage = () => {
                             </button>
                           </div>
                         );
-                      }
+                      },
                     )}
                   </div>
                 </div>
@@ -871,7 +871,7 @@ const MyCampJourneyPage = () => {
                             <div className="flex items-center">
                               <div
                                 className={`w-14 h-14 rounded-3xl flex items-center justify-center mr-6 shadow-xl group-hover:scale-110 transition-transform duration-300 ${getTaskTypeColor(
-                                  task.task_type
+                                  task.task_type,
                                 )}`}
                               >
                                 {getTaskTypeIcon(task.task_type)}
@@ -986,7 +986,7 @@ const MyCampJourneyPage = () => {
                                 <CheckCircle className="w-4 h-4 mr-2" />
                                 مكتمل في{" "}
                                 {new Date(task.completed_at).toLocaleDateString(
-                                  "ar-SA"
+                                  "ar-SA",
                                 )}
                               </p>
                             </div>
@@ -1139,7 +1139,7 @@ const MyCampJourneyPage = () => {
                               : ""
                           }${notes}`,
                         }),
-                      }
+                      },
                     );
 
                     const data = await response.json();
@@ -1154,7 +1154,7 @@ const MyCampJourneyPage = () => {
                           headers: {
                             "x-auth-token": localStorage.getItem("token"),
                           },
-                        }
+                        },
                       );
                       const progressData = await progressResponse.json();
                       if (progressData.success) {
@@ -1321,7 +1321,7 @@ const MyCampJourneyPage = () => {
                           benefits: benefits,
                           notes: notes,
                         }),
-                      }
+                      },
                     );
 
                     const data = await response.json();
@@ -1336,7 +1336,7 @@ const MyCampJourneyPage = () => {
                           headers: {
                             "x-auth-token": localStorage.getItem("token"),
                           },
-                        }
+                        },
                       );
                       const progressData = await progressResponse.json();
                       if (progressData.success) {

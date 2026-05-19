@@ -10,8 +10,12 @@ import {
 } from "lucide-react";
 import "../styles/animations.css";
 import SEO from "../components/SEO";
+import { useTheme } from "../context/ThemeContext";
+import { getDashboardTheme } from "../components/home/dashboardTheme";
 
 const HadithVerificationPage = () => {
+  const { isNight } = useTheme();
+  const t = getDashboardTheme(isNight);
   const [searchText, setSearchText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState(null);
@@ -111,8 +115,8 @@ const HadithVerificationPage = () => {
         `${
           import.meta.env.VITE_API_URL
         }/hadith-verification/search?text=${encodeURIComponent(
-          searchText
-        )}&source=dorar`
+          searchText,
+        )}&source=dorar`,
       );
       const data = await response.json();
 
@@ -145,7 +149,7 @@ const HadithVerificationPage = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ text: searchText }),
-        }
+        },
       );
 
       const data = await response.json();
@@ -267,7 +271,7 @@ const HadithVerificationPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#F7F6FB] via-[#F3EDFF] to-[#E9E4F5] font-[Cairo,Amiri,sans-serif]">
+    <div className={`min-h-screen font-[Cairo,Amiri,sans-serif] ${t.page}`}>
       <SEO
         title="التحقق من صحة الأحاديث - مشكاة الأحاديث"
         description="تحقق من صحة الأحاديث النبوية الشريفة ومعرفة درجتها (صحيح، حسن، ضعيف، موضوع)"
@@ -277,25 +281,33 @@ const HadithVerificationPage = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12">
         {/* Header */}
         <div className="text-center mb-8 sm:mb-12">
-          <div className="inline-flex items-center justify-center w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-[#7440E9] to-[#B794F6] rounded-2xl mb-6 shadow-2xl animate-pulse">
-            <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
+          <div
+            className={`mb-6 inline-flex h-20 w-20 items-center justify-center rounded-2xl shadow-2xl sm:h-24 sm:w-24 ${t.iconBox}`}
+          >
+            <CheckCircle className="h-10 w-10 text-white sm:h-12 sm:w-12" />
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#2D1A4A] mb-4 leading-tight">
+          <h1
+            className={`mb-4 text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl ${t.textHeading}`}
+          >
             فاحص الأحاديث
           </h1>
-          <p className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+          <p
+            className={`mx-auto max-w-3xl text-lg leading-relaxed sm:text-xl ${t.textBody}`}
+          >
             أدخل نص الحديث وسنحدد لك درجته بدقة من خلال مصادر موثوقة ومعتمدة
           </p>
         </div>
 
         {/* Search Form */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/30 p-6 sm:p-8 mb-8 sm:mb-12">
+        <div className={`mb-8 sm:mb-12 ${t.panel}`}>
           <div className="space-y-6">
-            <div className="text-center mb-6">
-              <h2 className="text-2xl sm:text-3xl font-bold text-[#2D1A4A] mb-2">
+            <div className="mb-6 text-center">
+              <h2
+                className={`mb-2 text-2xl font-bold sm:text-3xl ${t.textHeading}`}
+              >
                 ابدأ رحلة الاكتشاف
               </h2>
-              <p className="text-gray-600">
+              <p className={t.textBody}>
                 انسخ الحديث من أي مصدر واتركنا نكشف لك الحقيقة
               </p>
             </div>
@@ -304,7 +316,7 @@ const HadithVerificationPage = () => {
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
                 placeholder="📝 أدخل نص الحديث هنا... مثال: قال رسول الله صلى الله عليه وسلم..."
-                className="w-full px-6 py-4 border-2 border-gray-200 rounded-2xl focus:border-[#7440E9] focus:ring-0 resize-none text-right text-base sm:text-lg leading-relaxed placeholder-gray-400 transition-all duration-300 hover:border-[#7440E9]/50"
+                className={t.textarea}
                 rows="4"
                 onKeyPress={(e) =>
                   e.key === "Enter" && !e.shiftKey && handleVerify()
@@ -319,7 +331,7 @@ const HadithVerificationPage = () => {
               <button
                 onClick={handleVerify}
                 disabled={isLoading || !searchText.trim()}
-                className="w-full sm:w-auto group relative px-8 py-4 bg-gradient-to-r from-[#7440E9] to-[#B794F6] text-white rounded-2xl hover:from-[#6B3AD1] hover:to-[#A67FF0] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 text-lg font-bold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:transform-none"
+                className={`group relative flex w-full items-center justify-center gap-3 rounded-2xl px-8 py-4 text-lg font-bold shadow-lg transition-all duration-300 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:transform-none sm:w-auto transform hover:scale-105 ${t.primaryBtn}`}
               >
                 {isLoading ? (
                   <div className="flex items-center gap-3">
@@ -336,7 +348,7 @@ const HadithVerificationPage = () => {
               {searchText.trim() && (
                 <button
                   onClick={() => setSearchText("")}
-                  className="px-4 py-2 text-gray-500 hover:text-gray-700 transition-colors text-sm"
+                  className={`px-4 py-2 text-sm transition-colors ${t.textMuted} ${isNight ? "hover:text-zinc-200" : "hover:text-gray-700"}`}
                 >
                   مسح النص
                 </button>
@@ -357,9 +369,11 @@ const HadithVerificationPage = () => {
           <div className="space-y-8">
             {/* Primary Grade Result - Clean and Simple */}
             {results.data.verificationSummary.primaryGrade && (
-              <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/30 p-6 sm:p-8 text-center">
+              <motion.div className={`text-center ${t.panel}`}>
                 <div className="mb-6">
-                  <div className="text-2xl sm:text-3xl font-bold text-[#2D1A4A] mb-6 flex items-center justify-center gap-3">
+                  <div
+                    className={`mb-6 flex items-center justify-center gap-3 text-2xl font-bold sm:text-3xl ${t.textHeading}`}
+                  >
                     <span className="text-3xl">🎯</span>
                     حكم الحديث
                   </div>
@@ -368,7 +382,7 @@ const HadithVerificationPage = () => {
                   <div className="transform hover:scale-105 transition-transform duration-300 mb-6">
                     <div
                       className={`inline-flex items-center gap-3 ${getGradeColors(
-                        results.data.verificationSummary.primaryGrade
+                        results.data.verificationSummary.primaryGrade,
                       )} text-white px-8 py-4 rounded-2xl text-2xl font-bold shadow-lg`}
                     >
                       {results.data.verificationSummary.primaryGrade}
@@ -377,24 +391,32 @@ const HadithVerificationPage = () => {
 
                   {/* Source and Rawi Info */}
                   {results?.data?.dorar?.data?.length > 0 && (
-                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6 border border-gray-200">
+                    <div className={t.innerPanel}>
                       <div className="space-y-3">
                         {results.data.dorar.data[0].book && (
                           <div className="flex items-center gap-3">
-                            <span className="font-bold text-[#7440E9] text-sm">
+                            <span
+                              className={`text-sm font-bold ${t.textAccent}`}
+                            >
                               الكتاب:
                             </span>
-                            <span className="text-gray-700 text-sm font-medium">
+                            <span
+                              className={`text-sm font-medium ${t.textBody}`}
+                            >
                               {results.data.dorar.data[0].book}
                             </span>
                           </div>
                         )}
                         {results.data.dorar.data[0].rawi && (
                           <div className="flex items-center gap-3">
-                            <span className="font-bold text-[#7440E9] text-sm">
+                            <span
+                              className={`text-sm font-bold ${t.textAccent}`}
+                            >
                               الراوي:
                             </span>
-                            <span className="text-gray-700 text-sm font-medium">
+                            <span
+                              className={`text-sm font-medium ${t.textBody}`}
+                            >
                               {results.data.dorar.data[0].rawi}
                             </span>
                           </div>
@@ -403,26 +425,27 @@ const HadithVerificationPage = () => {
                     </div>
                   )}
                 </div>
-              </div>
+              </motion.div>
             )}
 
             {/* Show results directly from Dorar data */}
             {results?.data?.dorar?.data?.length > 0 && (
-              <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/30 p-6 sm:p-8">
-                <div className="text-2xl sm:text-3xl font-bold text-[#2D1A4A] mb-6 text-center flex items-center justify-center gap-3">
+              <div className={t.panel}>
+                <div
+                  className={`mb-6 flex items-center justify-center gap-3 text-center text-2xl font-bold sm:text-3xl ${t.textHeading}`}
+                >
                   <span className="text-3xl">📚</span>
                   تفاصيل النتائج
                 </div>
 
                 {/* Show multiple results */}
                 {results.data.dorar.data.slice(0, 3).map((hadith, index) => (
-                  <div
-                    key={index}
-                    className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6 mb-6"
-                  >
+                  <div key={index} className={`mb-6 ${t.innerPanel}`}>
                     {/* Result Header */}
                     <div className="text-center mb-4">
-                      <div className="inline-flex items-center gap-2 bg-[#7440E9] text-white px-4 py-2 rounded-full text-sm font-bold">
+                      <div
+                        className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold text-white ${isNight ? "bg-[#5b4d6f]" : "bg-[#7440E9]"}`}
+                      >
                         <span>📖</span>
                         النتيجة {index + 1}
                       </div>
@@ -442,7 +465,7 @@ const HadithVerificationPage = () => {
 
                       {/* Hadith Text */}
                       <p
-                        className="text-[#2D1A4A] text-lg sm:text-xl lg:text-2xl font-bold leading-relaxed"
+                        className={`text-lg font-bold leading-relaxed sm:text-xl lg:text-2xl ${t.textHeading}`}
                         style={{ fontFamily: "Amiri, serif" }}
                       >
                         {hadith.hadith}
@@ -452,32 +475,46 @@ const HadithVerificationPage = () => {
                     {/* Quick Summary */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                       {hadith.muhaddith && (
-                        <div className="bg-white rounded-xl p-4 border border-gray-200">
-                          <div className="text-sm font-bold text-[#7440E9] mb-2">
+                        <div
+                          className={`rounded-xl border p-4 ${isNight ? "border-white/10 bg-[#34343a]" : "border-gray-200 bg-white"}`}
+                        >
+                          <div
+                            className={`mb-2 text-sm font-bold ${t.textAccent}`}
+                          >
                             المحدث:
                           </div>
-                          <div className="text-gray-700 font-medium">
+                          <div className={`font-medium ${t.textBody}`}>
                             {hadith.muhaddith}
                           </div>
                         </div>
                       )}
                       {hadith.book && (
-                        <div className="bg-white rounded-xl p-4 border border-gray-200">
-                          <div className="text-sm font-bold text-[#7440E9] mb-2">
+                        <div
+                          className={`rounded-xl border p-4 ${isNight ? "border-white/10 bg-[#34343a]" : "border-gray-200 bg-white"}`}
+                        >
+                          <div
+                            className={`mb-2 text-sm font-bold ${t.textAccent}`}
+                          >
                             المصدر:
                           </div>
-                          <div className="text-gray-700 font-medium">
+                          <div className={`font-medium ${t.textBody}`}>
                             {hadith.book}
                           </div>
                         </div>
                       )}
                       {hadith.grade && (
-                        <div className="bg-white rounded-xl p-4 border border-gray-200 sm:col-span-2">
-                          <div className="text-sm font-bold text-[#7440E9] mb-2">
+                        <div
+                          className={`rounded-xl border p-4 sm:col-span-2 ${isNight ? "border-white/10 bg-[#34343a]" : "border-gray-200 bg-white"}`}
+                        >
+                          <div
+                            className={`mb-2 text-sm font-bold ${t.textAccent}`}
+                          >
                             الحكم:
                           </div>
                           <div className="flex items-center gap-3">
-                            <span className="bg-gradient-to-r from-[#7440E9] to-[#B794F6] text-white px-4 py-2 rounded-full font-bold">
+                            <span
+                              className={`rounded-full px-4 py-2 font-bold text-white ${isNight ? "bg-[#5b4d6f]" : "bg-gradient-to-r from-[#7440E9] to-[#B794F6]"}`}
+                            >
                               {hadith.grade}
                             </span>
                           </div>
@@ -528,7 +565,7 @@ const HadithVerificationPage = () => {
         {/* Floating Educational Button */}
         <button
           onClick={() => setShowEducationalPath(!showEducationalPath)}
-          className="fixed bottom-6 right-6 bg-gradient-to-r from-[#7440E9] to-[#B794F6] text-white p-4 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-110 z-50"
+          className={`fixed bottom-6 right-6 z-50 rounded-full p-4 text-white shadow-2xl transition-all duration-300 transform hover:scale-110 hover:shadow-3xl ${t.primaryBtn}`}
         >
           <BookOpen className="w-6 h-6" />
         </button>
@@ -536,11 +573,15 @@ const HadithVerificationPage = () => {
         {/* Educational Path Modal */}
         {showEducationalPath && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+            <div
+              className={`max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-3xl ${isNight ? "bg-[#242428] border border-white/10" : "bg-white"}`}
+            >
               <div className="p-4 sm:p-6">
                 {/* Header */}
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl sm:text-2xl font-bold text-[#2D1A4A] flex items-center gap-2">
+                  <h2
+                    className={`flex items-center gap-2 text-xl font-bold sm:text-2xl ${t.textHeading}`}
+                  >
                     📚 طريق تعليمي
                   </h2>
                   <button
@@ -559,7 +600,7 @@ const HadithVerificationPage = () => {
                     </span>
                     <span>
                       {Math.round(
-                        ((currentStep + 1) / educationalSteps.length) * 100
+                        ((currentStep + 1) / educationalSteps.length) * 100,
                       )}
                       %
                     </span>
@@ -586,7 +627,7 @@ const HadithVerificationPage = () => {
                       }`}
                       onClick={() =>
                         setFlippedCard(
-                          flippedCard === currentStep ? null : currentStep
+                          flippedCard === currentStep ? null : currentStep,
                         )
                       }
                     >
@@ -597,22 +638,26 @@ const HadithVerificationPage = () => {
                             educationalSteps[currentStep].color === "green"
                               ? "from-green-100 to-green-200"
                               : educationalSteps[currentStep].color === "blue"
-                              ? "from-blue-100 to-blue-200"
-                              : educationalSteps[currentStep].color === "yellow"
-                              ? "from-yellow-100 to-yellow-200"
-                              : educationalSteps[currentStep].color === "red"
-                              ? "from-red-100 to-red-200"
-                              : "from-purple-100 to-purple-200"
+                                ? "from-blue-100 to-blue-200"
+                                : educationalSteps[currentStep].color ===
+                                    "yellow"
+                                  ? "from-yellow-100 to-yellow-200"
+                                  : educationalSteps[currentStep].color ===
+                                      "red"
+                                    ? "from-red-100 to-red-200"
+                                    : "from-purple-100 to-purple-200"
                           } border-2 ${
                             educationalSteps[currentStep].color === "green"
                               ? "border-green-300"
                               : educationalSteps[currentStep].color === "blue"
-                              ? "border-blue-300"
-                              : educationalSteps[currentStep].color === "yellow"
-                              ? "border-yellow-300"
-                              : educationalSteps[currentStep].color === "red"
-                              ? "border-red-300"
-                              : "border-purple-300"
+                                ? "border-blue-300"
+                                : educationalSteps[currentStep].color ===
+                                    "yellow"
+                                  ? "border-yellow-300"
+                                  : educationalSteps[currentStep].color ===
+                                      "red"
+                                    ? "border-red-300"
+                                    : "border-purple-300"
                           } rounded-2xl p-6 h-full flex flex-col items-center justify-center text-center`}
                         >
                           <div className="text-6xl mb-4">
@@ -634,22 +679,26 @@ const HadithVerificationPage = () => {
                             educationalSteps[currentStep].color === "green"
                               ? "from-green-50 to-green-100"
                               : educationalSteps[currentStep].color === "blue"
-                              ? "from-blue-50 to-blue-100"
-                              : educationalSteps[currentStep].color === "yellow"
-                              ? "from-yellow-50 to-yellow-100"
-                              : educationalSteps[currentStep].color === "red"
-                              ? "from-red-50 to-red-100"
-                              : "from-purple-50 to-purple-100"
+                                ? "from-blue-50 to-blue-100"
+                                : educationalSteps[currentStep].color ===
+                                    "yellow"
+                                  ? "from-yellow-50 to-yellow-100"
+                                  : educationalSteps[currentStep].color ===
+                                      "red"
+                                    ? "from-red-50 to-red-100"
+                                    : "from-purple-50 to-purple-100"
                           } border-2 ${
                             educationalSteps[currentStep].color === "green"
                               ? "border-green-300"
                               : educationalSteps[currentStep].color === "blue"
-                              ? "border-blue-300"
-                              : educationalSteps[currentStep].color === "yellow"
-                              ? "border-yellow-300"
-                              : educationalSteps[currentStep].color === "red"
-                              ? "border-red-300"
-                              : "border-purple-300"
+                                ? "border-blue-300"
+                                : educationalSteps[currentStep].color ===
+                                    "yellow"
+                                  ? "border-yellow-300"
+                                  : educationalSteps[currentStep].color ===
+                                      "red"
+                                    ? "border-red-300"
+                                    : "border-purple-300"
                           } rounded-2xl p-6 h-full flex flex-col justify-center`}
                         >
                           <div className="text-center mb-4">
@@ -695,8 +744,8 @@ const HadithVerificationPage = () => {
                           index === currentStep
                             ? "bg-[#7440E9] scale-125"
                             : index < currentStep
-                            ? "bg-green-400"
-                            : "bg-gray-300"
+                              ? "bg-green-400"
+                              : "bg-gray-300"
                         }`}
                       />
                     ))}

@@ -135,6 +135,8 @@ import {
   formatChallengeDayLabel,
   getCurrentDay as getCurrentDayUtil,
 } from "../../utils/campUtils.jsx";
+import { getHadithBookNameAr } from "../../pages/QuranCampDetailsPage.jsx";
+import HadithContentRenderer from "../camps/types/HadithContentRenderer";
 
 const CampJourneyInterface = ({
   camp,
@@ -169,7 +171,7 @@ const CampJourneyInterface = ({
     // Debug: التحقق من بيانات الأصدقاء قبل بناء الـ tree
     if (tasks && tasks.length > 0) {
       const taskWithFriends = tasks.find(
-        (t) => t.completed_by_friends && t.completed_by_friends.length > 0
+        (t) => t.completed_by_friends && t.completed_by_friends.length > 0,
       );
     }
 
@@ -233,7 +235,7 @@ const CampJourneyInterface = ({
 
     // Sort ungrouped tasks
     ungroupedTasks.sort(
-      (a, b) => (a.order_in_day || 0) - (b.order_in_day || 0)
+      (a, b) => (a.order_in_day || 0) - (b.order_in_day || 0),
     );
 
     // Debug: التحقق من بيانات الأصدقاء بعد بناء الـ tree
@@ -242,7 +244,7 @@ const CampJourneyInterface = ({
       ...ungroupedTasks,
     ];
     const taskWithFriendsAfter = allTasksInTree.find(
-      (t) => t.completed_by_friends && t.completed_by_friends.length > 0
+      (t) => t.completed_by_friends && t.completed_by_friends.length > 0,
     );
 
     // Return tree structure: groups first, then ungrouped tasks
@@ -267,7 +269,7 @@ const CampJourneyInterface = ({
         // Traverse up the parent chain
         while (currentGroup && currentGroup.parent_group_id) {
           const parentGroup = groups.find(
-            (g) => g.id === currentGroup.parent_group_id
+            (g) => g.id === currentGroup.parent_group_id,
           );
           if (parentGroup) {
             parentGroups.unshift({
@@ -367,7 +369,7 @@ const CampJourneyInterface = ({
 
     // Sort ungrouped tasks
     ungroupedTasks.sort(
-      (a, b) => (a.order_in_day || 0) - (b.order_in_day || 0)
+      (a, b) => (a.order_in_day || 0) - (b.order_in_day || 0),
     );
 
     return { groupedTasks, ungroupedTasks };
@@ -495,9 +497,8 @@ const CampJourneyInterface = ({
   const [dayTestInfo, setDayTestInfo] = useState(null);
   const [checkingTest, setCheckingTest] = useState(false);
   const [celebratingDay, setCelebratingDay] = useState(null); // Track which day is being celebrated
-  const [studyHallSelectedDay, setStudyHallSelectedDay] = useState(
-    getCurrentDay()
-  );
+  const [studyHallSelectedDay, setStudyHallSelectedDay] =
+    useState(getCurrentDay());
   const [studyHallFilter, setStudyHallFilter] = useState("all"); // "all", "my", "others"
   const [studyHallSearch, setStudyHallSearch] = useState(""); // البحث في التدبرات
   const [studyHallSort, setStudyHallSort] = useState("newest"); // "newest", "helpful", "saved"
@@ -516,10 +517,10 @@ const CampJourneyInterface = ({
         newSort || studyHallSort,
         1, // Reset to page 1
         20,
-        true // Reset cache
+        true, // Reset cache
       );
     },
-    [studyHallSelectedDay, studyHallSort]
+    [studyHallSelectedDay, studyHallSort],
   );
   const [showAddReflectionModal, setShowAddReflectionModal] = useState(false);
 
@@ -845,7 +846,7 @@ const CampJourneyInterface = ({
             "x-auth-token": `${token}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (response.ok) {
@@ -880,7 +881,7 @@ const CampJourneyInterface = ({
             "x-auth-token": `${token}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (response.ok) {
@@ -908,7 +909,7 @@ const CampJourneyInterface = ({
             "Content-Type": "application/json",
           },
           body: JSON.stringify(newSettings),
-        }
+        },
       );
 
       if (response.ok) {
@@ -950,7 +951,7 @@ const CampJourneyInterface = ({
             "x-auth-token": `${token}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (response.ok) {
@@ -1001,7 +1002,7 @@ const CampJourneyInterface = ({
               "x-auth-token": token,
               "Content-Type": "application/json",
             },
-          }
+          },
         );
 
         if (response.ok) {
@@ -1023,7 +1024,7 @@ const CampJourneyInterface = ({
         setCheckingTest(false);
       }
     },
-    [camp.id]
+    [camp.id],
   );
 
   // التحقق من وجود اختبار عند تغيير اليوم
@@ -1041,7 +1042,7 @@ const CampJourneyInterface = ({
       // منع إكمال المهام إذا كان المخيم لم يبدأ بعد
       if (isCampNotStarted) {
         toast.error(
-          "المخيم لم يبدأ بعد. يرجى الانتظار حتى يبدأ الادمن المخيم."
+          "المخيم لم يبدأ بعد. يرجى الانتظار حتى يبدأ الادمن المخيم.",
         );
         return false;
       }
@@ -1057,7 +1058,7 @@ const CampJourneyInterface = ({
               "x-auth-token": `${token}`,
               "Content-Type": "application/json",
             },
-          }
+          },
         );
 
         if (response.ok) {
@@ -1080,12 +1081,12 @@ const CampJourneyInterface = ({
                     total_points: taskToUpdate.points || 0,
                     completed_at: new Date().toISOString(),
                   }
-                : task
+                : task,
             );
 
             // التحقق من إكمال جميع مهام اليوم
             const dayTasks = updatedTasks.filter(
-              (task) => task.day_number === completedDay
+              (task) => task.day_number === completedDay,
             );
             allDayTasksCompleted =
               dayTasks.length > 0 && dayTasks.every((task) => task.completed);
@@ -1115,7 +1116,7 @@ const CampJourneyInterface = ({
                 `رائع! تم إكمال جميع مهام ${formatDayLabel(completedDay)} 🎉`,
                 {
                   duration: 3000,
-                }
+                },
               );
             }, 300);
 
@@ -1145,7 +1146,7 @@ const CampJourneyInterface = ({
       studyHallSelectedDay,
       activeTab,
       studyHallSort,
-    ]
+    ],
   );
 
   // حفظ التدبر والفوائد
@@ -1155,12 +1156,12 @@ const CampJourneyInterface = ({
     benefits,
     isPrivate = true,
     contentRich = null,
-    proposedStep = null
+    proposedStep = null,
   ) => {
     // منع حفظ الفوائد إذا كان المخيم منتهياً (read_only)
     if (isReadOnly) {
       toast.error(
-        "لا يمكن إضافة ملاحظات أو فوائد في المخيمات المنتهية. يمكنك إكمال المهام فقط."
+        "لا يمكن إضافة ملاحظات أو فوائد في المخيمات المنتهية. يمكنك إكمال المهام فقط.",
       );
       return false;
     }
@@ -1187,7 +1188,7 @@ const CampJourneyInterface = ({
             is_private: isPrivate, // حالة الخصوصية
             proposed_step: proposedStep || null, // الخطوة العملية المقترحة
           }),
-        }
+        },
       );
 
       if (response.ok) {
@@ -1200,7 +1201,7 @@ const CampJourneyInterface = ({
             studyHallSort,
             1,
             20,
-            true
+            true,
           );
         }
 
@@ -1222,7 +1223,7 @@ const CampJourneyInterface = ({
           ),
           {
             duration: 5000,
-          }
+          },
         );
         return true;
       } else {
@@ -1263,7 +1264,7 @@ const CampJourneyInterface = ({
           body: JSON.stringify({
             campName: campName,
           }),
-        }
+        },
       );
 
       if (response.ok) {
@@ -1292,7 +1293,7 @@ const CampJourneyInterface = ({
           headers: {
             "x-auth-token": token,
           },
-        }
+        },
       );
       const data = await response.json();
       if (
@@ -1322,7 +1323,7 @@ const CampJourneyInterface = ({
           headers: {
             "x-auth-token": token,
           },
-        }
+        },
       );
       const data = await response.json();
 
@@ -1352,7 +1353,7 @@ const CampJourneyInterface = ({
             headers: {
               "x-auth-token": token,
             },
-          }
+          },
         );
         const data = await response.json();
         if (data.success) {
@@ -1429,7 +1430,7 @@ const CampJourneyInterface = ({
             "x-auth-token": token,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (response.ok) {
@@ -1669,7 +1670,7 @@ const CampJourneyInterface = ({
       sort = studyHallSort,
       page = 1,
       limit = 20,
-      resetCache = false
+      resetCache = false,
     ) => {
       // عند تغيير اليوم أو الترتيب، نعيد الصفحة إلى 1
       if (resetCache) {
@@ -1717,7 +1718,7 @@ const CampJourneyInterface = ({
               "x-auth-token": `${token}`,
               "Content-Type": "application/json",
             },
-          }
+          },
         );
 
         if (response.ok) {
@@ -1753,7 +1754,7 @@ const CampJourneyInterface = ({
         setStudyHallLoading(false);
       }
     },
-    [camp.id, studyHallSelectedDay, studyHallSort, studyHallCache]
+    [camp.id, studyHallSelectedDay, studyHallSort, studyHallCache],
   );
 
   // دوال handlers للتصويت والحفظ
@@ -1780,7 +1781,7 @@ const CampJourneyInterface = ({
             };
           }
           return item;
-        })
+        }),
       );
 
       // تحديث journalData أيضًا
@@ -1829,7 +1830,7 @@ const CampJourneyInterface = ({
               "Content-Type": "application/json",
               "x-auth-token": token,
             },
-          }
+          },
         );
 
         if (!response.ok) {
@@ -1849,7 +1850,7 @@ const CampJourneyInterface = ({
                 };
               }
               return item;
-            })
+            }),
           );
           toast.error("حدث خطأ في التصويت");
         }
@@ -1858,7 +1859,7 @@ const CampJourneyInterface = ({
         toast.error("حدث خطأ في التصويت");
       }
     },
-    [camp?.id]
+    [camp?.id],
   );
 
   // دالة الالتزام بخطوة مشتركة
@@ -1887,7 +1888,7 @@ const CampJourneyInterface = ({
               "x-auth-token": `${token}`,
               "Content-Type": "application/json",
             },
-          }
+          },
         );
 
         const data = await response.json();
@@ -1962,7 +1963,7 @@ const CampJourneyInterface = ({
               studyHallSort,
               studyHallPagination.page,
               20,
-              false
+              false,
             );
           }, 1500);
         } else {
@@ -1981,7 +1982,7 @@ const CampJourneyInterface = ({
         setPledgingProgressId(null);
       }
     },
-    [camp?.id]
+    [camp?.id],
   );
 
   const handleToggleSave = useCallback(
@@ -2007,7 +2008,7 @@ const CampJourneyInterface = ({
             };
           }
           return item;
-        })
+        }),
       );
 
       // تحديث journalData أيضًا
@@ -2056,7 +2057,7 @@ const CampJourneyInterface = ({
               "Content-Type": "application/json",
               "x-auth-token": token,
             },
-          }
+          },
         );
 
         if (!response.ok) {
@@ -2076,7 +2077,7 @@ const CampJourneyInterface = ({
                 };
               }
               return item;
-            })
+            }),
           );
           toast.error("حدث خطأ في الحفظ");
         }
@@ -2085,7 +2086,7 @@ const CampJourneyInterface = ({
         toast.error("حدث خطأ في الحفظ");
       }
     },
-    [camp?.id]
+    [camp?.id],
   );
 
   // دالة فتح مودال الحذف
@@ -2110,13 +2111,13 @@ const CampJourneyInterface = ({
             "Content-Type": "application/json",
             "x-auth-token": token,
           },
-        }
+        },
       );
 
       if (response.ok) {
         // إزالة التدبر من القائمة
         setStudyHallData((prevData) =>
-          prevData.filter((item) => item.progress_id !== reflectionToDelete)
+          prevData.filter((item) => item.progress_id !== reflectionToDelete),
         );
         toast.success("تم حذف التدبر بنجاح");
         // إغلاق المودال وإعادة تعيين الحالة
@@ -2148,7 +2149,7 @@ const CampJourneyInterface = ({
             "Content-Type": "application/json",
             "x-auth-token": token,
           },
-        }
+        },
       );
 
       if (response.ok) {
@@ -2156,7 +2157,7 @@ const CampJourneyInterface = ({
         setJournalData((prev) => ({
           ...prev,
           myReflections: prev.myReflections.filter(
-            (item) => item.progress_id !== progressId
+            (item) => item.progress_id !== progressId,
           ),
         }));
 
@@ -2184,7 +2185,7 @@ const CampJourneyInterface = ({
       (t) =>
         t.day_number === item.day_number &&
         t.title === item.task_title &&
-        (item.task_type ? t.task_type === item.task_type : true)
+        (item.task_type ? t.task_type === item.task_type : true),
     );
 
     if (!task) {
@@ -2232,21 +2233,21 @@ const CampJourneyInterface = ({
     if (item.task_title) {
       // البحث باستخدام task_title و day
       task = userProgress?.tasks?.find(
-        (t) => t.day_number === item.day && t.title === item.task_title
+        (t) => t.day_number === item.day && t.title === item.task_title,
       );
     }
 
     // إذا لم نجد، نبحث باستخدام title بعد تنظيفه
     if (!task && cleanTitle && item.day) {
       task = userProgress?.tasks?.find(
-        (t) => t.day_number === item.day && t.title === cleanTitle
+        (t) => t.day_number === item.day && t.title === cleanTitle,
       );
     }
 
     // إذا لم نجد، نبحث باستخدام day فقط (نأخذ أول مهمة في اليوم)
     if (!task && item.day) {
       const dayTasks = userProgress?.tasks?.filter(
-        (t) => t.day_number === item.day
+        (t) => t.day_number === item.day,
       );
       if (dayTasks && dayTasks.length > 0) {
         // نأخذ أول مهمة في اليوم (أو المهمة المكتملة إذا كانت موجودة)
@@ -2296,7 +2297,7 @@ const CampJourneyInterface = ({
           "",
           !shareInStudyHall,
           reflectionJson,
-          proposedStep || null // proposed_step
+          proposedStep || null, // proposed_step
         );
       }
 
@@ -2362,7 +2363,7 @@ const CampJourneyInterface = ({
           "",
           !shareInStudyHall,
           reflectionJson,
-          proposedStep || null // proposed_step
+          proposedStep || null, // proposed_step
         );
       }
 
@@ -2385,7 +2386,7 @@ const CampJourneyInterface = ({
               studyHallSort,
               1,
               20,
-              true
+              true,
             );
           }
         }
@@ -2402,7 +2403,7 @@ const CampJourneyInterface = ({
               studyHallSort,
               1,
               20,
-              true
+              true,
             );
           }
         }
@@ -2479,7 +2480,7 @@ const CampJourneyInterface = ({
       { id: "my_journal", label: "سجلي", icon: FileText },
       { id: "friends", label: "الصحبة", icon: Users },
     ],
-    [camp?.status, camp?.enable_study_hall, resources, qanda]
+    [camp?.status, camp?.enable_study_hall, resources, qanda],
   );
 
   // حساب اليوم الحالي باستخدام useMemo لتجنب إعادة الحساب في كل render
@@ -2499,13 +2500,13 @@ const CampJourneyInterface = ({
     (dayNumber) => {
       if (!userProgress?.tasks) return 0;
       const dayTasks = userProgress.tasks.filter(
-        (task) => task.day_number === dayNumber
+        (task) => task.day_number === dayNumber,
       );
       if (dayTasks.length === 0) return 0;
       const completedTasks = dayTasks.filter((task) => task.completed).length;
       return (completedTasks / dayTasks.length) * 100;
     },
-    [userProgress]
+    [userProgress],
   );
 
   const getDayStatus = useCallback(
@@ -2514,7 +2515,7 @@ const CampJourneyInterface = ({
 
       // جلب مهام اليوم
       const dayTasks = userProgress.tasks.filter(
-        (task) => task.day_number === dayNumber
+        (task) => task.day_number === dayNumber,
       );
 
       // إذا لم يكن هناك مهام، فاليوم مغلق
@@ -2546,7 +2547,7 @@ const CampJourneyInterface = ({
       // الأيام المستقبلية مغلقة
       return "locked";
     },
-    [userProgress, currentDay]
+    [userProgress, currentDay],
   );
 
   return (
@@ -2619,8 +2620,10 @@ const CampJourneyInterface = ({
               مرحباً بك في رحلة {camp.name}
             </h2>
             <p className="font-almarai text-sm sm:text-base lg:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-              استعد لرحلة تحويلية مع سورة {camp.surah_name} -{" "}
-              {camp.duration_days} أيام من التعلم المكثف
+              {camp.camp_type === "quran"
+                ? `استعد لرحلة تحويلية مع سورة ${camp.surah_name}`
+                : `استعد لرحلة تحويلية مع كتاب ${getHadithBookNameAr(camp.content_source_slug)}`}
+              - {camp.duration_days} أيام من التعلم المكثف
             </p>
           </div>
         </div>
@@ -2742,8 +2745,8 @@ const CampJourneyInterface = ({
                         camp?.user_cohort?.not_started
                           ? "bg-blue-100"
                           : camp?.user_cohort?.is_completed
-                          ? "bg-gray-100"
-                          : "bg-red-100"
+                            ? "bg-gray-100"
+                            : "bg-red-100"
                       }`}
                     >
                       <Lock
@@ -2751,8 +2754,8 @@ const CampJourneyInterface = ({
                           camp?.user_cohort?.not_started
                             ? "text-blue-600"
                             : camp?.user_cohort?.is_completed
-                            ? "text-gray-600"
-                            : "text-red-600"
+                              ? "text-gray-600"
+                              : "text-red-600"
                         }`}
                       />
                     </div>
@@ -2761,17 +2764,17 @@ const CampJourneyInterface = ({
                         camp?.user_cohort?.not_started
                           ? "text-blue-900"
                           : camp?.user_cohort?.is_completed
-                          ? "text-gray-900"
-                          : "text-red-900"
+                            ? "text-gray-900"
+                            : "text-red-900"
                       }`}
                     >
                       {camp?.user_cohort?.not_started
                         ? "المخيم لم يبدأ بعد"
                         : camp?.user_cohort?.is_completed
-                        ? "المخيم منتهي"
-                        : camp?.user_cohort?.is_cancelled
-                        ? "المخيم تم إلغاؤه"
-                        : "خريطة الرحلة مقفولة"}
+                          ? "المخيم منتهي"
+                          : camp?.user_cohort?.is_cancelled
+                            ? "المخيم تم إلغاؤه"
+                            : "خريطة الرحلة مقفولة"}
                     </h3>
                     <p className="text-gray-700 text-sm max-w-md">
                       {camp?.user_cohort?.not_started ? (
@@ -2815,7 +2818,7 @@ const CampJourneyInterface = ({
                   const dayProgress = getDayProgress(dayNumber);
                   const isMilestone = [10, 20, 30].includes(dayNumber);
                   const hasReflection = userProgress?.tasks?.some(
-                    (task) => task.day_number === dayNumber && task.benefits
+                    (task) => task.day_number === dayNumber && task.benefits,
                   );
                   const isSelected = dayNumber === selectedDay;
                   const isCelebrating =
@@ -2826,10 +2829,10 @@ const CampJourneyInterface = ({
                     status === "completed"
                       ? "completed"
                       : status === "active"
-                      ? "active"
-                      : status === "incomplete"
-                      ? "incomplete"
-                      : "locked";
+                        ? "active"
+                        : status === "incomplete"
+                          ? "incomplete"
+                          : "locked";
 
                   return (
                     <React.Fragment key={dayNumber}>
@@ -2853,13 +2856,13 @@ const CampJourneyInterface = ({
                           onClick={() => {
                             if (camp?.user_cohort?.not_started) {
                               toast.error(
-                                "المخيم لم يبدأ بعد - ستبدأ خريطة الرحلة عند بدء المخيم"
+                                "المخيم لم يبدأ بعد - ستبدأ خريطة الرحلة عند بدء المخيم",
                               );
                               return;
                             }
                             if (camp?.user_cohort?.is_closed) {
                               toast.error(
-                                "خريطة الرحلة مقفولة - الفوج الذي انتسبت إليه مقفول حالياً"
+                                "خريطة الرحلة مقفولة - الفوج الذي انتسبت إليه مقفول حالياً",
                               );
                               return;
                             }
@@ -2870,7 +2873,7 @@ const CampJourneyInterface = ({
                                 () => {
                                   setSelectedDay(dayNumber);
                                   setShowTaskSidebar(true);
-                                }
+                                },
                               );
                             }
                           }}
@@ -2903,7 +2906,7 @@ const CampJourneyInterface = ({
                                 {getDayTheme(
                                   dayNumber,
                                   userProgress?.tasks,
-                                  taskGroups
+                                  taskGroups,
                                 ) || `مهام ${formatDayLabel(dayNumber)}`}
                               </p>
                             )}
@@ -2923,8 +2926,8 @@ const CampJourneyInterface = ({
                               status === "completed"
                                 ? "bg-green-500"
                                 : status === "active"
-                                ? "bg-[#7440E9]"
-                                : "bg-gray-300"
+                                  ? "bg-[#7440E9]"
+                                  : "bg-gray-300"
                             }`}
                             initial={{ width: 0 }}
                             animate={{
@@ -2932,8 +2935,8 @@ const CampJourneyInterface = ({
                                 status === "completed"
                                   ? "100%"
                                   : status === "active"
-                                  ? `${dayProgress}%`
-                                  : "0%",
+                                    ? `${dayProgress}%`
+                                    : "0%",
                             }}
                             transition={{ duration: 0.5 }}
                           />
@@ -2958,10 +2961,10 @@ const CampJourneyInterface = ({
                         day === 10
                           ? "quarter"
                           : day === 20
-                          ? "half"
-                          : day === 30
-                          ? "three-quarters"
-                          : "complete"
+                            ? "half"
+                            : day === 30
+                              ? "three-quarters"
+                              : "complete"
                       }
                       achieved={status === "completed"}
                       dayNumber={day}
@@ -3015,7 +3018,7 @@ const CampJourneyInterface = ({
                     studyHallSort,
                     page,
                     20,
-                    false
+                    false,
                   );
                 }}
                 loading={studyHallLoading}
@@ -3028,7 +3031,7 @@ const CampJourneyInterface = ({
                     studyHallSort,
                     1,
                     20,
-                    true
+                    true,
                   );
                 }}
               />
@@ -3184,7 +3187,7 @@ const CampJourneyInterface = ({
                                           headers: {
                                             "x-auth-token": token,
                                           },
-                                        }
+                                        },
                                       );
 
                                       if (!response.ok) {
@@ -3211,10 +3214,10 @@ const CampJourneyInterface = ({
                                       ) {
                                         console.error(
                                           "Invalid content type:",
-                                          contentType
+                                          contentType,
                                         );
                                         throw new Error(
-                                          "الملف المُستلم ليس ملف PDF صالح"
+                                          "الملف المُستلم ليس ملف PDF صالح",
                                         );
                                       }
 
@@ -3228,19 +3231,19 @@ const CampJourneyInterface = ({
                                       let filename = campNameFallback;
                                       const contentDisposition =
                                         response.headers.get(
-                                          "content-disposition"
+                                          "content-disposition",
                                         );
                                       if (contentDisposition) {
                                         // First try UTF-8 encoded filename (filename*=UTF-8''...)
                                         // This is the preferred format for non-ASCII characters
                                         const utf8Match =
                                           contentDisposition.match(
-                                            /filename\*=UTF-8''([^;]+)/i
+                                            /filename\*=UTF-8''([^;]+)/i,
                                           );
                                         if (utf8Match && utf8Match[1]) {
                                           try {
                                             filename = decodeURIComponent(
-                                              utf8Match[1]
+                                              utf8Match[1],
                                             );
                                           } catch (e) {
                                             filename = utf8Match[1];
@@ -3249,7 +3252,7 @@ const CampJourneyInterface = ({
                                           // Fallback to basic filename parameter
                                           const filenameMatch =
                                             contentDisposition.match(
-                                              /filename=['"]?([^'";]+)['"]?/i
+                                              /filename=['"]?([^'";]+)['"]?/i,
                                             );
                                           if (
                                             filenameMatch &&
@@ -3263,18 +3266,18 @@ const CampJourneyInterface = ({
                                       // Log for debugging
                                       console.log(
                                         "Extracted filename:",
-                                        filename
+                                        filename,
                                       );
                                       console.log(
                                         "Content-Disposition header:",
-                                        contentDisposition
+                                        contentDisposition,
                                       );
 
                                       // Verify blob type
                                       if (blob.type !== "application/pdf") {
                                         console.error(
                                           "Invalid blob type:",
-                                          blob.type
+                                          blob.type,
                                         );
                                         // Try to fix it
                                         const fixedBlob = new Blob([blob], {
@@ -3306,19 +3309,19 @@ const CampJourneyInterface = ({
                                         "تم تحميل ملف PDF بنجاح! 🎉",
                                         {
                                           duration: 3000,
-                                        }
+                                        },
                                       );
                                     } catch (error) {
                                       console.error(
                                         "Error downloading PDF:",
-                                        error
+                                        error,
                                       );
                                       toast.error(
                                         error.message ||
                                           "حدث خطأ أثناء تحميل الملف",
                                         {
                                           duration: 3000,
-                                        }
+                                        },
                                       );
                                     } finally {
                                       setIsDownloadingPDF(false);
@@ -3581,7 +3584,7 @@ const CampJourneyInterface = ({
                 closeOnboarding("taskModal", setShowTaskModalIntro, () => {
                   // إعادة فتح مهام اليوم بعد الإغلاق
                   const tasksForDay = userProgress?.tasks?.filter(
-                    (task) => task.day_number === selectedDay
+                    (task) => task.day_number === selectedDay,
                   );
                   if (tasksForDay && tasksForDay.length > 0) {
                     setShowTaskSidebar(true);
@@ -3604,7 +3607,7 @@ const CampJourneyInterface = ({
               isOpen={showStudyHallIntro}
               onClose={() =>
                 closeOnboarding("studyHall", setShowStudyHallIntro, () =>
-                  setActiveTab("study")
+                  setActiveTab("study"),
                 )
               }
               title="قاعة التدارس"
@@ -3621,7 +3624,7 @@ const CampJourneyInterface = ({
               isOpen={showJournalIntro}
               onClose={() =>
                 closeOnboarding("journal", setShowJournalIntro, () =>
-                  setActiveTab("my_journal")
+                  setActiveTab("my_journal"),
                 )
               }
               title="سجلي الشخصي"
@@ -3638,7 +3641,7 @@ const CampJourneyInterface = ({
               isOpen={showLeaderboardIntro}
               onClose={() =>
                 closeOnboarding("leaderboard", setShowLeaderboardIntro, () =>
-                  setActiveTab("leaderboard")
+                  setActiveTab("leaderboard"),
                 )
               }
               title="لوحة الصدارة"
@@ -3655,7 +3658,7 @@ const CampJourneyInterface = ({
               isOpen={showActionPlanIntro}
               onClose={() =>
                 closeOnboarding("actionPlan", setShowActionPlanIntro, () =>
-                  setShowActionPlanModal(true)
+                  setShowActionPlanModal(true),
                 )
               }
               title="خطة العمل"
@@ -3698,7 +3701,7 @@ const CampJourneyInterface = ({
                   <div>
                     <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide">
                       {formatChallengeDayLabel(
-                        challengeDetailsModal?.dayNumber
+                        challengeDetailsModal?.dayNumber,
                       )}
                     </p>
                     <h3 className="font-almarai text-lg font-bold text-gray-900">
@@ -3731,15 +3734,15 @@ const CampJourneyInterface = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 z-50"
+              className="fixed inset-0 z-[1100] bg-black/50"
               onClick={() => setShowTaskSidebar(false)}
             >
               <motion.div
-                initial={{ x: "100%" }}
+                initial={{ x: "-100%" }}
                 animate={{ x: 0 }}
-                exit={{ x: "100%" }}
+                exit={{ x: "-100%" }}
                 transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                className="fixed overflow-y-auto right-0 top-[60px] sm:top-[60px] h-screen sm:h-[calc(100vh-50px)] w-full sm:max-w-md bg-white shadow-2xl flex flex-col"
+                className="fixed left-0 top-0 z-[1101] flex h-[100dvh] w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl sm:max-w-md"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Sidebar Header - Sticky */}
@@ -3751,7 +3754,7 @@ const CampJourneyInterface = ({
                       </h3>
                       <p className="text-xs sm:text-sm text-gray-600 mt-0.5 sm:mt-1">
                         {userProgress?.tasks?.filter(
-                          (task) => task.day_number === selectedDay
+                          (task) => task.day_number === selectedDay,
                         )?.length || 0}{" "}
                         مهمة
                       </p>
@@ -3863,7 +3866,7 @@ const CampJourneyInterface = ({
                   {(() => {
                     const dayTasks =
                       userProgress?.tasks?.filter(
-                        (task) => task.day_number === selectedDay
+                        (task) => task.day_number === selectedDay,
                       ) || [];
                     const taskTree = buildTaskTree(dayTasks, taskGroups || []);
                     const dayChallenge = dayChallenges?.[selectedDay] || null;
@@ -3888,7 +3891,7 @@ const CampJourneyInterface = ({
                                     {dayChallenge.description?.length > 50
                                       ? `${dayChallenge.description.slice(
                                           0,
-                                          20
+                                          20,
                                         )}...`
                                       : dayChallenge.description}
                                   </p>
@@ -3932,10 +3935,10 @@ const CampJourneyInterface = ({
                                       task.completed
                                         ? "bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 shadow-md hover:shadow-lg"
                                         : task.day_number < currentDay
-                                        ? "bg-gradient-to-br from-orange-50 to-amber-50 border-orange-200 hover:border-orange-300 hover:shadow-md"
-                                        : task.day_number === currentDay
-                                        ? "bg-gradient-to-br from-[#F7F6FB] to-[#F3EDFF] border-[#7440E9]/30 hover:border-[#7440E9]/50 hover:shadow-lg ring-2 ring-[#7440E9]/10"
-                                        : "bg-white border-gray-200 hover:border-[#7440E9]/30 hover:shadow-md"
+                                          ? "bg-gradient-to-br from-orange-50 to-amber-50 border-orange-200 hover:border-orange-300 hover:shadow-md"
+                                          : task.day_number === currentDay
+                                            ? "bg-gradient-to-br from-[#F7F6FB] to-[#F3EDFF] border-[#7440E9]/30 hover:border-[#7440E9]/50 hover:shadow-lg ring-2 ring-[#7440E9]/10"
+                                            : "bg-white border-gray-200 hover:border-[#7440E9]/30 hover:shadow-md"
                                     }`}
                                   >
                                     {/* Task Header */}
@@ -3945,10 +3948,10 @@ const CampJourneyInterface = ({
                                           task.completed
                                             ? "bg-gradient-to-br from-green-500 to-emerald-600"
                                             : task.day_number < currentDay
-                                            ? "bg-gradient-to-br from-orange-500 to-amber-600"
-                                            : task.day_number === currentDay
-                                            ? "bg-gradient-to-br from-[#7440E9] to-[#8B5CF6] ring-2 ring-[#7440E9]/30"
-                                            : "bg-gradient-to-br from-gray-400 to-gray-500"
+                                              ? "bg-gradient-to-br from-orange-500 to-amber-600"
+                                              : task.day_number === currentDay
+                                                ? "bg-gradient-to-br from-[#7440E9] to-[#8B5CF6] ring-2 ring-[#7440E9]/30"
+                                                : "bg-gradient-to-br from-gray-400 to-gray-500"
                                         }`}
                                       >
                                         {task.completed ? (
@@ -3964,10 +3967,11 @@ const CampJourneyInterface = ({
                                               task.completed
                                                 ? "text-green-700 line-through decoration-green-500 decoration-2"
                                                 : task.day_number < currentDay
-                                                ? "text-orange-800"
-                                                : task.day_number === currentDay
-                                                ? "text-[#7440E9]"
-                                                : "text-gray-800"
+                                                  ? "text-orange-800"
+                                                  : task.day_number ===
+                                                      currentDay
+                                                    ? "text-[#7440E9]"
+                                                    : "text-gray-800"
                                             }`}
                                           >
                                             {task.title}
@@ -3987,14 +3991,24 @@ const CampJourneyInterface = ({
                                             task.completed
                                               ? "text-green-600 line-through decoration-green-400 decoration-1"
                                               : task.day_number === currentDay
-                                              ? "text-[#7440E9]/70"
-                                              : "text-gray-600"
+                                                ? "text-[#7440E9]/70"
+                                                : "text-gray-600"
                                           }`}
                                         >
                                           {task.description}
                                         </p>
                                       </div>
                                     </div>
+
+                                    {camp?.camp_type === "hadith" &&
+                                      task?.content_ref_meta?.hadith_id && (
+                                        <div className="mb-2 sm:mb-3">
+                                          <HadithContentRenderer
+                                            meta={task.content_ref_meta}
+                                            compact
+                                          />
+                                        </div>
+                                      )}
 
                                     {/* Task Info */}
                                     <div className="flex items-center gap-2 flex-wrap text-xs sm:text-sm text-gray-500 mb-2 sm:mb-3">
@@ -4043,7 +4057,7 @@ const CampJourneyInterface = ({
                                               toast.error(
                                                 isCampNotStarted
                                                   ? "المخيم لم يفتح بعد. لا يمكنك إكمال المهام حتى يبدأ المشرف المخيم رسمياً"
-                                                  : "لا يمكن إكمال المهام في المخيمات المنتهية"
+                                                  : "لا يمكن إكمال المهام في المخيمات المنتهية",
                                               );
                                               return;
                                             }
@@ -4057,7 +4071,7 @@ const CampJourneyInterface = ({
                                               onConfirm: async () => {
                                                 const success =
                                                   await markTaskComplete(
-                                                    task.id
+                                                    task.id,
                                                   );
                                                 if (success) {
                                                   await fetchUserProgress();
@@ -4100,29 +4114,29 @@ const CampJourneyInterface = ({
                                               buildTaskPath(
                                                 task,
                                                 taskGroups || [],
-                                                selectedDay
+                                                selectedDay,
                                               ),
                                           };
                                           // Check if the task's day is locked
                                           const taskDayStatus = getDayStatus(
-                                            task.day_number
+                                            task.day_number,
                                           );
                                           if (taskDayStatus === "locked") {
                                             toast.error(
-                                              "لا يمكن الوصول إلى مهام اليوم المقفول"
+                                              "لا يمكن الوصول إلى مهام اليوم المقفول",
                                             );
                                             return;
                                           }
 
                                           setSelectedTask(taskWithPath);
                                           setReflectionText(
-                                            task.journal_entry || ""
+                                            task.journal_entry || "",
                                           );
                                           setReflectionJson(
-                                            task.content_rich || null
+                                            task.content_rich || null,
                                           );
                                           setProposedStep(
-                                            task.proposed_step || ""
+                                            task.proposed_step || "",
                                           );
                                           setShareInStudyHall(!task.is_private);
                                           setActiveTaskTab("task");
@@ -4220,10 +4234,10 @@ const CampJourneyInterface = ({
                                             task.completed
                                               ? "bg-green-50 border-green-300 shadow-md"
                                               : task.day_number < currentDay
-                                              ? "bg-orange-50 border-orange-200 active:border-orange-300 sm:hover:border-orange-300"
-                                              : task.day_number === currentDay
-                                              ? "bg-blue-50 border-blue-200 active:border-blue-300 sm:hover:border-blue-300"
-                                              : "bg-white border-gray-200 active:border-purple-300 sm:hover:border-purple-300 active:shadow-sm sm:hover:shadow-sm"
+                                                ? "bg-orange-50 border-orange-200 active:border-orange-300 sm:hover:border-orange-300"
+                                                : task.day_number === currentDay
+                                                  ? "bg-blue-50 border-blue-200 active:border-blue-300 sm:hover:border-blue-300"
+                                                  : "bg-white border-gray-200 active:border-purple-300 sm:hover:border-purple-300 active:shadow-sm sm:hover:shadow-sm"
                                           }`}
                                         >
                                           {/* Task Header */}
@@ -4233,11 +4247,11 @@ const CampJourneyInterface = ({
                                                 task.completed
                                                   ? "bg-green-500"
                                                   : task.day_number < currentDay
-                                                  ? "bg-orange-500"
-                                                  : task.day_number ===
-                                                    currentDay
-                                                  ? "bg-blue-500"
-                                                  : "bg-[#7440E9]"
+                                                    ? "bg-orange-500"
+                                                    : task.day_number ===
+                                                        currentDay
+                                                      ? "bg-blue-500"
+                                                      : "bg-[#7440E9]"
                                               }`}
                                             >
                                               {task.completed ? (
@@ -4273,18 +4287,29 @@ const CampJourneyInterface = ({
                                                   task.completed
                                                     ? "text-green-600 line-through decoration-green-400 decoration-1"
                                                     : task.day_number <
-                                                      currentDay
-                                                    ? "text-orange-600"
-                                                    : task.day_number ===
-                                                      currentDay
-                                                    ? "text-blue-600"
-                                                    : "text-gray-500"
+                                                        currentDay
+                                                      ? "text-orange-600"
+                                                      : task.day_number ===
+                                                          currentDay
+                                                        ? "text-blue-600"
+                                                        : "text-gray-500"
                                                 }`}
                                               >
                                                 {task.description}
                                               </p>
                                             </div>
                                           </div>
+
+                                          {camp?.camp_type === "hadith" &&
+                                            task?.content_ref_meta
+                                              ?.hadith_id && (
+                                              <div className="mb-2 sm:mb-3">
+                                                <HadithContentRenderer
+                                                  meta={task.content_ref_meta}
+                                                  compact
+                                                />
+                                              </div>
+                                            )}
 
                                           {/* Task Info */}
                                           <div className="flex items-center gap-2 flex-wrap text-xs sm:text-sm text-gray-500 mb-2 sm:mb-3">
@@ -4325,7 +4350,7 @@ const CampJourneyInterface = ({
                                                     toast.error(
                                                       isCampNotStarted
                                                         ? "المخيم لم يفتح بعد. لا يمكنك إكمال المهام حتى يبدأ المشرف المخيم رسمياً"
-                                                        : "لا يمكن إكمال المهام في المخيمات المنتهية"
+                                                        : "لا يمكن إكمال المهام في المخيمات المنتهية",
                                                     );
                                                     return;
                                                   }
@@ -4340,7 +4365,7 @@ const CampJourneyInterface = ({
                                                     onConfirm: async () => {
                                                       const success =
                                                         await markTaskComplete(
-                                                          task.id
+                                                          task.id,
                                                         );
                                                       if (success) {
                                                         await fetchUserProgress();
@@ -4383,7 +4408,7 @@ const CampJourneyInterface = ({
                                                     buildTaskPath(
                                                       task,
                                                       taskGroups || [],
-                                                      selectedDay
+                                                      selectedDay,
                                                     ),
                                                 };
 
@@ -4394,23 +4419,23 @@ const CampJourneyInterface = ({
                                                   taskDayStatus === "locked"
                                                 ) {
                                                   toast.error(
-                                                    "لا يمكن الوصول إلى مهام اليوم المقفول"
+                                                    "لا يمكن الوصول إلى مهام اليوم المقفول",
                                                   );
                                                   return;
                                                 }
 
                                                 setSelectedTask(taskWithPath);
                                                 setReflectionText(
-                                                  task.journal_entry || ""
+                                                  task.journal_entry || "",
                                                 );
                                                 setReflectionJson(
-                                                  task.content_rich || null
+                                                  task.content_rich || null,
                                                 );
                                                 setProposedStep(
-                                                  task.proposed_step || ""
+                                                  task.proposed_step || "",
                                                 );
                                                 setShareInStudyHall(
-                                                  !task.is_private
+                                                  !task.is_private,
                                                 );
                                                 setActiveTaskTab("task");
                                                 setShowReflectionModal(true);
@@ -4447,7 +4472,7 @@ const CampJourneyInterface = ({
                       transition={{
                         delay:
                           (userProgress?.tasks?.filter(
-                            (task) => task.day_number === selectedDay
+                            (task) => task.day_number === selectedDay,
                           )?.length || 0) * 0.1,
                       }}
                       className="p-3 sm:p-4 rounded-lg sm:rounded-xl border-2 border-dashed border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50 active:border-purple-400 sm:hover:border-purple-400 active:shadow-md sm:hover:shadow-md transition-all duration-300"
@@ -4482,7 +4507,7 @@ const CampJourneyInterface = ({
                           handleOnboarding(
                             "actionPlan",
                             setShowActionPlanIntro,
-                            () => setShowActionPlanModal(true)
+                            () => setShowActionPlanModal(true),
                           );
                         }}
                         className="w-full flex items-center justify-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg active:from-purple-700 active:to-indigo-700 sm:hover:from-purple-700 sm:hover:to-indigo-700 transition-all duration-300 text-sm sm:text-base font-semibold shadow-md active:shadow-lg sm:hover:shadow-lg transform active:scale-95 sm:hover:scale-105"
@@ -4611,7 +4636,7 @@ const CampJourneyInterface = ({
                 {(() => {
                   // التحقق إذا كان الحذف من سجلي
                   const isFromJournal = journalData?.myReflections?.some(
-                    (item) => item.progress_id === reflectionToDelete
+                    (item) => item.progress_id === reflectionToDelete,
                   );
                   return isFromJournal
                     ? "هل أنت متأكد من حذف هذه الفائدة؟"
@@ -4628,7 +4653,7 @@ const CampJourneyInterface = ({
                   {(() => {
                     // التحقق إذا كان الحذف من سجلي
                     const isFromJournal = journalData?.myReflections?.some(
-                      (item) => item.progress_id === reflectionToDelete
+                      (item) => item.progress_id === reflectionToDelete,
                     );
 
                     if (isFromJournal) {
@@ -4705,7 +4730,7 @@ const CampJourneyInterface = ({
                   onClick={async () => {
                     // التحقق إذا كان الحذف من سجلي
                     const isFromJournal = journalData?.myReflections?.some(
-                      (item) => item.progress_id === reflectionToDelete
+                      (item) => item.progress_id === reflectionToDelete,
                     );
 
                     if (isFromJournal) {
@@ -4728,15 +4753,15 @@ const CampJourneyInterface = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50"
+            className="fixed inset-0 z-[1100] bg-black/50"
             onClick={() => setShowCampSettings(false)}
           >
             <motion.div
-              initial={{ x: "100%" }}
+              initial={{ x: "-100%" }}
               animate={{ x: 0 }}
-              exit={{ x: "100%" }}
+              exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed right-0 top-[60px] sm:top-[60px] h-screen sm:h-[calc(100vh-50px)] w-full sm:max-w-md bg-white shadow-2xl overflow-y-auto"
+              className="fixed left-0 top-0 z-[1101] h-[100dvh] w-full max-w-md overflow-y-auto bg-white shadow-2xl sm:max-w-md"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Sidebar Header */}
@@ -4787,7 +4812,7 @@ const CampJourneyInterface = ({
                           onChange={(e) =>
                             handleSettingChange(
                               "hide_identity",
-                              e.target.checked
+                              e.target.checked,
                             )
                           }
                           disabled={updatingSettings}
@@ -4824,7 +4849,7 @@ const CampJourneyInterface = ({
                           onChange={(e) =>
                             handleSettingChange(
                               "notifications_enabled",
-                              e.target.checked
+                              e.target.checked,
                             )
                           }
                           disabled={updatingSettings}
@@ -4851,7 +4876,7 @@ const CampJourneyInterface = ({
                           onChange={(e) =>
                             handleSettingChange(
                               "daily_reminders",
-                              e.target.checked
+                              e.target.checked,
                             )
                           }
                           disabled={updatingSettings}
@@ -4878,7 +4903,7 @@ const CampJourneyInterface = ({
                           onChange={(e) =>
                             handleSettingChange(
                               "achievement_notifications",
-                              e.target.checked
+                              e.target.checked,
                             )
                           }
                           disabled={updatingSettings}
@@ -4926,7 +4951,7 @@ const CampJourneyInterface = ({
           transition={{ delay: 0.3, type: "spring" }}
           onClick={() => setShowHelpCenter(true)}
           data-tour="help-button"
-          className="fixed top-20 sm:top-24 right-4 sm:right-6 z-40 bg-gradient-to-br from-[#7440E9] to-[#8b5cf6] text-white rounded-full sm:rounded-xl shadow-2xl hover:shadow-[#7440E9]/50 transition-all duration-300 active:scale-95 flex items-center gap-2 group px-3 sm:px-4 py-2.5 sm:py-3"
+          className="fixed top-20 sm:top-24 right-4 sm:right-24 z-[1102] bg-gradient-to-br from-[#7440E9] to-[#8b5cf6] text-white rounded-full sm:rounded-xl shadow-2xl hover:shadow-[#7440E9]/50 transition-all duration-300 active:scale-95 flex items-center gap-2 group px-3 sm:px-4 py-2.5 sm:py-3"
           aria-label="مركز المساعدة"
         >
           <motion.div
@@ -5153,7 +5178,7 @@ const CampJourneyInterface = ({
                 "",
                 !data.shareInStudyHall,
                 reflectionJson,
-                data.proposedStep
+                data.proposedStep,
               );
             }
 

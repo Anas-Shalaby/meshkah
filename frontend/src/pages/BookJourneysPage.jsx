@@ -98,7 +98,9 @@ const StartJourneyModal = ({ book, isOpen, onClose, onStart }) => {
               </div>
               <div>
                 <h3 className="font-bold text-lg arabic-text">{book.name}</h3>
-                <p className="text-purple-200 text-sm">{book.hadith_count} حديث</p>
+                <p className="text-purple-200 text-sm">
+                  {book.hadith_count} حديث
+                </p>
               </div>
             </div>
           </div>
@@ -120,7 +122,7 @@ const StartJourneyModal = ({ book, isOpen, onClose, onStart }) => {
                   className="w-full px-4 py-3 text-xl font-bold text-center border-2 border-purple-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all"
                 />
               </div>
-              
+
               {/* اختيارات سريعة */}
               <div className="flex gap-2 flex-wrap mt-3">
                 {[1, 3, 5, 10].map((pace) => (
@@ -219,14 +221,22 @@ const BookCard = ({ book, onStart, hasActiveJourney, index }) => {
         <div className="journey-book-card-header relative">
           {book.image && (
             <div className="absolute top-0 left-0 right-0 bottom-0 opacity-20">
-              <img src={book.image} alt={book.name} className="w-full h-full object-cover" />
+              <img
+                src={book.image}
+                alt={book.name}
+                className="w-full h-full object-cover"
+              />
             </div>
           )}
           <div className="relative z-10 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-14 h-14 rounded-xl overflow-hidden shadow-lg border-2 border-white/30 flex-shrink-0">
                 {book.image ? (
-                  <img src={book.image} alt={book.name} className="w-full h-full object-cover" />
+                  <img
+                    src={book.image}
+                    alt={book.name}
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <div className="w-full h-full bg-white/20 flex items-center justify-center">
                     <Book className="w-6 h-6" />
@@ -239,7 +249,9 @@ const BookCard = ({ book, onStart, hasActiveJourney, index }) => {
               </div>
             </div>
             {hasActiveJourney && (
-              <span className="bg-white/20 text-xs px-2 py-1 rounded-full">نشط</span>
+              <span className="bg-white/20 text-xs px-2 py-1 rounded-full">
+                نشط
+              </span>
             )}
           </div>
         </div>
@@ -257,11 +269,15 @@ const BookCard = ({ book, onStart, hasActiveJourney, index }) => {
               <p className="journey-stat-label">حديث</p>
             </div>
             <div className="journey-stat-card">
-              <p className="journey-stat-value text-blue-600">{book.active_readers}</p>
+              <p className="journey-stat-value text-blue-600">
+                {book.active_readers}
+              </p>
               <p className="journey-stat-label">قارئ</p>
             </div>
             <div className="journey-stat-card">
-              <p className="journey-stat-value text-amber-600">{book.total_completions}</p>
+              <p className="journey-stat-value text-amber-600">
+                {book.total_completions}
+              </p>
               <p className="journey-stat-label">ختمة</p>
             </div>
           </div>
@@ -356,7 +372,7 @@ const ActiveJourneyCard = ({ journey, index }) => {
             <div className="flex items-center gap-2 text-xs">
               <span
                 className={`px-2 py-0.5 rounded-full ${getStatusClass(
-                  journey.status
+                  journey.status,
                 )}`}
               >
                 {getStatusText(journey.status)}
@@ -423,14 +439,14 @@ const BookJourneysPage = () => {
 
   // Filter books based on category
   const filteredBooks = books.filter(
-    (book) => selectedCategory === "all" || book.category === selectedCategory
+    (book) => selectedCategory === "all" || book.category === selectedCategory,
   );
 
   // Pagination logic
   const totalPages = Math.ceil(filteredBooks.length / BOOKS_PER_PAGE);
   const currentBooks = filteredBooks.slice(
     (currentPage - 1) * BOOKS_PER_PAGE,
-    currentPage * BOOKS_PER_PAGE
+    currentPage * BOOKS_PER_PAGE,
   );
 
   useEffect(() => {
@@ -447,9 +463,9 @@ const BookJourneysPage = () => {
         const journeysRes = await getMyJourneys();
         setMyJourneys(journeysRes.journeys || []);
         setJourneyStats(
-          journeysRes.stats || { active: 0, paused: 0, completed: 0 }
+          journeysRes.stats || { active: 0, paused: 0, completed: 0 },
         );
-        
+
         // جلب عدد البطاقات المستحقة للمراجعة
         try {
           const reviewsRes = await getDueReviews(1);
@@ -487,7 +503,7 @@ const BookJourneysPage = () => {
   };
 
   const activeBookSlugs = new Set(
-    myJourneys.filter((j) => j.status === "active").map((j) => j.book_slug)
+    myJourneys.filter((j) => j.status === "active").map((j) => j.book_slug),
   );
 
   if (loading) {
@@ -544,9 +560,11 @@ const BookJourneysPage = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 md:mb-2 gap-4 md:gap-0">
               <div className="flex items-center gap-3">
                 <Sparkles className="w-8 h-8 text-purple-200" />
-                <h1 className="text-2xl md:text-3xl font-bold arabic-text">ختمات الكتب</h1>
+                <h1 className="text-2xl md:text-3xl font-bold arabic-text">
+                  ختمات الكتب
+                </h1>
               </div>
-              
+
               {/* زر المراجعة */}
               {user && dueReviewsCount > 0 && (
                 <motion.button
@@ -680,23 +698,27 @@ const BookJourneysPage = () => {
                   >
                     <ChevronLeft className="w-5 h-5 transform rotate-180" />
                   </button>
-                  
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`w-10 h-10 rounded-lg font-bold transition-all ${
-                        currentPage === page
-                          ? "bg-purple-600 text-white shadow-lg shadow-purple-200 scale-110"
-                          : "bg-white text-gray-600 border border-gray-200 hover:bg-purple-50"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`w-10 h-10 rounded-lg font-bold transition-all ${
+                          currentPage === page
+                            ? "bg-purple-600 text-white shadow-lg shadow-purple-200 scale-110"
+                            : "bg-white text-gray-600 border border-gray-200 hover:bg-purple-50"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ),
+                  )}
 
                   <button
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    onClick={() =>
+                      setCurrentPage((p) => Math.min(totalPages, p + 1))
+                    }
                     disabled={currentPage === totalPages}
                     className="p-2 rounded-lg bg-white border border-gray-200 disabled:opacity-50 hover:bg-gray-50 disabled:cursor-not-allowed text-gray-600 transition-colors"
                   >

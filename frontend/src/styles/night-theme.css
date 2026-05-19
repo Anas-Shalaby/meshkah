@@ -1,0 +1,51 @@
+/* ثيم ليلي — رمادي فاخر مع لمسة بنفسجية خفيفة */
+html.night-theme {
+  --night-bg: #1a1a1e;
+  --night-surface: #242428;
+  --night-surface-raised: #2c2c31;
+  --night-border: rgba(255, 255, 255, 0.08);
+  --night-accent: #9b8bb5;
+  --night-accent-dim: #7c6a94;
+}
+
+html.night-theme body {
+  background-color: var(--night-bg);
+  color: #e4e4e7;
+}
+
+html.night-theme .app-shell-bg {
+  background: var(--night-bg);
+  background-image:
+    radial-gradient(ellipse 100% 80% at 50% -20%, rgba(255, 255, 255, 0.02), transparent 50%);
+}
+
+html.night-theme .nav-rail-night {
+  border-color: var(--night-border);
+  background: linear-gradient(180deg, #222226 0%, #1c1c20 100%);
+  box-shadow: -2px 0 16px rgba(0, 0, 0, 0.25);
+}
+
+html.night-theme .nav-mobile-night {
+  border-color: var(--night-border);
+  background: rgba(28, 28, 32, 0.98);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+}
+
+html.night-theme .nav-drawer-night {
+  border-color: var(--night-border);
+  background: linear-gradient(180deg, #242428 0%, #1e1e22 100%);
+}
+
+html.night-theme .rail-tooltip-night {
+  border-color: var(--night-border);
+  background: #2c2c31;
+  color: #e4e4e7;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+html.night-theme [data-sonner-toaster],
+html.dark [data-sonner-toaster] {
+  --normal-bg: #2c2c31;
+  --normal-border: var(--night-border);
+  --normal-text: #f4f4f5;
+}

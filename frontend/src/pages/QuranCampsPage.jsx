@@ -36,14 +36,19 @@ import RamadanCountdown from "../components/ramadan/RamadanCountdown";
 import RamadanFloatingElements from "../components/ramadan/RamadanFloatingElements";
 import "../styles/quran-camps.css";
 import FullPageLoadingScreen from "../components/FullPageLoadingScreen";
+import { useTheme } from "../context/ThemeContext";
+import { getDashboardTheme } from "../components/home/dashboardTheme";
 
 const QuranCampsPage = () => {
+  const { isNight } = useTheme();
+  const t = getDashboardTheme(isNight);
   const { isRamadanThemeActive, loading: themeLoading } = useRamadanTheme();
 
   const [camps, setCamps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all"); // all | quran | hadith
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -157,12 +162,18 @@ const QuranCampsPage = () => {
         // Status filter
         if (filter !== "all" && camp.status !== filter) return false;
 
+        // Camp type filter (multi-type system: quran / hadith)
+        if (typeFilter !== "all") {
+          const campType = camp.camp_type || "quran";
+          if (campType !== typeFilter) return false;
+        }
+
         // Search query
         if (searchQuery) {
           const query = searchQuery.toLowerCase();
           return (
-            camp.name.toLowerCase().includes(query) ||
-            camp.surah_name.toLowerCase().includes(query) ||
+            (camp.name || "").toLowerCase().includes(query) ||
+            (camp.surah_name || "").toLowerCase().includes(query) ||
             camp.description?.toLowerCase().includes(query)
           );
         }
@@ -226,6 +237,7 @@ const QuranCampsPage = () => {
   }, [
     camps,
     filter,
+    typeFilter,
     searchQuery,
     sortBy,
     difficultyFilter,
@@ -434,7 +446,7 @@ const QuranCampsPage = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 flex items-center justify-center px-4">
+      <div className={`flex min-h-screen items-center justify-center px-4 ${t.page}`}>
         <SEO
           title="حدث خطأ - المخيمات القرآنية"
           description="حدث خطأ أثناء تحميل المخيمات القرآنية"
@@ -512,9 +524,7 @@ const QuranCampsPage = () => {
   return (
     <div
       className={`min-h-screen ${
-        isRamadanThemeActive
-          ? "ramadan-bg-gradient"
-          : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"
+        isRamadanThemeActive ? "ramadan-bg-gradient" : t.page
       }`}
     >
       <SEO
@@ -537,7 +547,7 @@ const QuranCampsPage = () => {
         }`}
       >
         {/* Background Pattern */}
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-100/30 via-blue-100/20 to-indigo-100/30"></div>
+        <div className={`absolute inset-0 ${isNight ? "bg-[#242428]/40" : "bg-gradient-to-br from-purple-100/30 via-blue-100/20 to-indigo-100/30"}`} />
         <div
           className="absolute inset-0 opacity-40"
           style={{
@@ -549,14 +559,14 @@ const QuranCampsPage = () => {
           <div className="text-center">
             <h1
               style={{ lineHeight: "1.2" }}
-              className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 bg-clip-text text-transparent mb-4 sm:mb-6 px-4"
+              className={`mb-4 px-4 text-3xl font-bold sm:mb-6 sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl ${isNight ? t.heroTitle : "bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 bg-clip-text text-transparent"}`}
             >
               المخيمات القرآنية
             </h1>
 
-            <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-700 mb-6 sm:mb-8 max-w-4xl mx-auto leading-relaxed px-4">
+            <p className={`mx-auto mb-6 max-w-4xl px-4 text-base leading-relaxed sm:mb-8 sm:text-lg md:text-xl lg:text-2xl ${t.textBody}`}>
               انضم إلى رحلة تعمق في القرآن الكريم مع مخيمات مكثفة تجمع بين
-              <span className="text-purple-600 font-semibold">
+              <span className={`font-semibold ${t.textAccent}`}>
                 {" "}
                 القراءة والحفظ والتفسير
               </span>
@@ -568,7 +578,7 @@ const QuranCampsPage = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="bg-white/90 backdrop-blur-xl rounded-2xl p-4 sm:p-6 lg:p-8 shadow-xl border border-purple-100 hover:shadow-2xl transition-all duration-300 group"
+                className={`rounded-2xl p-4 shadow-xl transition-all duration-300 group hover:shadow-2xl sm:p-6 lg:p-8 ${isNight ? "border border-white/10 bg-[#242428]/95" : "border border-purple-100 bg-white/90 backdrop-blur-xl"}`}
                 whileHover={{ y: -4 }}
               >
                 <div className="flex items-center justify-center mb-3 sm:mb-4">
@@ -584,11 +594,11 @@ const QuranCampsPage = () => {
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.4 }}
-                  className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2"
+                  className={`mb-1 text-2xl font-bold sm:mb-2 sm:text-3xl ${t.textHeading}`}
                 >
                   {camps.length}
                 </motion.p>
-                <p className="text-gray-600 font-medium text-sm sm:text-base">
+                <p className={`text-sm font-medium sm:text-base ${t.textBody}`}>
                   مخيم متاح
                 </p>
               </motion.div>
@@ -597,7 +607,7 @@ const QuranCampsPage = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="bg-white/90 backdrop-blur-xl rounded-2xl p-4 sm:p-6 lg:p-8 shadow-xl border border-blue-100 hover:shadow-2xl transition-all duration-300 group"
+                className={`rounded-2xl p-4 shadow-xl transition-all duration-300 group hover:shadow-2xl sm:p-6 lg:p-8 ${isNight ? "border border-white/10 bg-[#242428]/95" : "border border-blue-100 bg-white/90 backdrop-blur-xl"}`}
                 whileHover={{ y: -4 }}
               >
                 <div className="flex items-center justify-center mb-3 sm:mb-4">
@@ -613,11 +623,11 @@ const QuranCampsPage = () => {
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.5 }}
-                  className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2"
+                  className={`mb-1 text-2xl font-bold sm:mb-2 sm:text-3xl ${t.textHeading}`}
                 >
                   {camps.reduce((sum, camp) => sum + camp.enrolled_count, 0)}
                 </motion.p>
-                <p className="text-gray-600 font-medium text-sm sm:text-base">
+                <p className={`text-sm font-medium sm:text-base ${t.textBody}`}>
                   مشترك
                 </p>
               </motion.div>
@@ -626,7 +636,7 @@ const QuranCampsPage = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
-                className="bg-white/90 backdrop-blur-xl rounded-2xl p-4 sm:p-6 lg:p-8 shadow-xl border border-indigo-100 hover:shadow-2xl transition-all duration-300 group sm:col-span-2 lg:col-span-1"
+                className={`rounded-2xl p-4 shadow-xl transition-all duration-300 group hover:shadow-2xl sm:col-span-2 sm:p-6 lg:col-span-1 lg:p-8 ${isNight ? "border border-white/10 bg-[#242428]/95" : "border border-indigo-100 bg-white/90 backdrop-blur-xl"}`}
                 whileHover={{ y: -4 }}
               >
                 <div className="flex items-center justify-center mb-3 sm:mb-4">
@@ -642,11 +652,11 @@ const QuranCampsPage = () => {
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.6 }}
-                  className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2"
+                  className={`mb-1 text-2xl font-bold sm:mb-2 sm:text-3xl ${t.textHeading}`}
                 >
                   {getFilteredCampsCount("active")}
                 </motion.p>
-                <p className="text-gray-600 font-medium text-sm sm:text-base">
+                <p className={`text-sm font-medium sm:text-base ${t.textBody}`}>
                   مخيم نشط
                 </p>
               </motion.div>
@@ -661,7 +671,7 @@ const QuranCampsPage = () => {
         id="camps"
       >
         {/* Search Bar */}
-        <div className="bg-white/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl border border-gray-100 mb-6 sm:mb-8">
+        <div className={`mb-6 rounded-2xl p-4 shadow-2xl sm:mb-8 sm:rounded-3xl sm:p-6 lg:p-8 ${t.panel}`}>
           <div className="flex flex-col gap-4 sm:gap-6">
             {/* Search Input */}
             <div className="w-full">
@@ -693,7 +703,7 @@ const QuranCampsPage = () => {
                   onBlur={() =>
                     setTimeout(() => setShowSuggestions(false), 200)
                   }
-                  className="w-full px-4 py-3 sm:py-4 pr-10 sm:pr-12 text-black bg-gray-50 border border-gray-200 rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-base sm:text-lg relative z-10"
+                  className={`relative z-10 w-full px-4 py-3 pr-10 text-base sm:rounded-2xl sm:py-4 sm:pr-12 sm:text-lg ${t.searchInput}`}
                   aria-label="البحث في المخيمات"
                 />
                 {/* Search Suggestions */}
@@ -702,7 +712,7 @@ const QuranCampsPage = () => {
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 z-[9999] max-h-60 overflow-y-auto"
+                    className={t.suggestDropdown}
                     style={{ zIndex: 9999 }}
                   >
                     {searchSuggestions.map((suggestion, idx) => (
@@ -889,6 +899,7 @@ const QuranCampsPage = () => {
                       setDurationFilter("all");
                       setTagsFilter("all");
                       setFilter("all");
+                      setTypeFilter("all");
                     }}
                     className="w-full px-4 py-3 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-200 rounded-xl hover:from-gray-200 hover:to-gray-300 dark:hover:from-gray-600 dark:hover:to-gray-500 transition-all font-semibold text-sm sm:text-base shadow-sm hover:shadow-md flex items-center justify-center gap-2"
                   >
@@ -899,6 +910,46 @@ const QuranCampsPage = () => {
               </div>
             </motion.div>
           )}
+        </div>
+
+        {/* Camp Type Filter (multi-type system) */}
+        <div className="relative mb-4 px-4">
+          <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-2 shadow-md border border-white/50">
+            <div className="flex flex-wrap justify-center gap-2">
+              {[
+                { id: "all", label: "كل الأنواع", icon: BookOpen },
+                { id: "quran", label: "مخيمات قرآن", icon: Book },
+                { id: "hadith", label: "مخيمات حديث", icon: Sparkles },
+              ].map(({ id, label, icon: TypeIcon }) => (
+                <motion.button
+                  key={id}
+                  onClick={() => setTypeFilter(id)}
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
+                  className={`px-4 py-2 rounded-xl font-semibold text-sm flex items-center gap-2 transition-all ${
+                    typeFilter === id
+                      ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg"
+                      : "bg-white/80 text-gray-700 hover:bg-purple-50"
+                  }`}
+                >
+                  <TypeIcon className="w-4 h-4" />
+                  <span>{label}</span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                      typeFilter === id
+                        ? "bg-white/20 text-white"
+                        : "bg-purple-100 text-purple-700"
+                    }`}
+                  >
+                    {id === "all"
+                      ? camps.length
+                      : camps.filter((c) => (c.camp_type || "quran") === id)
+                          .length}
+                  </span>
+                </motion.button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Status Filter Tabs - Enhanced Design */}

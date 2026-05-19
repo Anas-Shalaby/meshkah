@@ -4,6 +4,8 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { BookmarkProvider } from "./context/BookmarkContext";
 import { RamadanThemeProvider } from "./context/RamadanThemeContext";
+import { ThemeProvider } from "./context/ThemeContext";
+import "./styles/night-theme.css";
 import { trackPageView } from "./utils/analytics";
 import { Toaster } from "react-hot-toast";
 import "./styles/quran-camps.css";
@@ -12,8 +14,7 @@ import "./styles/ramadan-patterns.css";
 import "./styles/ramadan-override.css";
 
 // Components
-import Navbar from "./components/Navbar";
-import Footer from "./components/Footer";
+import Navbar, { NAV_RAIL_WIDTH_CLASS } from "./components/Navbar";
 import SEO from "./components/SEO";
 import PublicCards from "./components/PublicCards";
 import SharedCard from "./components/SharedCard";
@@ -73,8 +74,8 @@ const LocalBookPage = lazy(() => import("./pages/LocalBookPage"));
 const IslamicBookmarksPage = lazy(() => import("./pages/IslamicBookmarksPage"));
 const HelpSupportPage = lazy(() => import("./pages/HelpSupportPage"));
 
-const HadithVerificationPage = lazy(() =>
-  import("./pages/HadithVerificationPage")
+const HadithVerificationPage = lazy(
+  () => import("./pages/HadithVerificationPage"),
 );
 const QuranCampsPage = lazy(() => import("./pages/QuranCampsPage"));
 const QuranCampDetailsPage = lazy(() => import("./pages/QuranCampDetailsPage"));
@@ -88,8 +89,8 @@ const SharedReflectionPage = lazy(() => import("./pages/SharedReflectionPage"));
 const BookJourneysPage = lazy(() => import("./pages/BookJourneysPage"));
 const JourneyDetailsPage = lazy(() => import("./pages/JourneyDetailsPage"));
 const JoinJourneyPage = lazy(() => import("./pages/JoinJourneyPage"));
-const VerifyJourneyCertificatePage = lazy(() =>
-  import("./pages/VerifyJourneyCertificatePage")
+const VerifyJourneyCertificatePage = lazy(
+  () => import("./pages/VerifyJourneyCertificatePage"),
 );
 
 // Review System Pages - نظام المراجعة الذكية
@@ -116,9 +117,11 @@ const websiteMetadata = {
 // Main App Content Component (to access AuthContext)
 function AppContent() {
   const [language] = useState("ar");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
   const { loading: authLoading } = useAuth();
+
+  const hideLayoutChrome =
+    location.pathname === "/login" || location.pathname === "/register";
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -129,40 +132,6 @@ function AppContent() {
     trackPageView(location.pathname);
   }, [location]);
 
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
-
-  const closeSidebar = () => {
-    setIsSidebarOpen(false);
-  };
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (isSidebarOpen) {
-        const interactiveElements = [
-          "a",
-          "button",
-          "input",
-          "select",
-          "textarea",
-        ];
-
-        const isInteractiveElement = interactiveElements.some((selector) =>
-          event.target.closest(selector)
-        );
-
-        if (!isInteractiveElement) {
-          closeSidebar();
-        }
-      }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
-  }, [isSidebarOpen]);
-
   // Show loading screen while checking authentication
   if (authLoading) {
     return <FullPageLoadingScreen message="جاري التحميل..." />;
@@ -171,22 +140,19 @@ function AppContent() {
   return (
     <BookmarkProvider>
       <NotificationProvider>
-        <div className="flex flex-col min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50">
+        <div className="app-shell-bg flex min-h-screen flex-col bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 dark:from-[#1a1a1e] dark:via-[#1c1c20] dark:to-[#1a1a1e]">
           {/* SEO Component */}
           <SEO metadata={websiteMetadata} />
 
-          {/* Navbar with Glass Effect */}
-          <Navbar
-            language={"ar"}
-            isSidebarOpen={isSidebarOpen}
-            toggleSidebar={toggleSidebar}
-            className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg border-b border-gray-200/50 dark:border-gray-700/50 shadow-sm sticky top-0 z-50"
-          />
+          {/* Navbar with Glass Effect — مخفي على صفحات تسجيل الدخول والتسجيل */}
+          {!hideLayoutChrome && <Navbar />}
 
-          {/* Main Content */}
+          {/* Main Content — مساحة للشريط العلوي (جوال) والشريط الأيمن (سطح المكتب) */}
           <main
-            className="flex-1  font-almarai"
-            style={{ direction: "rtl", marginTop: "4.1rem" }}
+            className={`flex-1 font-almarai ${
+              hideLayoutChrome ? "" : `pt-14 lg:pt-0 ${NAV_RAIL_WIDTH_CLASS}`
+            }`}
+            style={{ direction: "rtl" }}
           >
             <div>
               <Routes>
@@ -305,7 +271,13 @@ function AppContent() {
                   path="/hadith-verification"
                   element={<HadithVerificationPage />}
                 />
-                {/* Quran Camps Routes */}
+                {/* Camps Routes (multi-type: quran, hadith) */}
+                <Route path="/camps" element={<QuranCampsPage />} />
+                <Route
+                  path="/camps/:id"
+                  element={<QuranCampDetailsPage />}
+                />
+                {/* Backwards-compatible legacy routes */}
                 <Route path="/quran-camps" element={<QuranCampsPage />} />
                 <Route
                   path="/quran-camps/:id"
@@ -363,7 +335,7 @@ function AppContent() {
                   path="/verify-journey/:code"
                   element={<VerifyJourneyCertificatePage />}
                 />
-                
+
                 {/* Review System Routes - نظام المراجعة الذكية */}
                 <Route
                   path="/reviews"
@@ -389,18 +361,13 @@ function AppContent() {
                     </PrivateRoute>
                   }
                 />
-                
+
                 <Route path="/privacy-policy" element={<Anas />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </div>
           </main>
 
-          {/* Footer with Glass Effect */}
-          <Footer
-            language={"ar"}
-            className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg border-t border-gray-200/50 dark:border-gray-700/50 shadow-sm"
-          />
         </div>
 
         {/* Toaster for notifications */}
@@ -437,11 +404,13 @@ function AppContent() {
 function App() {
   return (
     <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
-      <RamadanThemeProvider>
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
-      </RamadanThemeProvider>
+      <ThemeProvider>
+        <RamadanThemeProvider>
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        </RamadanThemeProvider>
+      </ThemeProvider>
     </GoogleOAuthProvider>
   );
 }

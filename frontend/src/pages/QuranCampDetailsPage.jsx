@@ -52,28 +52,29 @@ import {
   getCurrentDay,
 } from "../utils/campUtils.jsx";
 
+// Arabic names for hadith books (matches backend campTypeRegistry slugs)
+const HADITH_BOOK_NAMES_AR = {
+  nawawi40: "الأربعين النووية",
+  qudsi40: "الأحاديث القدسية",
+  riyad_assalihin: "رياض الصالحين",
+  bulugh_almaram: "بلوغ المرام",
+  hisnulmuslim: "حصن المسلم",
+  shamail_muhammadiyah: "الشمائل المحمدية",
+  aladab_almufrad: "الأدب المفرد",
+  riyadiah40: "الأربعون الرياضية",
+  shahwaliullah40: "أربعين شاه ولي الله",
+  malik: "موطأ مالك",
+  darimi: "سنن الدارمي",
+};
+
+export const getHadithBookNameAr = (slug) =>
+  HADITH_BOOK_NAMES_AR[slug] || slug || "كتاب الحديث";
+
 const QuranCampDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const { isRamadanThemeActive, loading: themeLoading } = useRamadanTheme();
-
-  // تحقق إضافي من وجود token عند التحميل
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      // إذا لم يكن هناك token، انتظر قليلاً للتأكد من تحميل الـ user
-      const timer = setTimeout(() => {
-        const tokenCheck = localStorage.getItem("token");
-        if (!tokenCheck) {
-          localStorage.setItem("redirectAfterLogin", `/quran-camps/${id}`);
-          navigate("/login");
-        }
-      }, 1500); // زيادة الوقت قليلاً
-
-      return () => clearTimeout(timer);
-    }
-  }, [id, navigate]);
 
   const [camp, setCamp] = useState(null);
   const [dailyTasks, setDailyTasks] = useState([]);
@@ -121,7 +122,7 @@ const QuranCampDetailsPage = () => {
           `${import.meta.env.VITE_API_URL}/quran-camps/${id}`,
           {
             headers,
-          }
+          },
         );
 
         const campData = await campResponse.json();
@@ -151,19 +152,19 @@ const QuranCampDetailsPage = () => {
             const startDate = new Date(
               parseInt(startDateParts[0]),
               parseInt(startDateParts[1]) - 1,
-              parseInt(startDateParts[2])
+              parseInt(startDateParts[2]),
             );
             // حساب end_date: start_date + duration_days
             const calculatedEndDate = new Date(startDate);
             calculatedEndDate.setDate(
-              calculatedEndDate.getDate() + campData.data.duration_days
+              calculatedEndDate.getDate() + campData.data.duration_days,
             );
             // تحويل إلى string YYYY-MM-DD
             endDateStr = `${calculatedEndDate.getFullYear()}-${String(
-              calculatedEndDate.getMonth() + 1
+              calculatedEndDate.getMonth() + 1,
             ).padStart(2, "0")}-${String(calculatedEndDate.getDate()).padStart(
               2,
-              "0"
+              "0",
             )}`;
           }
 
@@ -171,7 +172,7 @@ const QuranCampDetailsPage = () => {
             // مقارنة التواريخ كـ strings (YYYY-MM-DD) لتجنب مشاكل timezone
             const today = new Date();
             const todayStr = `${today.getFullYear()}-${String(
-              today.getMonth() + 1
+              today.getMonth() + 1,
             ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
             // مقارنة strings: "2025-10-27" <= "2025-10-28" = true
@@ -179,18 +180,6 @@ const QuranCampDetailsPage = () => {
 
             setIsCampOfficiallyFinished(finished);
           }
-
-          // ملاحظة: الإيميل والإشعارات يتم إرسالها تلقائياً من الـ scheduler
-          // في الخادم كل يوم في الساعة 9:00 صباحاً (توقيت السعودية)
-          // لا حاجة لإرسالها من Frontend لتجنب التكرار
-        }
-
-        // التحقق من وجود token بدلاً من user لتجنب مشاكل الـ refresh
-        if (!token) {
-          // حفظ URL المخيم في localStorage للعودة إليه بعد تسجيل الدخول
-          localStorage.setItem("redirectAfterLogin", `/quran-camps/${id}`);
-          navigate("/login");
-          return;
         }
 
         // جلب المهام واللوحة والمجموعات فقط للمستخدمين المسجلين
@@ -198,11 +187,11 @@ const QuranCampDetailsPage = () => {
           const [tasksResponse, groupsResponse] = await Promise.all([
             fetch(
               `${import.meta.env.VITE_API_URL}/quran-camps/${id}/daily-tasks`,
-              { headers }
+              { headers },
             ),
             fetch(
               `${import.meta.env.VITE_API_URL}/quran-camps/${id}/task-groups`,
-              { headers }
+              { headers },
             ),
           ]);
 
@@ -212,7 +201,8 @@ const QuranCampDetailsPage = () => {
           // Debug: التحقق من بيانات الأصدقاء
           if (tasksData.data && tasksData.data.length > 0) {
             const taskWithFriends = tasksData.data.find(
-              (t) => t.completed_by_friends && t.completed_by_friends.length > 0
+              (t) =>
+                t.completed_by_friends && t.completed_by_friends.length > 0,
             );
           }
 
@@ -277,8 +267,8 @@ const QuranCampDetailsPage = () => {
       return;
     }
 
-    // التحقق من اختيار فوج قبل التسجيل
-    if (!selectedCohortNumber) {
+    // المخيمات ذاتية السرعة (مثل الحديث) لا تحتاج اختيار فوج
+    if (camp?.enable_cohorts !== false && !selectedCohortNumber) {
       toast.error("يرجى اختيار فوج للانضمام إليه");
       return;
     }
@@ -300,8 +290,8 @@ const QuranCampDetailsPage = () => {
       return;
     }
 
-    // التحقق من اختيار فوج
-    if (!selectedCohortNumber) {
+    // التحقق من اختيار فوج (مخيمات قرآن فقط؛ مخيمات الحديث تبدأ تلقائيًا)
+    if (camp?.enable_cohorts !== false && !selectedCohortNumber) {
       toast.error("يرجى اختيار فوج للانضمام إليه");
       setEnrolling(false);
       return;
@@ -317,13 +307,14 @@ const QuranCampDetailsPage = () => {
             "Content-Type": "application/json",
             "x-auth-token": localStorage.getItem("token"),
           },
-          /*************  ✨ Windsurf Command 🌟  *************/
           // جسم بيانات التسجيل في المخيم
           body: JSON.stringify({
             hide_identity: choice === "anonymous",
-            cohort_number: selectedCohortNumber, // إرسال رقم الفوج المختار
+            // اختيار الفوج للقرآن، أو 1 الافتراضي للحديث (الباك يضبط ذلك أيضًا)
+            cohort_number:
+              camp?.enable_cohorts === false ? 1 : selectedCohortNumber,
           }),
-        }
+        },
       );
       /*******  71dbbc77-f90d-45fc-adfa-91f3796949bc  *******/
 
@@ -467,7 +458,6 @@ const QuranCampDetailsPage = () => {
         canonicalUrl={`${window.location.origin}/quran-camps/${id}`}
       />
 
-     
       {isRamadanThemeActive && <RamadanFloatingElements />}
 
       {/* Cinematic Hero Section */}
@@ -534,7 +524,7 @@ const QuranCampDetailsPage = () => {
                 ) : (
                   <div
                     className={`flex items-center px-3 py-2 backdrop-blur-md rounded-xl border shadow-lg min-h-[44px] ${getStatusColor(
-                      camp.status
+                      camp.status,
                     )}`}
                   >
                     <div
@@ -544,8 +534,8 @@ const QuranCampDetailsPage = () => {
                           camp.status === "active"
                             ? "#10B981"
                             : camp.status === "early_registration"
-                            ? "#3B82F6"
-                            : "#6B7280",
+                              ? "#3B82F6"
+                              : "#6B7280",
                       }}
                     ></div>
                     {getStatusIcon(camp.status)}
@@ -590,7 +580,7 @@ const QuranCampDetailsPage = () => {
                     {/* Status Badge - Desktop */}
                     <div
                       className={`flex items-center px-4 py-2 backdrop-blur-md rounded-2xl border shadow-lg ${getStatusColor(
-                        camp.status
+                        camp.status,
                       )}`}
                     >
                       <div
@@ -600,8 +590,8 @@ const QuranCampDetailsPage = () => {
                             camp.status === "active"
                               ? "#10B981"
                               : camp.status === "early_registration"
-                              ? "#3B82F6"
-                              : "#6B7280",
+                                ? "#3B82F6"
+                                : "#6B7280",
                         }}
                       ></div>
                       {getStatusIcon(camp.status)}
@@ -661,7 +651,9 @@ const QuranCampDetailsPage = () => {
 
           {/* Subtitle */}
           <p className="hero-subtitle font-almarai text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-white/90 mb-8 sm:mb-10 md:mb-12 font-bold flex items-center justify-center">
-            سورة {camp.surah_name}
+            {camp.camp_type === "hadith"
+              ? `كتاب ${getHadithBookNameAr(camp.content_source_slug)}`
+              : `سورة ${camp.surah_name}`}
           </p>
 
           {/* Description */}
@@ -693,7 +685,7 @@ const QuranCampDetailsPage = () => {
                   icon: <Trophy className="w-5 h-5 text-yellow-300" />,
                   label: dailyTasks.reduce(
                     (sum, task) => sum + (task.points || 0),
-                    0
+                    0,
                   ),
                   title: "نقطة",
                 },
@@ -753,7 +745,7 @@ const QuranCampDetailsPage = () => {
                   ),
                   label: dailyTasks.reduce(
                     (sum, task) => sum + (task.points || 0),
-                    0
+                    0,
                   ),
                   value: "نقطة",
                 },
@@ -797,7 +789,9 @@ const QuranCampDetailsPage = () => {
                   enrolling ||
                   camp.status === "completed" ||
                   camp.enable_public_enrollment === false ||
-                  (currentUser && !selectedCohortNumber) ||
+                  (currentUser &&
+                    camp?.enable_cohorts !== false &&
+                    !selectedCohortNumber) ||
                   (camp?.max_participants &&
                     Number(camp.max_participants) > 0 &&
                     Number(camp.enrolled_count || 0) >=
@@ -817,8 +811,12 @@ const QuranCampDetailsPage = () => {
                   Number(camp.enrolled_count || 0) >=
                     Number(camp.max_participants) ? (
                   <span>عذراً، اكتمل العدد</span>
-                ) : currentUser && !selectedCohortNumber ? (
+                ) : currentUser &&
+                  camp?.enable_cohorts !== false &&
+                  !selectedCohortNumber ? (
                   <span>يرجى اختيار فوج أولاً</span>
+                ) : camp?.enable_cohorts === false ? (
+                  <span>ابدأ المخيم الآن 🚀</span>
                 ) : (
                   <span>انضم للرحلة الآن 🚀</span>
                 )}
@@ -861,8 +859,10 @@ const QuranCampDetailsPage = () => {
           </div>
         )}
 
-        {/* Cohort Selector - فوق محتوى المخيم */}
-        {!camp.is_enrolled && currentUser && (
+        {/* Cohort Selector - فوق محتوى المخيم
+            يُخفى للمخيمات ذاتية السرعة (enable_cohorts=false، مثل مخيمات الحديث)
+            لأنها تبدأ تلقائيًا فور الاشتراك بدون اختيار فوج. */}
+        {!camp.is_enrolled && currentUser && camp.enable_cohorts !== false && (
           <div className="max-w-6xl mx-auto mb-8 sm:mb-10 md:mb-12">
             <CohortSelector
               campId={id}
@@ -870,6 +870,21 @@ const QuranCampDetailsPage = () => {
               onSelectCohort={setSelectedCohortNumber}
               isEnrolled={camp.is_enrolled}
             />
+          </div>
+        )}
+
+        {/* Self-paced banner لمخيمات الحديث (يبدأ تلقائيًا) */}
+        {!camp.is_enrolled && currentUser && camp.enable_cohorts === false && (
+          <div className="max-w-6xl mx-auto mb-6 sm:mb-8">
+            <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-4 sm:p-5 text-right shadow-sm">
+              <div className="text-emerald-800 font-bold text-base sm:text-lg mb-1">
+                مخيم ذاتي السرعة
+              </div>
+              <div className="text-emerald-700 text-sm leading-relaxed">
+                هذا المخيم يبدأ فور اشتراكك ولا يحتاج إلى اختيار فوج. تقدّم
+                بالسرعة المناسبة لك يومًا بيوم.
+              </div>
+            </div>
           </div>
         )}
 

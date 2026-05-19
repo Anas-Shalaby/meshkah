@@ -98,17 +98,12 @@ const NotificationCenter = ({ isOpen, onClose }) => {
   //   }
   // };
 
-  // جلب الإشعارات عند فتح المركز
+  // تحديث خفيف عند فتح المركز دون إعادة تحميل كامل للصفحة
   useEffect(() => {
     if (isOpen) {
-      fetchNotifications();
+      fetchNotifications(true);
     }
-  }, [isOpen]);
-
-  // جلب الإشعارات عند تحميل الصفحة
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
+  }, [isOpen, fetchNotifications]);
 
   // تنسيق التاريخ
   const formatDate = (dateString) => {

@@ -1109,7 +1109,7 @@ const JourneyDetailsPage = () => {
               />
               
               {/* تقويم التقدم */}
-              <ProgressCalendar journeyId={id} />
+              <ProgressCalendar journeyId={id} bookName={journey?.book_name} />
               
               {/* الإحصائيات */}
               <div className="journey-book-card p-6">

@@ -17,9 +17,9 @@ export const NotificationProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
 
   // جلب الإشعارات من السيرفر (المخيمات + الختمات)
-  const fetchNotifications = useCallback(async () => {
+  const fetchNotifications = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const token = localStorage.getItem("token");
 
       // جلب إشعارات المخيمات وإشعارات الختمات بالتوازي

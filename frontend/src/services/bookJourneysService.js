@@ -140,6 +140,16 @@ export const getProgressCalendar = async (journeyId, month = null, year = null) 
 };
 
 /**
+ * جلب أحاديث يوم محدد للمراجعة
+ * @param {number} journeyId - معرف الختمة
+ * @param {string} date - التاريخ بصيغة YYYY-MM-DD
+ */
+export const getDayHadiths = async (journeyId, date) => {
+  const response = await axiosInstance.get(`${API_BASE}/${journeyId}/day/${date}`);
+  return response.data;
+};
+
+/**
  * جلب تفاصيل ختمة
  * @param {number} journeyId - معرف الختمة
  */
@@ -382,6 +392,7 @@ export default {
   sendBuddyEncouragement,
   // التقويم
   getProgressCalendar,
+  getDayHadiths,
   // الأصدقاء
   getShareLink,
   joinViaShareCode,
