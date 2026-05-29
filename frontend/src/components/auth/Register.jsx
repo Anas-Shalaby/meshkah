@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -48,7 +48,8 @@ const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const googleLoginWrapRef = useRef(null);
+  const googleBtnContainerRef = useRef(null);
+  const [googleBtnWidth, setGoogleBtnWidth] = useState(360);
 
   const {
     register,
@@ -58,10 +59,18 @@ const Register = () => {
     resolver: yupResolver(registerSchema),
   });
 
-  const triggerGoogleWidgetClick = () => {
-    const btn = googleLoginWrapRef.current?.querySelector('div[role="button"]');
-    btn?.click();
-  };
+  useEffect(() => {
+    const el = googleBtnContainerRef.current;
+    if (!el) return;
+    const update = () => {
+      const w = Math.min(400, Math.max(200, Math.round(el.offsetWidth)));
+      setGoogleBtnWidth(w);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const onSubmit = async (data) => {
     setIsLoading(true);
@@ -337,12 +346,15 @@ const Register = () => {
               </div>
             </div>
 
-            <div className="relative">
-              <button
-                type="button"
-                onClick={triggerGoogleWidgetClick}
-                disabled={isLoading}
-                className="group relative w-full flex items-center justify-center gap-3 py-3.5 px-4 rounded-xl text-sm font-semibold text-slate-800 bg-gradient-to-l from-white via-indigo-50/50 to-violet-50/40 border border-indigo-200/70 shadow-sm shadow-indigo-950/5 transition-all duration-200 hover:border-indigo-400 hover:from-indigo-50/90 hover:via-indigo-50/70 hover:to-violet-50/60 hover:shadow-md hover:shadow-indigo-500/15 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:ring-offset-2 disabled:opacity-60 disabled:active:scale-100"
+            <div
+              ref={googleBtnContainerRef}
+              className={`group relative h-12 w-full overflow-hidden rounded-xl ${
+                isLoading ? "pointer-events-none opacity-60" : ""
+              }`}
+            >
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 flex items-center justify-center gap-3 rounded-xl text-sm font-semibold text-slate-800 bg-gradient-to-l from-white via-indigo-50/50 to-violet-50/40 border border-indigo-200/70 shadow-sm shadow-indigo-950/5 transition-all duration-200 group-hover:border-indigo-400 group-hover:from-indigo-50/90 group-hover:via-indigo-50/70 group-hover:to-violet-50/60 group-hover:shadow-md group-hover:shadow-indigo-500/15"
               >
                 <img
                   src="/assets/google.png"
@@ -350,13 +362,18 @@ const Register = () => {
                   className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-105"
                 />
                 التسجيل عبر Google
-              </button>
-              <div
-                ref={googleLoginWrapRef}
-                className="absolute left-0 top-0 w-px h-px opacity-0 overflow-hidden pointer-events-none"
-                aria-hidden
-              >
-                <GoogleLogin onSuccess={handleGoogleSuccess} onError={handleGoogleFailure} />
+              </div>
+              <div className="absolute inset-0 z-10 flex items-center justify-center opacity-0">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleFailure}
+                  width={googleBtnWidth}
+                  size="large"
+                  text="signup_with"
+                  shape="rectangular"
+                  locale="ar"
+                  useOneTap={false}
+                />
               </div>
             </div>
           </motion.form>

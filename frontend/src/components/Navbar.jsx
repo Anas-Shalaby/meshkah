@@ -13,10 +13,13 @@ import {
   Sun,
   Search,
   Home,
+  Bell,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { useNotificationContext } from "../context/NotificationContext";
+import NotificationCenter from "./NotificationCenter";
 export const NAV_RAIL_WIDTH_CLASS = "lg:pr-24";
 const RAIL_TOOLTIP_RIGHT = "6.35rem";
 
@@ -123,7 +126,17 @@ const Navbar = () => {
   const [railHoverTip, setRailHoverTip] = useState(null);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [mobileSearchQuery, setMobileSearchQuery] = useState("");
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const { unreadCount } = useNotificationContext();
   const railTipClearTimer = useRef(null);
+
+  const handleNotificationsOpen = () => {
+    if (!isAuthenticated) {
+      navigate("/login");
+      return;
+    }
+    setNotificationsOpen(true);
+  };
 
   const isActive = (to) =>
     to === "/"
@@ -433,7 +446,7 @@ const Navbar = () => {
         {/* اللوجو في المنتصف */}
         <Link
           to="/"
-          className="absolute left-1/2 flex -translate-x-1/2 items-center justify-center"
+          className="flex flex-1 items-center justify-center"
           aria-label="مشكاة — الرئيسية"
         >
           <img
@@ -443,7 +456,7 @@ const Navbar = () => {
           />
         </Link>
 
-        {/* الإجراءات — بحث + ثيم + قائمة */}
+        {/* الإجراءات — بحث + إشعارات + ثيم + قائمة */}
         <div className="flex shrink-0 items-center gap-1.5">
           <button
             type="button"
@@ -461,6 +474,23 @@ const Navbar = () => {
             }`}
           >
             <Search className="h-[18px] w-[18px]" />
+          </button>
+
+          <button
+            type="button"
+            onClick={handleNotificationsOpen}
+            aria-label="الإشعارات"
+            className={`relative flex h-9 w-9 items-center justify-center rounded-xl transition-colors active:scale-95 ${isNight ? "bg-[#2c2c31] text-zinc-300 hover:bg-[#34343a]" : "bg-purple-50 text-[#7440E9] hover:bg-purple-100"}`}
+          >
+            <Bell className="h-[18px] w-[18px]" />
+            {isAuthenticated && unreadCount > 0 && (
+              <span
+                className="absolute -top-1 -right-1 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold leading-none text-white ring-2"
+                style={{ "--tw-ring-color": isNight ? "#1f1f24" : "#ffffff" }}
+              >
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
           </button>
 
           <ThemeToggleBtn
@@ -729,6 +759,11 @@ const Navbar = () => {
           </span>
         </button>
       </nav>
+
+      <NotificationCenter
+        isOpen={notificationsOpen}
+        onClose={() => setNotificationsOpen(false)}
+      />
     </>
   );
 };

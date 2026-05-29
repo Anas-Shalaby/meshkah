@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Menu, Moon, Search, UserCircle } from "lucide-react";
+import { Bell, Menu, Moon, Search, UserCircle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { useNotificationContext } from "../context/NotificationContext";
 import MyLearningPanel from "./home/MyLearningPanel";
+import NotificationCenter from "./NotificationCenter";
 
 const COLORS = {
   page: "#1a1c22",
@@ -18,9 +20,19 @@ const LandingTopNavbar = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { isNight, toggleTheme } = useTheme();
+  const { unreadCount } = useNotificationContext();
   const [learningPanelOpen, setLearningPanelOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const handleNotificationsOpen = () => {
+    if (!isAuthenticated) {
+      navigate("/login");
+      return;
+    }
+    setNotificationsOpen(true);
+  };
 
   const theme = isNight
     ? {
@@ -124,6 +136,32 @@ const LandingTopNavbar = () => {
             >
               <Moon className="h-5 w-5" style={{ color: COLORS.nightIcon }} />
             </HeaderIconButton>
+
+            <div className="relative">
+              <HeaderIconButton
+                label="الإشعارات"
+                theme={theme}
+                onClick={handleNotificationsOpen}
+              >
+                <span className="relative inline-flex">
+                  <Bell className="h-5 w-5" />
+                  {isAuthenticated && unreadCount > 0 && (
+                    <span
+                      className="absolute -top-2 -right-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white shadow-[0_2px_6px_rgba(239,68,68,0.5)] ring-2"
+                      style={{ "--tw-ring-color": theme.card }}
+                    >
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </span>
+              </HeaderIconButton>
+
+              <NotificationCenter
+                isOpen={notificationsOpen}
+                onClose={() => setNotificationsOpen(false)}
+                variant="dropdown"
+              />
+            </div>
 
             <IconLink
               to={isAuthenticated ? "/profile" : "/login"}
