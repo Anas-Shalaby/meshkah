@@ -22,13 +22,13 @@ router.post("/search", async (req, res) => {
 
     // Fetch from external API
     const externalRes = await axios.post(
-      "https://hadeethenc.com/en/ajax/search",
+      "https://hadeethenc.com/ar/ajax/search",
       formData,
       {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
-      }
+      },
     );
 
     // Parse HTML response using JSDOM
@@ -36,9 +36,7 @@ router.post("/search", async (req, res) => {
     const document = dom.window.document;
 
     // Extract hadith IDs
-    const hadithDivs = Array.from(
-      document.querySelectorAll("div.rtl.text-right")
-    );
+    const hadithDivs = Array.from(document.querySelectorAll("div.rtl"));
     const hadithIds = hadithDivs
       .map((div) => {
         const a = div.querySelector("a[href]");
@@ -75,7 +73,7 @@ router.post("/search", async (req, res) => {
     for (const id of paginatedIds) {
       try {
         const response = await axios.get(
-          `https://hadeethenc.com/api/v1/hadeeths/one/?language=ar&id=${id}`
+          `https://hadeethenc.com/api/v1/hadeeths/one/?language=ar&id=${id}`,
         );
         if (response.data) {
           hadiths.push(response.data);

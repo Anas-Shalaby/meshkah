@@ -22,6 +22,25 @@ const sendError = (res, status, message, messageAr = null) => {
   }
   return res.status(status).json(response);
 };
+
+router.get("/public-stats", async (req, res) => {
+  try {
+    const [users] = await db.query("SELECT COUNT(*) as count FROM users");
+    return res.json({
+      success: true,
+      totalUsers: users[0]?.count || 0,
+    });
+  } catch (error) {
+    console.error("Error fetching public auth stats:", error);
+    return sendError(
+      res,
+      500,
+      "Error fetching public stats",
+      "حدث خطأ في جلب إحصائيات المنصة"
+    );
+  }
+});
+
 router.get("/google-status", authMiddleware, async (req, res) => {
   const userId = req.user.id;
 

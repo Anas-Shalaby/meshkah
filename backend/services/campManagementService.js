@@ -15,7 +15,7 @@ const getCampSupervisors = async ({ campId, cohortNumber }) => {
     // Verify camp exists
     const [camps] = await db.query(
       "SELECT id, name FROM quran_camps WHERE id = ?",
-      [campId]
+      [campId],
     );
     if (camps.length === 0) {
       return {
@@ -88,7 +88,7 @@ const addCampSupervisor = async ({
     // Verify camp exists
     const [camps] = await db.query(
       "SELECT id, name FROM quran_camps WHERE id = ?",
-      [campId]
+      [campId],
     );
     if (camps.length === 0) {
       return {
@@ -103,7 +103,7 @@ const addCampSupervisor = async ({
     // Verify user exists
     const [users] = await db.query(
       "SELECT id, username FROM users WHERE id = ?",
-      [userId]
+      [userId],
     );
     if (users.length === 0) {
       return {
@@ -152,14 +152,14 @@ const addCampSupervisor = async ({
       const [existing] = await db.query(
         `SELECT id FROM camp_supervisors 
          WHERE camp_id = ? AND user_id = ? AND cohort_number IS NULL`,
-        [camp.id, userId]
+        [camp.id, userId],
       );
 
       if (existing.length === 0) {
         await db.query(
           `INSERT INTO camp_supervisors (camp_id, cohort_number, user_id, created_by)
            VALUES (?, ?, ?, ?)`,
-          [camp.id, finalCohortNumber, userId, createdBy]
+          [camp.id, finalCohortNumber, userId, createdBy],
         );
       }
     }
@@ -167,7 +167,7 @@ const addCampSupervisor = async ({
     // Get user email and username for welcome email
     const [userDetails] = await db.query(
       "SELECT email, username FROM users WHERE id = ?",
-      [userId]
+      [userId],
     );
 
     // Send welcome email to new supervisor (mentioning all camps)
@@ -177,7 +177,7 @@ const addCampSupervisor = async ({
           userDetails[0].email,
           userDetails[0].username || "المشرف",
           "جميع المخيمات", // All camps
-          null // No specific camp
+          null, // No specific camp
         );
       } catch (emailError) {
         console.error("Error sending supervisor welcome email:", emailError);
@@ -191,14 +191,14 @@ const addCampSupervisor = async ({
       const [existingEnrollment] = await db.query(
         `SELECT id FROM camp_enrollments 
          WHERE user_id = ? AND camp_id = ? AND cohort_number = ?`,
-        [userId, campId, cohortNumber]
+        [userId, campId, cohortNumber],
       );
 
       if (existingEnrollment.length === 0) {
         const [cohorts] = await db.query(
           `SELECT start_date, status FROM camp_cohorts 
            WHERE camp_id = ? AND cohort_number = ?`,
-          [campId, cohortNumber]
+          [campId, cohortNumber],
         );
 
         if (cohorts.length > 0) {
@@ -221,7 +221,7 @@ const addCampSupervisor = async ({
             const [existingCode] = await db.query(
               `SELECT id FROM camp_enrollments 
                WHERE friend_code = ? AND cohort_number = ?`,
-              [friendCode, cohortNumber]
+              [friendCode, cohortNumber],
             );
             if (existingCode.length === 0) {
               codeExists = false;
@@ -235,7 +235,7 @@ const addCampSupervisor = async ({
             `INSERT INTO camp_enrollments 
              (user_id, camp_id, cohort_number, enrollment_date, status, friend_code, hide_identity)
              VALUES (?, ?, ?, NOW(), 'active', ?, false)`,
-            [userId, campId, cohortNumber, friendCode]
+            [userId, campId, cohortNumber, friendCode],
           );
         }
       }
@@ -311,7 +311,7 @@ const removeCampSupervisor = async ({ campId, userId, cohortNumber }) => {
       `DELETE FROM camp_supervisors WHERE camp_id = ? AND user_id = ? AND (
         cohort_number = ? OR (cohort_number IS NULL AND ? IS NULL)
       )`,
-      [campId, userId, cohortNumber || null, cohortNumber || null]
+      [campId, userId, cohortNumber || null, cohortNumber || null],
     );
 
     return {
@@ -360,7 +360,7 @@ const duplicateCamp = async ({
     // Get original camp
     const [campData] = await db.query(
       "SELECT * FROM quran_camps WHERE id = ?",
-      [campId]
+      [campId],
     );
 
     if (campData.length === 0) {
@@ -403,7 +403,7 @@ const duplicateCamp = async ({
         originalCamp.opening_youtube_url,
         share_link,
         tags || originalCamp.tags,
-      ]
+      ],
     );
 
     const newCampId = newCampResult.insertId;
@@ -411,7 +411,7 @@ const duplicateCamp = async ({
     // Copy task groups
     const [taskGroups] = await connection.query(
       "SELECT * FROM camp_task_groups WHERE camp_id = ?",
-      [campId]
+      [campId],
     );
 
     const groupIdMap = new Map();
@@ -429,7 +429,7 @@ const duplicateCamp = async ({
             ? groupIdMap.get(group.parent_group_id) || null
             : null,
           group.order_in_camp,
-        ]
+        ],
       );
       groupIdMap.set(group.id, newGroupResult.insertId);
     }
@@ -437,7 +437,7 @@ const duplicateCamp = async ({
     // Copy tasks
     const [tasks] = await connection.query(
       "SELECT * FROM camp_daily_tasks WHERE camp_id = ?",
-      [campId]
+      [campId],
     );
 
     for (const task of tasks) {
@@ -466,14 +466,14 @@ const duplicateCamp = async ({
           task.estimated_time,
           task.group_id ? groupIdMap.get(task.group_id) || null : null,
           task.order_in_group,
-        ]
+        ],
       );
     }
 
     // Copy resource categories
     const [categories] = await connection.query(
       "SELECT * FROM camp_resource_categories WHERE camp_id = ?",
-      [campId]
+      [campId],
     );
 
     const categoryIdMap = new Map();
@@ -483,7 +483,7 @@ const duplicateCamp = async ({
         INSERT INTO camp_resource_categories (camp_id, title, display_order)
         VALUES (?, ?, ?)
       `,
-        [newCampId, category.title, category.display_order]
+        [newCampId, category.title, category.display_order],
       );
       categoryIdMap.set(category.id, newCategoryResult.insertId);
     }
@@ -491,7 +491,7 @@ const duplicateCamp = async ({
     // Copy resources
     const [resources] = await connection.query(
       "SELECT * FROM camp_resources WHERE camp_id = ?",
-      [campId]
+      [campId],
     );
 
     for (const resource of resources) {
@@ -509,7 +509,7 @@ const duplicateCamp = async ({
           resource.url,
           resource.resource_type,
           resource.display_order,
-        ]
+        ],
       );
     }
 
@@ -543,7 +543,7 @@ const duplicateCamp = async ({
         originalCamp.allow_user_content,
         originalCamp.enable_interactions,
         newCampId,
-      ]
+      ],
     );
 
     await connection.commit();
@@ -604,13 +604,13 @@ const notifySupervisorsOnCohortCreation = async ({
        FROM camp_supervisors cs
        JOIN users u ON cs.user_id = u.id
        WHERE cs.cohort_number IS NULL`,
-      []
+      [],
     );
 
     // Get camp details for email
     const [campDetails] = await db.query(
       `SELECT name, share_link FROM quran_camps WHERE id = ?`,
-      [campId]
+      [campId],
     );
 
     if (campDetails.length === 0) {
@@ -640,7 +640,7 @@ const notifySupervisorsOnCohortCreation = async ({
             startDate,
             endDate,
           },
-          announcementMessage
+          announcementMessage,
         );
         supervisorEmailsSent++;
         notifiedSupervisors.push({
@@ -651,7 +651,7 @@ const notifySupervisorsOnCohortCreation = async ({
         supervisorEmailsFailed++;
         console.error(
           `Error sending briefing email to supervisor ${supervisor.email}:`,
-          emailError
+          emailError,
         );
       }
     }
@@ -664,7 +664,7 @@ const notifySupervisorsOnCohortCreation = async ({
   try {
     const [adminUser] = await db.query(
       "SELECT email, username FROM users WHERE id = ?",
-      [createdBy]
+      [createdBy],
     );
 
     if (adminUser.length > 0 && adminUser[0].email) {
@@ -674,7 +674,7 @@ const notifySupervisorsOnCohortCreation = async ({
       // Get camp name
       const [campDetailsForAdmin] = await db.query(
         `SELECT name FROM quran_camps WHERE id = ?`,
-        [campId]
+        [campId],
       );
       const campNameForAdmin = campDetailsForAdmin[0]?.name || campName;
 
@@ -758,7 +758,7 @@ const notifySupervisorsOnCohortCreation = async ({
         adminEmail,
         `✅ تأكيد: تم إرسال إشعارات الفوج رقم ${cohortNumber} في مخيم ${campNameForAdmin}`,
         "",
-        confirmationHtml
+        confirmationHtml,
       );
     }
   } catch (adminEmailError) {
