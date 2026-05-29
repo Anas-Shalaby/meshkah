@@ -11,19 +11,58 @@ import {
   ArrowLeft,
   ChevronRight,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Loading3QuartersOutlined, WhatsAppOutlined } from "@ant-design/icons";
 import { useHadithCategories } from "../hooks/useHadithCategories";
 import { useNavigate } from "react-router-dom";
 import SEO from "../components/SEO";
+import { useTheme } from "../context/ThemeContext";
 
 const HadithCategories = () => {
   const navigate = useNavigate();
+  const { isNight } = useTheme();
+  const ACCENT = isNight ? "#9e98db" : "#7440E9";
+  const c = isNight
+    ? {
+        page: "bg-[#1a1c22]",
+        text: "text-[#e0e0e0]",
+        sub: "text-[#a0a0a0]",
+        card: "bg-[#212328] border border-[#2a2d35]",
+        cardHover: "hover:border-[#9e98db]/50",
+        soft: "bg-[#1a1c22] border border-[#2a2d35]",
+        input:
+          "bg-[#212328] text-[#e0e0e0] border-2 border-[#2a2d35] placeholder-[#6b7280] focus:border-[#9e98db]",
+        chip: "bg-[#1a1c22] text-[#9e98db] border border-[#2a2d35]",
+        outlineBtn:
+          "bg-transparent text-[#9e98db] border-2 border-[#9e98db]/40 hover:bg-[#9e98db]/10",
+        modal: "bg-[#212328] border border-[#2a2d35]",
+        modalSoft: "bg-[#1a1c22] border border-[#2a2d35]",
+        divider: "border-[#2a2d35]",
+      }
+    : {
+        page: "bg-gradient-to-br from-[#f7f6fb] via-[#f3edff] to-[#e9e4f5]",
+        text: "text-gray-900",
+        sub: "text-gray-600",
+        card: "bg-white/90 backdrop-blur-xl border border-white/20",
+        cardHover: "hover:border-purple-300",
+        soft: "bg-gradient-to-r from-gray-50 to-white border border-transparent",
+        input:
+          "bg-white/90 text-black border-2 border-[#7440E9]/20 focus:ring-4 focus:ring-[#7440E9]/20 focus:border-[#7440E9] shadow-lg backdrop-blur-sm",
+        chip: "bg-gradient-to-r from-[#7440E9]/10 to-[#8B5CF6]/10 text-[#7440E9] border border-[#7440E9]/20",
+        outlineBtn:
+          "bg-white text-[#7440E9] border-2 border-[#7440E9] hover:bg-[#7440E9] hover:text-white",
+        modal: "bg-white border border-transparent",
+        modalSoft: "bg-gray-100 border border-transparent",
+        divider: "border-gray-200",
+      };
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentCategories, setCurrentCategories] = useState([]);
   const [history, setHistory] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(
+    () => searchParams.get("search") || "",
+  );
   const [searchResults, setSearchResults] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState(null);
@@ -76,7 +115,7 @@ const HadithCategories = () => {
   };
 
   const handleSearch = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (searchTerm.trim()) {
       setSearchLoading(true);
       setSearchError(null);
@@ -116,6 +155,19 @@ const HadithCategories = () => {
   }, [searchTerm]);
 
   useEffect(() => {
+    const urlSearchTerm = searchParams.get("search") || "";
+    if (!urlSearchTerm) return;
+    setSearchTerm(urlSearchTerm);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!loading && searchTerm.trim() && searchResults === null && !searchLoading) {
+      handleSearch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, searchTerm]);
+
+  useEffect(() => {
     setCurrentPage(1);
   }, [searchResults]);
 
@@ -139,7 +191,7 @@ const HadithCategories = () => {
   if (loading) {
     return (
       <div
-        className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#f7f6fb] via-[#f3edff] to-[#e9e4f5] font-cairo"
+        className={`min-h-screen flex items-center justify-center font-cairo ${c.page}`}
         dir="rtl"
       >
         <motion.div
@@ -147,8 +199,11 @@ const HadithCategories = () => {
           animate={{ opacity: 1, y: 0 }}
           className="text-center"
         >
-          <div className="w-16 h-16 mx-auto mb-6 border-4 border-[#7440E9]/20 rounded-full animate-spin border-t-transparent border-b-transparent" />
-          <h2 className="text-2xl font-bold text-[#7440E9] mt-4">
+          <div
+            className="w-16 h-16 mx-auto mb-6 border-4 rounded-full animate-spin border-t-transparent border-b-transparent"
+            style={{ borderColor: `${ACCENT}33`, borderTopColor: "transparent", borderBottomColor: "transparent" }}
+          />
+          <h2 className="text-2xl font-bold mt-4" style={{ color: ACCENT }}>
             جاري تحميل التصنيفات...
           </h2>
         </motion.div>
@@ -159,7 +214,7 @@ const HadithCategories = () => {
   if (error) {
     return (
       <div
-        className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#f7f6fb] via-[#f3edff] to-[#e9e4f5] font-cairo"
+        className={`min-h-screen flex items-center justify-center font-cairo ${c.page}`}
         dir="rtl"
       >
         <motion.div
@@ -175,7 +230,7 @@ const HadithCategories = () => {
 
   return (
     <div
-      className="min-h-screen bg-gradient-to-br from-[#f7f6fb] via-[#f3edff] to-[#e9e4f5] py-16 px-4 font-amiri"
+      className={`min-h-screen py-16 px-4 font-amiri ${c.page} ${c.text}`}
       dir="rtl"
     >
       <SEO
@@ -192,10 +247,10 @@ const HadithCategories = () => {
           transition={{ duration: 0.6 }}
           className="text-center mb-12"
         >
-          <h1 className="text-5xl sm:text-6xl font-extrabold text-[#7440E9] mb-6">
+          <h1 className="text-5xl sm:text-6xl font-extrabold mb-6" style={{ color: ACCENT }}>
             تصنيفات الأحاديث
           </h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+          <p className={`text-xl max-w-3xl mx-auto leading-relaxed ${c.sub}`}>
             استكشف الأحاديث النبوية الشريفة من خلال التصنيفات المختلفة
           </p>
         </motion.div>
@@ -209,13 +264,13 @@ const HadithCategories = () => {
         >
           <form onSubmit={handleSearch} className="max-w-2xl mx-auto">
             <div className="relative">
-              <Search className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
+              <Search className="absolute right-4 top-1/2 transform -translate-y-1/2 w-6 h-6" style={{ color: ACCENT }} />
               <input
                 type="text"
                 placeholder="ابحث عن حديث أو كلمة..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-6 py-4 pr-12 text-lg text-black rounded-2xl border-2 border-[#7440E9]/20 focus:ring-4 focus:ring-[#7440E9]/20 focus:border-[#7440E9] focus:outline-none text-right bg-white/90 shadow-lg backdrop-blur-sm"
+                className={`w-full px-6 py-4 pr-12 text-lg rounded-2xl focus:outline-none text-right ${c.input}`}
                 autoFocus
               />
               <button
@@ -236,8 +291,8 @@ const HadithCategories = () => {
             className="flex justify-center mb-8"
           >
             <div className="text-center">
-              <Loading3QuartersOutlined className="text-6xl text-[#7440E9] animate-spin" />
-              <p className="text-lg text-gray-600 mt-4">جاري البحث...</p>
+              <Loading3QuartersOutlined className="text-6xl animate-spin" style={{ color: ACCENT }} />
+              <p className={`text-lg mt-4 ${c.sub}`}>جاري البحث...</p>
             </div>
           </motion.div>
         )}
@@ -261,10 +316,10 @@ const HadithCategories = () => {
             transition={{ duration: 0.6 }}
           >
             <div className="mb-8 text-center">
-              <h2 className="text-3xl font-bold text-[#7440E9] mb-2">
+              <h2 className="text-3xl font-bold mb-2" style={{ color: ACCENT }}>
                 نتائج البحث
               </h2>
-              <p className="text-gray-600">
+              <p className={c.sub}>
                 تم العثور على {searchResults.length} حديث
               </p>
             </div>
@@ -281,10 +336,10 @@ const HadithCategories = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, delay: idx * 0.1 }}
-                    className="bg-white/90 backdrop-blur-xl rounded-3xl border border-white/20 shadow-lg hover:shadow-xl transition-all duration-300 p-8"
+                    className={`rounded-3xl shadow-lg transition-all duration-300 p-8 ${c.card} ${c.cardHover}`}
                   >
                     {/* Hadith Text */}
-                    <div className="text-md font-amiri leading-loose mb-6 text-gray-900 bg-gradient-to-r from-gray-50 to-white p-6 rounded-2xl">
+                    <div className={`text-md font-amiri leading-loose mb-6 p-6 rounded-2xl ${c.soft} ${c.text}`}>
                       {hadith.hadeeth}
                     </div>
 
@@ -294,7 +349,11 @@ const HadithCategories = () => {
                         <span
                           className={`inline-block px-4 py-2 rounded-full text-sm font-bold ${
                             hadith.grade.includes("صحيح")
-                              ? "bg-green-100 text-green-700 border border-green-200"
+                              ? isNight
+                                ? "bg-green-900/30 text-green-400 border border-green-900/50"
+                                : "bg-green-100 text-green-700 border border-green-200"
+                              : isNight
+                              ? "bg-red-900/30 text-red-400 border border-red-900/50"
                               : "bg-red-100 text-red-700 border border-red-200"
                           }`}
                         >
@@ -307,28 +366,28 @@ const HadithCategories = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                       {hadith.attribution && (
                         <div className="flex items-center gap-2 text-sm">
-                          <Users className="w-4 h-4 text-yellow-600" />
-                          <span className="text-yellow-700 font-bold">
+                          <Users className="w-4 h-4" style={{ color: isNight ? "#fbbf24" : "#ca8a04" }} />
+                          <span className="font-bold" style={{ color: isNight ? "#fcd34d" : "#a16207" }}>
                             {hadith.attribution}
                           </span>
                         </div>
                       )}
                       {hadith.source && (
                         <div className="flex items-center gap-2 text-sm">
-                          <BookOpen className="w-4 h-4 text-orange-600" />
-                          <span className="text-orange-700 font-bold">
+                          <BookOpen className="w-4 h-4" style={{ color: isNight ? "#fb923c" : "#ea580c" }} />
+                          <span className="font-bold" style={{ color: isNight ? "#fdba74" : "#c2410c" }}>
                             {hadith.source}
                           </span>
                         </div>
                       )}
                       <div className="flex items-center gap-2 text-sm">
-                        <Award className="w-4 h-4 text-gray-600" />
-                        <span className="text-gray-500">رقم: {hadith.id}</span>
+                        <Award className="w-4 h-4" style={{ color: isNight ? "#a0a0a0" : "#4b5563" }} />
+                        <span className={c.sub}>رقم: {hadith.id}</span>
                       </div>
                       {hadith.topic && (
                         <div className="flex items-center gap-2 text-sm">
-                          <ChevronRight className="w-4 h-4 text-green-600" />
-                          <span className="text-green-700">{hadith.topic}</span>
+                          <ChevronRight className="w-4 h-4" style={{ color: isNight ? "#4ade80" : "#16a34a" }} />
+                          <span style={{ color: isNight ? "#86efac" : "#15803d" }}>{hadith.topic}</span>
                         </div>
                       )}
                     </div>
@@ -339,7 +398,7 @@ const HadithCategories = () => {
                         (categoryName, index) => (
                           <span
                             key={index}
-                            className="px-3 py-1 bg-gradient-to-r from-[#7440E9]/10 to-[#8B5CF6]/10 text-[#7440E9] rounded-full text-sm font-medium border border-[#7440E9]/20"
+                            className={`px-3 py-1 rounded-full text-sm font-medium ${c.chip}`}
                           >
                             {categoryName}
                           </span>
@@ -358,7 +417,7 @@ const HadithCategories = () => {
                       </Link>
                       <a
                         href={`/hadiths/${hadith.categories[0]}/page/1`}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-white text-[#7440E9] rounded-xl font-medium border-2 border-[#7440E9] hover:bg-[#7440E9] hover:text-white transition-all duration-200"
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-200 ${c.outlineBtn}`}
                       >
                         <ChevronRight className="w-4 h-4" />
                         أحاديث مشابهة
@@ -368,7 +427,7 @@ const HadithCategories = () => {
                     {/* Share Button */}
                     <div className="flex justify-end">
                       <button
-                        className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-[#7440E9] transition-colors duration-200"
+                        className={`flex items-center gap-2 px-4 py-2 transition-colors duration-200 ${c.sub} hover:opacity-80`}
                         title="مشاركة"
                         onClick={() => setShareDialogId(hadith.id)}
                       >
@@ -383,10 +442,10 @@ const HadithCategories = () => {
                         <motion.div
                           initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
-                          className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md relative"
+                          className={`rounded-3xl shadow-2xl p-8 w-full max-w-md relative ${c.modal}`}
                         >
                           <button
-                            className="absolute top-4 left-4 text-gray-400 hover:text-gray-700 transition-colors"
+                            className={`absolute top-4 left-4 transition-colors ${c.sub} hover:opacity-80`}
                             onClick={() => setShareDialogId(null)}
                           >
                             <svg
@@ -400,7 +459,7 @@ const HadithCategories = () => {
                               <path d="m6 6 12 12" />
                             </svg>
                           </button>
-                          <h3 className="text-xl font-bold text-[#7440E9] mb-6 text-center">
+                          <h3 className="text-xl font-bold mb-6 text-center" style={{ color: ACCENT }}>
                             مشاركة الحديث
                           </h3>
 
@@ -443,15 +502,16 @@ const HadithCategories = () => {
                             </a>
                           </div>
 
-                          <div className="flex items-center gap-2 bg-gray-100 rounded-xl px-4 py-3">
+                          <div className={`flex items-center gap-2 rounded-xl px-4 py-3 ${c.modalSoft}`}>
                             <input
                               type="text"
                               readOnly
                               value={`${window.location.origin}/hadiths/hadith/${hadith.id}`}
-                              className="flex-1 bg-transparent border-none outline-none text-sm text-gray-700 select-all"
+                              className={`flex-1 bg-transparent border-none outline-none text-sm select-all ${c.sub}`}
                             />
                             <button
-                              className="p-2 rounded-lg hover:bg-[#7440E9]/10 text-[#7440E9] transition-colors"
+                              className="p-2 rounded-lg transition-colors"
+                              style={{ color: ACCENT }}
                               onClick={async () => {
                                 await navigator.clipboard.writeText(
                                   `${window.location.origin}/hadiths/hadith/${hadith.id}`
@@ -495,7 +555,7 @@ const HadithCategories = () => {
                     Math.ceil(searchResults.length / RESULTS_PER_PAGE)
                   ).map((page, idx) =>
                     page === "..." ? (
-                      <span key={idx} className="px-3 text-gray-400">
+                      <span key={idx} className={`px-3 ${c.sub}`}>
                         ...
                       </span>
                     ) : (
@@ -505,8 +565,9 @@ const HadithCategories = () => {
                         className={`px-3 py-2 rounded-xl font-bold transition-all duration-200 ${
                           currentPage === page
                             ? "bg-gradient-to-r from-[#7440E9] to-[#8B5CF6] text-white shadow-lg"
-                            : "bg-white text-[#7440E9] border border-[#7440E9]/20 hover:border-[#7440E9]"
+                            : `${c.card} ${c.cardHover}`
                         }`}
+                        style={currentPage === page ? undefined : { color: ACCENT }}
                       >
                         {page}
                       </button>
@@ -543,16 +604,16 @@ const HadithCategories = () => {
             transition={{ duration: 0.6, delay: 0.4 }}
           >
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-[#7440E9] mb-4">
+              <h2 className="text-3xl font-bold mb-4" style={{ color: ACCENT }}>
                 استعرض التصنيفات
               </h2>
-              <p className="text-gray-600 text-lg">
+              <p className={`text-lg ${c.sub}`}>
                 اختر من التصنيفات التالية لاستكشاف الأحاديث
               </p>
 
               {/* Breadcrumb */}
               {history.length > 0 && (
-                <div className="flex items-center justify-center gap-2 mt-4 text-sm text-gray-500">
+                <div className={`flex items-center justify-center gap-2 mt-4 text-sm ${c.sub}`}>
                   <span>الرئيسية</span>
                   {history.map((_, index) => (
                     <div key={index} className="flex items-center gap-2">
@@ -583,29 +644,33 @@ const HadithCategories = () => {
                   initial={{ opacity: 0, y: 40 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: idx * 0.1 }}
-                  className="relative bg-white/90 backdrop-blur-xl border border-white/20 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer group p-8 text-center"
+                  className={`relative rounded-3xl shadow-lg transition-all duration-300 cursor-pointer group p-8 text-center ${c.card} ${c.cardHover}`}
                   style={{ minHeight: 280 }}
                 >
-                  {/* Background Pattern */}
-                  <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-[#7440E9]/5 to-[#8B5CF6]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
                   <div className="relative z-10">
-                    <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-br from-[#7440E9] to-[#8B5CF6] rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300">
-                      <BookOpen className="w-8 h-8 text-white" />
+                    <div
+                      className="w-16 h-16 mx-auto mb-6 rounded-2xl flex items-center justify-center transition-all duration-300"
+                      style={{ backgroundColor: `${ACCENT}1f` }}
+                    >
+                      <BookOpen className="w-8 h-8" style={{ color: ACCENT }} />
                     </div>
 
-                    <h3 className="font-bold text-2xl text-[#7440E9] mb-4 group-hover:text-[#6D28D9] transition-colors duration-300">
+                    <h3 className={`font-bold text-2xl mb-4 transition-colors duration-300 ${c.text}`}>
                       {cat.title}
                     </h3>
 
-                    <div className="inline-block mb-6 px-4 py-2 rounded-full bg-gradient-to-r from-[#7440E9]/10 to-[#8B5CF6]/10 text-[#7440E9] font-semibold text-sm border border-[#7440E9]/20">
+                    <div className={`inline-block mb-6 px-4 py-2 rounded-full font-semibold text-sm ${c.chip}`}>
                       {cat.hadeeths_count} حديث
                     </div>
 
                     {/* مؤشر الـ sub-categories */}
                     {cat.subCategories && cat.subCategories.length > 0 && (
                       <div className="mb-4 text-center">
-                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium border border-green-200">
+                        <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
+                          isNight
+                            ? "bg-green-900/30 text-green-400 border border-green-900/50"
+                            : "bg-green-100 text-green-700 border border-green-200"
+                        }`}>
                           <ChevronRight className="w-3 h-3" />
                           {cat.subCategories.length} تصنيف فرعي
                         </span>
@@ -627,7 +692,7 @@ const HadithCategories = () => {
 
                       {/* زر الذهاب للأحاديث مباشرة */}
                       <button
-                        className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-[#7440E9] font-bold border-2 border-[#7440E9] hover:bg-[#7440E9] hover:text-white transition-all duration-200 shadow-lg hover:shadow-xl group-hover:scale-105"
+                        className={`w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold transition-all duration-200 shadow-lg hover:shadow-xl group-hover:scale-105 ${c.outlineBtn}`}
                         onClick={() => navigate(`/hadiths/${cat.id}/page/1`)}
                       >
                         <ChevronRight className="w-5 h-5" />

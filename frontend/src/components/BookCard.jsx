@@ -18,14 +18,45 @@ import {
   getOptimizedImageUrl,
   optimizeImageLoading,
 } from "../utils/imageOptimization";
+import { useTheme } from "../context/ThemeContext";
 
 const BookCard = ({ book, isSelected = false, language = "ar" }) => {
+  const { isNight } = useTheme();
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [bookmarkId, setBookmarkId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const imageRef = useRef(null);
+
+  // ——— Flat theme tokens (matches IslamicLibraryPage) ———
+  const ACCENT = isNight ? "#9e98db" : "#7440E9";
+  const GOLD = "#ffc107";
+  const c = isNight
+    ? {
+        card: "bg-[#212328] border-white/5",
+        cardActive: "border-[#9e98db]",
+        strong: "text-[#e0e0e0]",
+        title: "text-[#e0e0e0] group-hover:text-[#9e98db]",
+        muted: "text-white/55",
+        faint: "text-white/40",
+        innerBox: "bg-[#1a1c22]",
+        footer: "border-white/10",
+        track: "bg-white/10",
+        coverFallback: "bg-[#1a1c22]",
+      }
+    : {
+        card: "bg-white border-black/5",
+        cardActive: "border-[#7440E9]",
+        strong: "text-gray-900",
+        title: "text-gray-900 group-hover:text-[#7440E9]",
+        muted: "text-gray-500",
+        faint: "text-gray-400",
+        innerBox: "bg-[#f6f6fa]",
+        footer: "border-gray-100",
+        track: "bg-gray-200",
+        coverFallback: "bg-[#f1f1f5]",
+      };
 
   // Check if book is bookmarked on component mount
   useEffect(() => {
@@ -112,25 +143,24 @@ const BookCard = ({ book, isSelected = false, language = "ar" }) => {
   }, [optimizedImageUrl]);
 
   return (
-    <Link to={`/islamic-library/book/${book.bookSlug}`}>
+    <Link to={`/islamic-library/book/${book.bookSlug}`} className="block h-full">
       <motion.div
-        className={`relative bg-white/90 backdrop-blur-xl rounded-3xl p-4 sm:p-6 border-2  cursor-pointer group overflow-hidden ${
-          isSelected
-            ? "border-purple-500 shadow-xl shadow-purple-500/30"
-            : "border-purple-200/50 shadow-lg hover:shadow-2xl hover:border-purple-300/70"
-        }`}
+        whileHover={{ y: -4 }}
+        transition={{ type: "spring", stiffness: 300, damping: 24 }}
+        className={`group flex h-full cursor-pointer flex-col rounded-2xl border p-5 transition-colors ${
+          c.card
+        } ${isSelected ? c.cardActive : ""}`}
       >
-        {/* Background Pattern */}
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-50/50 to-blue-50/50 "></div>
-
         {/* Book Header */}
-        <div className="relative flex items-start space-x-4 space-x-reverse mb-6">
-          <div className="relative">
-            <div className="w-20 h-28 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-xl overflow-hidden">
+        <div className="flex items-start gap-4">
+          <div className="relative shrink-0">
+            <div
+              className={`flex h-28 w-20 items-center justify-center overflow-hidden rounded-xl ${c.coverFallback}`}
+            >
               {/* Loading Placeholder */}
               {!imageLoaded && (
-                <div className="w-full h-full bg-gradient-to-br from-purple-400 to-blue-500 animate-pulse flex items-center justify-center">
-                  <BookOpen className="w-8 h-8 text-white/70" />
+                <div className="flex h-full w-full animate-pulse items-center justify-center">
+                  <BookOpen className="h-8 w-8" style={{ color: ACCENT }} />
                 </div>
               )}
 
@@ -139,7 +169,7 @@ const BookCard = ({ book, isSelected = false, language = "ar" }) => {
                 ref={imageRef}
                 src={optimizedImageUrl}
                 alt={getBookTranslation(language, book.bookName)}
-                className={`w-full h-full object-cover transition-opacity duration-300 book-card-image ${
+                className={`book-card-image h-full w-full object-cover transition-opacity duration-300 ${
                   imageLoaded ? "opacity-100" : "opacity-0"
                 }`}
                 loading="lazy"
@@ -153,26 +183,26 @@ const BookCard = ({ book, isSelected = false, language = "ar" }) => {
 
               {/* Fallback Icon */}
               {imageError && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-purple-500 to-blue-600">
-                  <BookOpen className="w-10 h-10 text-white" />
+                <div
+                  className={`absolute inset-0 flex items-center justify-center ${c.coverFallback}`}
+                >
+                  <BookOpen className="h-10 w-10" style={{ color: ACCENT }} />
                 </div>
               )}
             </div>
-            {/* Status Badge */}
-            <div className="absolute -top-2 -right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
-              <div className="w-4 h-4 bg-white rounded-full"></div>
-            </div>
           </div>
 
-          <div className="flex-1 min-w-0">
-            <h3 className="font-cairo font-bold text-xl text-gray-900 mb-2 line-clamp-2 group-hover:text-purple-700 transition-colors">
+          <div className="min-w-0 flex-1">
+            <h3
+              className={`mb-1.5 font-cairo text-lg font-bold leading-snug line-clamp-2 transition-colors ${c.title}`}
+            >
               {language === "ar"
                 ? getBookTranslation(language, book.bookName)
                 : book.bookNameEn
                 ? book.bookNameEn
                 : getBookTranslation(language, book.bookName)}
             </h3>
-            <p className="text-sm text-gray-600 mb-3 font-medium">
+            <p className={`mb-3 text-sm font-medium ${c.muted}`}>
               {language === "ar"
                 ? getBookTranslation(language, book.writerName)
                 : book.writerNameEn
@@ -181,65 +211,70 @@ const BookCard = ({ book, isSelected = false, language = "ar" }) => {
             </p>
 
             {/* Stats */}
-            <div className="flex items-center space-x-3 space-x-reverse text-xs text-gray-500">
-              <div className="flex items-center space-x-1 space-x-reverse">
-                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                <span className="font-semibold">
-                  {book.hadiths_count}{" "}
-                  {getTranslation(language, "hadithsCount")}
-                </span>
-              </div>
-              <div className="flex items-center space-x-1 space-x-reverse">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="font-semibold">
-                  {book.chapters_count}{" "}
-                  {getTranslation(language, "chaptersCount")}
-                </span>
-              </div>
+            <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-xs ${c.faint}`}>
+              <span className="flex items-center gap-1.5 font-semibold">
+                <span
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{ backgroundColor: ACCENT }}
+                />
+                {book.hadiths_count} {getTranslation(language, "hadithsCount")}
+              </span>
+              <span className="flex items-center gap-1.5 font-semibold">
+                <span
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{ backgroundColor: GOLD }}
+                />
+                {book.chapters_count} {getTranslation(language, "chaptersCount")}
+              </span>
             </div>
           </div>
         </div>
 
         {/* Book Description */}
         {book.aboutWriter && (
-          <div className="mb-4 p-3 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl">
-            <p className="text-sm text-gray-700 line-clamp-2 leading-relaxed">
+          <div className={`mt-4 rounded-xl p-3 ${c.innerBox}`}>
+            <p className={`text-sm leading-relaxed line-clamp-2 ${c.muted}`}>
               {book.aboutWriter}
             </p>
           </div>
         )}
 
         {/* Book Metadata */}
-        <div className="flex items-center justify-between pt-4 border-t border-purple-100">
-          <div className="flex items-center space-x-3 space-x-reverse">
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-green-100 to-green-200 text-green-800 border border-green-200">
+        <div
+          className={`mt-auto flex items-center justify-between border-t pt-4 ${c.footer}`}
+        >
+          <div className="flex items-center gap-3">
+            <span
+              className="rounded-full px-3 py-1 text-xs font-semibold"
+              style={{ backgroundColor: `${ACCENT}1f`, color: ACCENT }}
+            >
               {getTranslation(language, "available")}
             </span>
             {book.writerDeath && (
-              <span className="text-xs text-gray-500 font-medium">
+              <span className={`text-xs font-medium ${c.faint}`}>
                 {book.writerDeath} {book.writerDeath.includes("ھ") ? "" : "ھ"}
               </span>
             )}
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center space-x-2 space-x-reverse opacity-0 group-hover:opacity-100 transition-all duration-300">
+          <div className="flex items-center gap-1 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
                 handleBookmark(e);
               }}
-              className={`p-2 transition-colors hover:scale-110 ${
-                isBookmarked
-                  ? "text-purple-600 hover:text-purple-700"
-                  : "text-gray-400 hover:text-purple-600"
-              }`}
+              className="rounded-lg p-2 transition-transform hover:scale-110"
               title={getTranslation(language, "bookmark")}
               disabled={isLoading}
             >
               <Bookmark
-                className={`w-4 h-4 ${isBookmarked ? "fill-current" : ""}`}
+                className="h-4 w-4"
+                style={{
+                  color: isBookmarked ? GOLD : ACCENT,
+                  fill: isBookmarked ? GOLD : "transparent",
+                }}
               />
             </button>
             <button
@@ -248,13 +283,19 @@ const BookCard = ({ book, isSelected = false, language = "ar" }) => {
                 e.preventDefault();
                 handleShare(e);
               }}
-              className="p-2 text-gray-400 hover:text-blue-600 transition-colors hover:scale-110"
+              className={`rounded-lg p-2 transition-transform hover:scale-110 ${c.faint}`}
               title={getTranslation(language, "share")}
             >
-              <Share2 className="w-4 h-4" />
+              <Share2 className="h-4 w-4" />
             </button>
-            <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-              <ChevronRight className="w-4 h-4 text-white" />
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-full transition-transform group-hover:scale-110"
+              style={{ backgroundColor: ACCENT }}
+            >
+              <ChevronRight
+                className="h-4 w-4 rtl:rotate-180"
+                style={{ color: isNight ? "#1a1c22" : "#ffffff" }}
+              />
             </div>
           </div>
         </div>
@@ -262,14 +303,14 @@ const BookCard = ({ book, isSelected = false, language = "ar" }) => {
         {/* Progress Bar (if available) */}
         {book.progress && (
           <div className="mt-4">
-            <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+            <div className={`mb-1 flex items-center justify-between text-xs ${c.muted}`}>
               <span>{getTranslation(language, "progress")}</span>
               <span>{Math.round(book.progress)}%</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className={`h-2 w-full rounded-full ${c.track}`}>
               <div
-                className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${book.progress}%` }}
+                className="h-2 rounded-full transition-all duration-300"
+                style={{ width: `${book.progress}%`, backgroundColor: ACCENT }}
               ></div>
             </div>
           </div>

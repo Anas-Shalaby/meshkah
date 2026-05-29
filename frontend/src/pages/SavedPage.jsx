@@ -220,20 +220,23 @@ const SavedPage = () => {
   if (!user) {
     return (
       <div
-        className={`flex min-h-screen items-center justify-center px-4 ${t.page}`}
+        className={`saved-page-scope flex min-h-screen items-center justify-center px-4 ${t.page}`}
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           className="text-center"
         >
-          <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center mb-4">
-            <Bookmark className="w-10 h-10 text-white" />
+          <div
+            className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl"
+            style={{ backgroundColor: isNight ? "#212328" : "#fff", border: `1px solid ${isNight ? "#2a2d35" : "#e5e7eb"}` }}
+          >
+            <Bookmark className="h-10 w-10" style={{ color: isNight ? "#9e98db" : "#7440E9" }} />
           </div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">
+          <h2 className={`mb-2 text-xl font-bold ${t.textHeading}`}>
             يرجى تسجيل الدخول
           </h2>
-          <p className="text-gray-600">للوصول إلى المحفوظات الخاصة بك</p>
+          <p className={t.textBody}>للوصول إلى المحفوظات الخاصة بك</p>
         </motion.div>
       </div>
     );
@@ -241,19 +244,22 @@ const SavedPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+      <div className={`saved-page-scope flex min-h-screen items-center justify-center ${t.page}`}>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center max-w-md"
         >
-          <div className="w-24 h-24 mx-auto rounded-3xl bg-gradient-to-br from-purple-100 to-indigo-100 flex items-center justify-center mb-6 shadow-lg">
-            <Loading3QuartersOutlined className="text-4xl text-purple-600 animate-spin" />
+          <div
+            className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-3xl"
+            style={{ backgroundColor: isNight ? "#212328" : "#fff", border: `1px solid ${isNight ? "#2a2d35" : "#e5e7eb"}` }}
+          >
+            <Loading3QuartersOutlined className="animate-spin text-4xl" style={{ color: isNight ? "#9e98db" : "#7440E9" }} />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-3">
+          <h2 className={`mb-3 text-2xl font-bold ${t.textHeading}`}>
             جاري تحميل المحفوظات
           </h2>
-          <p className="text-gray-600">
+          <p className={t.textBody}>
             يرجى الانتظار بينما نقوم بجلب أحاديثك المحفوظة
           </p>
         </motion.div>
@@ -264,27 +270,31 @@ const SavedPage = () => {
   if (!bookmarks || bookmarks.length === 0) {
     return (
       <div
-        className={`flex min-h-screen items-center justify-center px-4 ${t.page}`}
+        className={`saved-page-scope flex min-h-screen items-center justify-center px-4 ${t.page}`}
       >
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center max-w-md"
         >
-          <div className="w-24 h-24 mx-auto rounded-3xl bg-gradient-to-br from-purple-100 to-indigo-100 flex items-center justify-center mb-6 shadow-lg">
-            <Bookmark className="w-12 h-12 text-purple-600" />
+          <div
+            className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-3xl"
+            style={{ backgroundColor: isNight ? "#212328" : "#fff", border: `1px solid ${isNight ? "#2a2d35" : "#e5e7eb"}` }}
+          >
+            <Bookmark className="h-12 w-12" style={{ color: isNight ? "#9e98db" : "#7440E9" }} />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-3">
+          <h2 className={`mb-3 text-2xl font-bold ${t.textHeading}`}>
             لا توجد أحاديث محفوظة
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p className={`mb-6 ${t.textBody}`}>
             ابدأ بحفظ الأحاديث المفضلة لديك للوصول إليها لاحقاً
           </p>
           <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => window.history.back()}
-            className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+            className="rounded-xl px-6 py-3 font-semibold text-white transition-colors duration-300"
+            style={{ backgroundColor: "#7440E9" }}
           >
             استكشف الأحاديث
           </motion.button>
@@ -296,11 +306,23 @@ const SavedPage = () => {
   return (
     <>
       <SEO {...seoData} />
-      <div className={`relative min-h-screen overflow-hidden ${t.page}`}>
+      <div className={`saved-page-scope relative min-h-screen overflow-hidden ${t.page}`}>
         {/* Background decorative elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-purple-200 to-indigo-200 rounded-full opacity-20 blur-3xl"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-200 to-purple-200 rounded-full opacity-20 blur-3xl"></div>
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div
+            className={`absolute -top-40 -right-40 h-80 w-80 rounded-full blur-3xl ${
+              isNight
+                ? "bg-[#9e98db]/10 opacity-100"
+                : "bg-gradient-to-br from-purple-200 to-indigo-200 opacity-20"
+            }`}
+          ></div>
+          <div
+            className={`absolute -bottom-40 -left-40 h-80 w-80 rounded-full blur-3xl ${
+              isNight
+                ? "bg-[#7440E9]/10 opacity-100"
+                : "bg-gradient-to-br from-blue-200 to-purple-200 opacity-20"
+            }`}
+          ></div>
         </div>
 
         <div className="relative z-10">
@@ -470,9 +492,15 @@ const SavedPage = () => {
               transition={{ delay: 0.6 }}
               className="text-center mb-6"
             >
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-xl rounded-full border border-purple-200/50 shadow-lg">
-                <Heart className="w-4 h-4 text-purple-600" />
-                <span className="text-sm font-medium text-gray-700">
+              <div
+                className="inline-flex items-center gap-2 rounded-full px-4 py-2"
+                style={{
+                  backgroundColor: isNight ? "#212328" : "#fff",
+                  border: `1px solid ${isNight ? "#2a2d35" : "#e9d5ff"}`,
+                }}
+              >
+                <Heart className="h-4 w-4" style={{ color: isNight ? "#9e98db" : "#7440E9" }} />
+                <span className={`text-sm font-medium ${t.textHeading}`}>
                   {sortedHadiths.length} حديث محفوظ
                 </span>
               </div>
@@ -487,13 +515,16 @@ const SavedPage = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className="text-center py-16"
               >
-                <div className="w-24 h-24 mx-auto rounded-3xl bg-gradient-to-br from-purple-100 to-indigo-100 flex items-center justify-center mb-6 shadow-lg">
-                  <Loading3QuartersOutlined className="text-4xl text-purple-600 animate-spin" />
+                <div
+                  className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-3xl"
+                  style={{ backgroundColor: isNight ? "#212328" : "#fff", border: `1px solid ${isNight ? "#2a2d35" : "#e5e7eb"}` }}
+                >
+                  <Loading3QuartersOutlined className="animate-spin text-4xl" style={{ color: isNight ? "#9e98db" : "#7440E9" }} />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                <h3 className={`mb-2 text-xl font-semibold ${t.textHeading}`}>
                   جاري تحميل تفاصيل الأحاديث
                 </h3>
-                <p className="text-gray-500">
+                <p className={t.textMuted}>
                   يرجى الانتظار بينما نقوم بجلب تفاصيل أحاديثك المحفوظة
                 </p>
               </motion.div>
@@ -505,13 +536,16 @@ const SavedPage = () => {
                     animate={{ opacity: 1, scale: 1 }}
                     className="col-span-full text-center py-16"
                   >
-                    <div className="w-24 h-24 mx-auto rounded-3xl bg-gradient-to-br from-purple-100 to-indigo-100 flex items-center justify-center mb-6 shadow-lg">
-                      <Search className="w-12 h-12 text-purple-600" />
+                    <div
+                      className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-3xl"
+                      style={{ backgroundColor: isNight ? "#212328" : "#fff", border: `1px solid ${isNight ? "#2a2d35" : "#e5e7eb"}` }}
+                    >
+                      <Search className="h-12 w-12" style={{ color: isNight ? "#9e98db" : "#7440E9" }} />
                     </div>
-                    <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                    <h3 className={`mb-2 text-xl font-semibold ${t.textHeading}`}>
                       لا توجد نتائج
                     </h3>
-                    <p className="text-gray-500 mb-4">
+                    <p className={`mb-4 ${t.textMuted}`}>
                       جرب تغيير كلمات البحث أو الفلاتر
                     </p>
                     <button
@@ -519,7 +553,8 @@ const SavedPage = () => {
                         setSearchTerm("");
                         setSelectedCollection("الكل");
                       }}
-                      className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                      className="rounded-lg px-4 py-2 text-white transition-colors"
+                      style={{ backgroundColor: "#7440E9" }}
                     >
                       إعادة تعيين البحث
                     </button>
@@ -552,7 +587,11 @@ const SavedPage = () => {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white/80 backdrop-blur-xl rounded-3xl p-6 shadow-2xl border border-purple-200/50 max-w-4xl mx-auto"
+                className="mx-auto max-w-4xl rounded-3xl p-6"
+                style={{
+                  backgroundColor: isNight ? "#212328" : "#fff",
+                  border: `1px solid ${isNight ? "#2a2d35" : "#e9d5ff"}`,
+                }}
               >
                 {sortedHadiths.map((h, index) => (
                   <motion.div
@@ -562,18 +601,39 @@ const SavedPage = () => {
                     transition={{ delay: index * 0.1 }}
                     className="mb-12 last:mb-0"
                   >
-                    <div className="text-2xl font-[Amiri,serif] text-gray-800 leading-loose text-center mb-4 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl p-6 border border-purple-200/50 shadow-lg">
+                    <div
+                      className="mb-4 rounded-2xl p-6 text-center font-[Amiri,serif] text-2xl leading-loose"
+                      style={{
+                        backgroundColor: isNight ? "#1a1c22" : "#f7f6fb",
+                        color: isNight ? "#e0e0e0" : "#1f2937",
+                        border: `1px solid ${isNight ? "#2a2d35" : "#e9d5ff"}`,
+                      }}
+                    >
                       {h.hadeeth}
                     </div>
                     <div className="flex flex-wrap justify-center gap-2">
                       {h.attribution && (
-                        <span className="flex items-center gap-1 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm">
+                        <span
+                          className="flex items-center gap-1 rounded-full px-3 py-1 text-sm"
+                          style={
+                            isNight
+                              ? { backgroundColor: "rgba(30,58,138,0.3)", color: "#93c5fd", border: "1px solid rgba(30,58,138,0.5)" }
+                              : { backgroundColor: "#eff6ff", color: "#1d4ed8" }
+                          }
+                        >
                           <Users className="w-3 h-3" />
                           {h.attribution}
                         </span>
                       )}
                       {h.grade && (
-                        <span className="flex items-center gap-1 bg-green-50 text-green-700 px-3 py-1 rounded-full text-sm">
+                        <span
+                          className="flex items-center gap-1 rounded-full px-3 py-1 text-sm"
+                          style={
+                            isNight
+                              ? { backgroundColor: "rgba(20,83,45,0.3)", color: "#4ade80", border: "1px solid rgba(20,83,45,0.5)" }
+                              : { backgroundColor: "#f0fdf4", color: "#15803d" }
+                          }
+                        >
                           <Shield className="w-3 h-3" />
                           {h.grade}
                         </span>
@@ -581,7 +641,12 @@ const SavedPage = () => {
                       {h.tags?.map((tag) => (
                         <span
                           key={tag}
-                          className="bg-purple-50 text-purple-700 px-3 py-1 rounded-full text-sm"
+                          className="rounded-full px-3 py-1 text-sm"
+                          style={
+                            isNight
+                              ? { backgroundColor: "#1a1c22", color: "#9e98db", border: "1px solid #2a2d35" }
+                              : { backgroundColor: "#faf5ff", color: "#7440E9" }
+                          }
                         >
                           {tag}
                         </span>
@@ -607,16 +672,23 @@ const SavedPage = () => {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md"
+                className="w-full max-w-md rounded-2xl p-6 shadow-2xl"
+                style={{
+                  backgroundColor: isNight ? "#212328" : "#fff",
+                  border: `1px solid ${isNight ? "#2a2d35" : "transparent"}`,
+                }}
               >
                 <div className="text-center">
-                  <div className="w-16 h-16 mx-auto rounded-full bg-red-100 flex items-center justify-center mb-4">
-                    <Trash2 className="w-8 h-8 text-red-600" />
+                  <div
+                    className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full"
+                    style={{ backgroundColor: isNight ? "rgba(127,29,29,0.3)" : "#fee2e2" }}
+                  >
+                    <Trash2 className="h-8 w-8" style={{ color: isNight ? "#f87171" : "#dc2626" }} />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">
+                  <h3 className={`mb-2 text-xl font-bold ${t.textHeading}`}>
                     تأكيد الحذف
                   </h3>
-                  <p className="text-gray-600 mb-6">
+                  <p className={`mb-6 ${t.textBody}`}>
                     هل أنت متأكد أنك تريد حذف هذا الحديث من المحفوظات؟
                   </p>
                   <div className="flex gap-3 justify-center">
@@ -624,7 +696,8 @@ const SavedPage = () => {
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={confirmDelete}
-                      className="px-6 py-2 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors"
+                      className="rounded-xl px-6 py-2 font-semibold text-white transition-colors"
+                      style={{ backgroundColor: "#dc2626" }}
                     >
                       تأكيد الحذف
                     </motion.button>
@@ -632,7 +705,12 @@ const SavedPage = () => {
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={closeDeleteModal}
-                      className="px-6 py-2 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-colors"
+                      className="rounded-xl px-6 py-2 font-semibold transition-colors"
+                      style={{
+                        backgroundColor: isNight ? "#1a1c22" : "#e5e7eb",
+                        color: isNight ? "#a0a0a0" : "#374151",
+                        border: `1px solid ${isNight ? "#2a2d35" : "transparent"}`,
+                      }}
                     >
                       إلغاء
                     </motion.button>

@@ -26,9 +26,9 @@ const XIcon = ({ className }) => (
   </svg>
 );
 
-const DashboardSocialColumn = () => {
+const DashboardSocialColumn = ({ themeOverride = null, connected = false } = {}) => {
   const { isNight } = useTheme();
-  const t = getDashboardTheme(isNight);
+  const t = themeOverride || getDashboardTheme(isNight);
 
   const handleShare = async () => {
     const text = "انضم إلى منصة مشكاة للتعلّم والمخيمات وختمات الكتب";
@@ -61,7 +61,13 @@ const DashboardSocialColumn = () => {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.1 }}
-      className="space-y-4"
+      className={
+        connected
+          ? isNight
+            ? "divide-y divide-white/[0.08]"
+            : "divide-y divide-purple-200/60"
+          : "space-y-4"
+      }
     >
       {/* تطبيق الموبايل — Lottie ثم رابط Google Play */}
       <div className={t.socialCard}>
@@ -159,7 +165,7 @@ const DashboardSocialColumn = () => {
                 href={item.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${isNight ? `${t.socialFollow} ${item.color}` : `border-slate-200 text-gray-700 ${item.color}`}`}
+                className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${isNight ? t.socialFollow : `border-slate-200 text-gray-700 ${item.color}`}`}
               >
                 <Icon className="h-4 w-4" />
                 {item.label}

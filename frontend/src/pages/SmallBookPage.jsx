@@ -106,7 +106,7 @@ const SmallBookPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-4 sm:p-8">
+      <div className="islamic-library-detail-page min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-4 sm:p-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center py-20">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
@@ -121,7 +121,7 @@ const SmallBookPage = () => {
 
   if (!book) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-4 sm:p-8">
+      <div className="islamic-library-detail-page min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-4 sm:p-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center py-20">
             <Hash className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -135,7 +135,7 @@ const SmallBookPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br  from-purple-50 via-blue-50 to-indigo-50">
+    <div className="islamic-library-detail-page min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50">
       {/* Enhanced Header */}
       <div className="bg-white/90 backdrop-blur-xl border-b border-purple-200/50 sticky top-0 z-10 shadow-lg">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6">

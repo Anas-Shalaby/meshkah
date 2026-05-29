@@ -135,7 +135,7 @@ const IslamicBookPage = () => {
   if (loading) {
     return (
       <div
-        className={`min-h-screen ${
+        className={`islamic-library-detail-page min-h-screen ${
           isRamadanThemeActive
             ? "ramadan-bg-gradient"
             : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"
@@ -158,7 +158,7 @@ const IslamicBookPage = () => {
   if (!book) {
     return (
       <div
-        className={`min-h-screen ${
+        className={`islamic-library-detail-page min-h-screen ${
           isRamadanThemeActive
             ? "ramadan-bg-gradient"
             : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"
@@ -290,7 +290,7 @@ const IslamicBookPage = () => {
       {isRamadanThemeActive && <RamadanCountdown />}
       {isRamadanThemeActive && <RamadanFloatingElements />}
       <div
-        className={`min-h-screen ${
+        className={`islamic-library-detail-page min-h-screen ${
           isRamadanThemeActive
             ? "ramadan-bg-gradient"
             : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"

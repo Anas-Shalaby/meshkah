@@ -1,17 +1,20 @@
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
-  Filter,
+  SlidersHorizontal,
   ChevronDown,
-  ChevronUp,
   Bookmark,
   HelpCircle,
+  BookOpen,
+  Sparkles,
+  Library,
+  Layers,
+  ArrowLeft,
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import BookCard from "../components/BookCard";
 import LanguageSelector from "../components/LanguageSelector";
-import IslamicLibraryStats from "../components/IslamicLibraryStats";
 import IslamicLibraryTutorial from "../components/IslamicLibraryTutorial";
 import FloatingHelpButton from "../components/FloatingHelpButton";
 import { getTranslation, getBookTranslation } from "../utils/translations";
@@ -19,6 +22,7 @@ import { toast } from "react-toastify";
 import WelcomeBanner from "../components/WelcomeBanner";
 import SEO from "../components/SEO";
 import { useRamadanTheme } from "../context/RamadanThemeContext";
+import { useTheme } from "../context/ThemeContext";
 import RamadanCountdown from "../components/ramadan/RamadanCountdown";
 import RamadanFloatingElements from "../components/ramadan/RamadanFloatingElements";
 import {
@@ -41,9 +45,114 @@ const LOCAL_BOOKS = {
   riyad_assalihin: { bookSlug: "riyad_assalihin", isLocal: true },
 };
 
+// ——— Flat theme tokens (dark reference: #1a1c22 / #212328 / #e0e0e0 / #9e98db) ———
+const TOKENS = {
+  dark: {
+    page: "#1a1c22",
+    text: "text-[#e0e0e0]",
+    card: "rounded-2xl border border-white/5 bg-[#212328]",
+    cardSm: "rounded-xl border border-white/5 bg-[#212328]",
+    soft: "rounded-2xl border border-white/5 bg-[#212328]",
+    field:
+      "w-full rounded-xl border-0 bg-[#1a1c22] px-4 py-3 text-sm text-[#e0e0e0] placeholder-white/30 outline-none ring-1 ring-white/5 transition focus:ring-2 focus:ring-[#9e98db]/50 sm:text-base",
+    heroWrap: "rounded-3xl border border-white/5 bg-[#212328]",
+    heroInput:
+      "h-16 w-full rounded-2xl border-0 bg-[#1a1c22] text-base text-[#e0e0e0] outline-none ring-1 ring-white/5 transition focus:ring-2 focus:ring-[#9e98db]/50",
+    strong: "text-[#e0e0e0]",
+    muted: "text-white/50",
+    faint: "text-white/35",
+    faint2: "text-white/40",
+    accentText: "text-[#9e98db]",
+    accentIcon: "text-[#9e98db]",
+    accentBg: "bg-[#9e98db]",
+    onAccent: "text-[#1a1c22]",
+    badge: "border border-[#9e98db]/25 bg-[#9e98db]/10 text-[#9e98db]",
+    iconBtn:
+      "bg-[#1a1c22] text-[#e0e0e0] ring-1 ring-white/5 hover:bg-[#16171c]",
+    pillActive: "bg-[#1a1c22] text-[#9e98db] border-b-2 border-[#9e98db]",
+    pillInactive:
+      "text-white/45 hover:text-[#e0e0e0] border-b-2 border-transparent",
+    countActive: "bg-[#9e98db]/15 text-[#9e98db]",
+    countInactive: "bg-white/5 text-white/40",
+    suggestionPanel: "border border-white/5 bg-[#212328] shadow-xl",
+    suggestionHover: "hover:bg-white/5",
+    textBox: "rounded-xl bg-[#1a1c22]",
+    innerStat: "rounded-xl bg-[#1a1c22]",
+    emptyIconWrap: "bg-[#1a1c22]",
+    emptyIcon: "text-[#9e98db]",
+    spinner: "border-white/10 border-t-[#9e98db]",
+    divider: "border-white/10",
+    chips: {
+      sky: "bg-white/5 text-sky-300",
+      emerald: "bg-white/5 text-emerald-300",
+      amber: "bg-white/5 text-amber-300",
+      lilac: "bg-[#9e98db]/10 text-[#9e98db]",
+    },
+  },
+  light: {
+    page: "#f4f4f7",
+    text: "text-[#24242c]",
+    card: "rounded-2xl border border-black/5 bg-white",
+    cardSm: "rounded-xl border border-black/5 bg-white",
+    soft: "rounded-2xl border border-black/5 bg-white",
+    field:
+      "w-full rounded-xl border-0 bg-[#f1f1f5] px-4 py-3 text-sm text-[#24242c] placeholder-gray-400 outline-none ring-1 ring-black/5 transition focus:ring-2 focus:ring-[#7440E9]/40 sm:text-base",
+    heroWrap: "rounded-3xl border border-black/5 bg-white",
+    heroInput:
+      "h-16 w-full rounded-2xl border-0 bg-[#f1f1f5] text-base text-[#24242c] outline-none ring-1 ring-black/5 transition focus:ring-2 focus:ring-[#7440E9]/40",
+    strong: "text-[#24242c]",
+    muted: "text-gray-500",
+    faint: "text-gray-400",
+    faint2: "text-gray-400",
+    accentText: "text-[#7440E9]",
+    accentIcon: "text-[#7440E9]",
+    accentBg: "bg-[#7440E9]",
+    onAccent: "text-white",
+    badge: "border border-[#7440E9]/20 bg-[#7440E9]/10 text-[#7440E9]",
+    iconBtn:
+      "bg-[#f1f1f5] text-[#24242c] ring-1 ring-black/5 hover:bg-[#e9e9f0]",
+    pillActive: "bg-[#f1f1f5] text-[#7440E9] border-b-2 border-[#7440E9]",
+    pillInactive:
+      "text-gray-500 hover:text-[#24242c] border-b-2 border-transparent",
+    countActive: "bg-[#7440E9]/15 text-[#7440E9]",
+    countInactive: "bg-black/5 text-gray-400",
+    suggestionPanel: "border border-black/5 bg-white shadow-xl",
+    suggestionHover: "hover:bg-black/5",
+    textBox: "rounded-xl bg-[#f6f6fa]",
+    innerStat: "rounded-xl bg-[#f6f6fa]",
+    emptyIconWrap: "bg-[#f1f1f5]",
+    emptyIcon: "text-[#7440E9]",
+    spinner: "border-black/10 border-t-[#7440E9]",
+    divider: "border-gray-200",
+    chips: {
+      sky: "bg-blue-50 text-blue-700",
+      emerald: "bg-emerald-50 text-emerald-700",
+      amber: "bg-amber-50 text-amber-700",
+      lilac: "bg-[#7440E9]/10 text-[#7440E9]",
+    },
+  },
+};
+
+const GOLD = "#ffc107";
+
+const gridContainer = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06, delayChildren: 0.05 } },
+};
+const gridItem = {
+  hidden: { opacity: 0, y: 26 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } },
+};
+const floatTransition = {
+  duration: 6,
+  repeat: Infinity,
+  ease: "easeInOut",
+};
+
 const IslamicLibraryPage = () => {
   const navigate = useNavigate();
   const { isRamadanThemeActive } = useRamadanTheme();
+  const { isNight } = useTheme();
   const [categories, setCategories] = useState({});
   const [allBooks, setAllBooks] = useState([]);
   const [hadiths, setHadiths] = useState([]);
@@ -69,11 +178,23 @@ const IslamicLibraryPage = () => {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("");
   const [searchStats, setSearchStats] = useState(null);
 
-  // Update document direction based on language
+  const t = isNight ? TOKENS.dark : TOKENS.light;
+  const pageBg = t.page;
+  const primaryBtn = `${t.accentBg} ${t.onAccent} transition hover:opacity-90`;
+
+  // Update document language. Direction is applied on this page's own
+  // container (below) so we avoid mutating the global <html> dir, which
+  // would shift the fixed top navbar.
   useEffect(() => {
-    document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
     document.documentElement.lang = language;
   }, [language]);
+
+  // Keep the global root direction consistent with the rest of the app
+  // (LTR root). Other Islamic pages flip <html dir="rtl">; reset it here so
+  // the fixed top navbar isn't pushed/shrunk when landing on this page.
+  useEffect(() => {
+    document.documentElement.removeAttribute("dir");
+  }, []);
 
   useEffect(() => {
     fetchBooks();
@@ -103,7 +224,7 @@ const IslamicLibraryPage = () => {
     try {
       setLoading(true);
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/islamic-library/books`
+        `${import.meta.env.VITE_API_URL}/islamic-library/books`,
       );
       const data = await response.json();
       if (data.status === 200) {
@@ -240,7 +361,7 @@ const IslamicLibraryPage = () => {
     return text
       .replace(
         /[\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E8\u06EA-\u06ED]/g,
-        ""
+        "",
       ) // Remove tashkeel
       .replace(/[أإآ]/g, "ا") // Normalize alef variations
       .replace(/[يى]/g, "ي") // Normalize yaa variations
@@ -283,7 +404,7 @@ const IslamicLibraryPage = () => {
           "Arabic text normalized for search:",
           searchTerm.trim(),
           "→",
-          normalizedSearchTerm
+          normalizedSearchTerm,
         );
       }
 
@@ -359,6 +480,37 @@ const IslamicLibraryPage = () => {
     return matchesBookFilter;
   });
 
+  const activeFilterCount = [
+    selectedBookFilter,
+    selectedCategoryFilter,
+    selectedNarrator,
+    selectedStatusFilter,
+    selectedChapterFilter,
+  ].filter(Boolean).length;
+
+  const dashboardStats = [
+    {
+      icon: BookOpen,
+      value: searchStats?.totalBooks ?? allBooks.length ?? 0,
+      label: getTranslation(language, "totalBooks"),
+    },
+    {
+      icon: Library,
+      value: searchStats?.totalHadiths ?? "—",
+      label: getTranslation(language, "totalHadiths"),
+    },
+    {
+      icon: Layers,
+      value: Object.keys(categories).length || 0,
+      label: getTranslation(language, "filters"),
+    },
+    {
+      icon: Sparkles,
+      value: "100%",
+      label: getTranslation(language, "available"),
+    },
+  ];
+
   if (loading) {
     return (
       <FullPageLoadingScreen message={getTranslation(language, "loading")} />
@@ -369,90 +521,75 @@ const IslamicLibraryPage = () => {
     <>
       <SEO {...seoData} />
       <div
-        className={`min-h-screen font-cairo ${
-          isRamadanThemeActive
-            ? "ramadan-bg-gradient"
-            : "bg-gradient-to-br from-purple-50 to-blue-50"
-        }`}
+        className={`islamic-library-page relative min-h-screen overflow-x-hidden font-cairo ${
+          t.text
+        } ${isRamadanThemeActive ? "ramadan-bg-gradient" : ""}`}
+        style={isRamadanThemeActive ? undefined : { backgroundColor: pageBg }}
         dir={language === "ar" ? "rtl" : "ltr"}
         lang={language}
       >
         {/* Ramadan Theme Elements */}
         {isRamadanThemeActive && <RamadanCountdown />}
         {isRamadanThemeActive && <RamadanFloatingElements />}
-        {/* Header */}
-        <div
-          className={`bg-white/80 backdrop-blur-md border-b border-purple-200/50 sticky z-10 ${
-            isRamadanThemeActive ? "top-[170px] md:top-[160px]" : "top-0"
-          }`}
-        >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-            <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-              {/* Title Section */}
-              <div className="flex items-center justify-between sm:justify-start">
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="flex items-center space-x-2 space-x-reverse"
+
+        <div className="relative mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 lg:px-8">
+          {/* ——— Top header (flat bar) ——— */}
+          <div
+            className={`${t.soft} mb-8 flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between`}
+          >
+            <div className="flex items-center gap-3">
+              <span
+                className={`flex h-12 w-12 items-center justify-center rounded-2xl ${t.accentBg}`}
+              >
+                <Library className={`h-6 w-6 ${t.onAccent}`} />
+              </span>
+              <div>
+                <h1
+                  className={`text-lg font-bold leading-tight sm:text-xl ${t.strong}`}
                 >
-                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-cairo font-bold text-gray-900">
-                    {getTranslation(language, "libraryTitle")}
-                  </h1>
-                </motion.div>
-              </div>
-
-              {/* Actions Section */}
-              <div className="flex items-center justify-between sm:justify-end space-x-3 sm:space-x-4 space-x-reverse">
-                <Link
-                  to="/islamic-bookmarks"
-                  className="group relative inline-flex items-center space-x-2 space-x-reverse px-3 sm:px-4 py-2 sm:py-2.5 bg-purple-600 text-white rounded-lg font-cairo font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:bg-purple-700 transform hover:scale-105 text-xs sm:text-sm overflow-hidden border border-purple-200/50 backdrop-blur-sm"
-                >
-                  {/* Animated background */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-
-                  {/* Icon */}
-                  <Bookmark className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
-
-                  {/* Text */}
-                  <span className="hidden sm:inline relative z-10">
-                    {getTranslation(language, "myBookmarks")}
-                  </span>
-                  <span className="sm:hidden relative z-10">
-                    {getTranslation(language, "bookmarks")}
-                  </span>
-
-                  {/* Star badge */}
-                  <div className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 bg-green-500 rounded-full flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform duration-300 border-2 border-white">
-                    <span className="text-[10px] sm:text-xs font-bold text-white">
-                      ★
-                    </span>
-                  </div>
-
-                  {/* Shine effect */}
-                  <div className="absolute inset-0 -skew-x-12 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-                </Link>
-
-                <div className="relative flex items-center space-x-4 space-x-reverse">
-                  <Link
-                    to="/islamic-library/help-support"
-                    className="flex items-center space-x-2 space-x-reverse text-purple-600 hover:text-purple-700 transition-colors px-3 py-2 rounded-lg hover:bg-purple-50"
-                  >
-                    <HelpCircle className="w-4 h-4" />
-                    <span className="text-sm font-medium">
-                      {getTranslation(language, "helpAndSupport")}
-                    </span>
-                  </Link>
-                  <LanguageSelector
-                    currentLanguage={language}
-                    onLanguageChange={handleLanguageChange}
-                  />
-                </div>
+                  {getTranslation(language, "libraryTitle")}
+                </h1>
+                <p className={`text-xs ${t.faint2}`}>
+                  {language === "ar"
+                    ? "العربية"
+                    : language === "en"
+                      ? "English"
+                      : "اردو"}
+                </p>
               </div>
             </div>
-          </div>
-        </div>
 
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-20 sm:py-20">
+            <div className="flex items-center gap-2.5">
+              <Link
+                to="/islamic-bookmarks"
+                className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition sm:text-sm ${t.iconBtn}`}
+              >
+                <Bookmark className="h-5 w-5" style={{ color: GOLD }} />
+                <span className="hidden sm:inline">
+                  {getTranslation(language, "myBookmarks")}
+                </span>
+                <span className="sm:hidden">
+                  {getTranslation(language, "bookmarks")}
+                </span>
+              </Link>
+
+              <Link
+                to="/islamic-library/help-support"
+                className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs font-medium transition sm:text-sm ${t.iconBtn}`}
+              >
+                <HelpCircle className={`h-5 w-5 ${t.accentIcon}`} />
+                <span className="hidden md:inline">
+                  {getTranslation(language, "helpAndSupport")}
+                </span>
+              </Link>
+
+              <LanguageSelector
+                currentLanguage={language}
+                onLanguageChange={handleLanguageChange}
+              />
+            </div>
+          </div>
+
           {/* Welcome Banner for First-time Users */}
           {!hasSeenTutorial && (
             <WelcomeBanner
@@ -462,267 +599,343 @@ const IslamicLibraryPage = () => {
             />
           )}
 
-          {/* Library Statistics */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 sm:mb-8"
+          {/* ——— HERO + SEARCH (flat #212328 card) ——— */}
+          <section
+            className={`relative mb-8 px-5 py-10 text-center sm:px-10 sm:py-14 ${t.heroWrap}`}
           >
-            <IslamicLibraryStats language={language} />
-          </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="relative mx-auto max-w-3xl"
+            >
+              <motion.span
+                animate={{ y: [0, -6, 0] }}
+                transition={floatTransition}
+                className={`mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium ${t.badge}`}
+              >
+                <Sparkles className="h-4 w-4" style={{ color: GOLD }} />
+                {getTranslation(language, "libraryTitle")}
+              </motion.span>
 
-          {/* Search and Filters */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white/80 backdrop-blur-md rounded-2xl p-4 sm:p-6 mb-6 sm:mb-8 border border-purple-200/50 shadow-lg"
-          >
-            <form onSubmit={handleSearch} className="space-y-4">
-              {/* Enhanced Search Bar with Suggestions */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onFocus={() =>
-                    searchTerm.length > 1 && setShowSuggestions(true)
-                  }
-                  onBlur={() =>
-                    setTimeout(() => setShowSuggestions(false), 200)
-                  }
-                  onKeyPress={(e) => e.key === "Enter" && handleSearch(e)}
-                  placeholder={
-                    language === "ar"
-                      ? getTranslation(language, "searchInArabic")
-                      : getTranslation(language, "searchPlaceholder")
-                  }
-                  className="w-full pl-10 sm:pl-12 pr-20 py-3 sm:py-4 border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/50 backdrop-blur-sm text-sm sm:text-base"
-                  dir={language === "ar" ? "rtl" : "ltr"}
-                />
+              <h2
+                className={`mb-3 text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl ${t.strong}`}
+              >
+                {getTranslation(language, "availableBooks")}
+              </h2>
+              <p
+                className={`mx-auto mb-8 max-w-xl text-sm sm:text-base ${t.muted}`}
+              >
+                {getTranslation(language, "searchTips")}
+              </p>
 
-                {/* Search Button */}
-                <button
-                  type="submit"
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
-                >
-                  {getTranslation(language, "search")}
-                </button>
+              {/* Search form */}
+              <form onSubmit={handleSearch} className="relative">
+                <div className="relative">
+                  <Search
+                    className={`pointer-events-none absolute top-1/2 ltr:left-5 rtl:right-5 h-6 w-6 -translate-y-1/2 ${t.accentIcon}`}
+                  />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onFocus={() =>
+                      searchTerm.length > 1 && setShowSuggestions(true)
+                    }
+                    onBlur={() =>
+                      setTimeout(() => setShowSuggestions(false), 200)
+                    }
+                    onKeyPress={(e) => e.key === "Enter" && handleSearch(e)}
+                    placeholder={
+                      language === "ar"
+                        ? getTranslation(language, "searchInArabic")
+                        : getTranslation(language, "searchPlaceholder")
+                    }
+                    className={`${t.heroInput} ltr:pl-14 ltr:pr-32 rtl:pr-14 rtl:pl-32`}
+                    dir={language === "ar" ? "rtl" : "ltr"}
+                  />
+                  <button
+                    type="submit"
+                    className={`absolute top-1/2 -translate-y-1/2 rounded-xl px-5 py-2.5 text-sm font-semibold ltr:right-3 rtl:left-3 ${primaryBtn}`}
+                  >
+                    {getTranslation(language, "search")}
+                  </button>
 
-                {/* Suggestions Dropdown */}
-                {showSuggestions && suggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-purple-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
-                    {suggestions.map((suggestion, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => handleSuggestionClick(suggestion)}
-                        className="w-full px-4 py-3 text-left hover:bg-purple-50 transition-colors border-b border-gray-100 last:border-b-0"
+                  {/* Suggestions Dropdown */}
+                  <AnimatePresence>
+                    {showSuggestions && suggestions.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 8 }}
+                        className={`absolute left-0 right-0 top-full z-50 mt-2 max-h-72 overflow-y-auto rounded-2xl p-2 text-start ${t.suggestionPanel}`}
                       >
-                        <div className="flex items-center space-x-2 space-x-reverse">
-                          <div
-                            className={`w-2 h-2 rounded-full ${
-                              suggestion.type === "narrator"
-                                ? "bg-blue-500"
-                                : suggestion.type === "book"
-                                ? "bg-green-500"
-                                : suggestion.type === "chapter"
-                                ? "bg-purple-500"
-                                : "bg-gray-500"
-                            }`}
-                          ></div>
-                          <div className="flex-1">
-                            <div className="font-medium text-gray-900">
-                              {suggestion.value}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {suggestion.type === "narrator" &&
-                                `${getTranslation(language, "narrator")} - ${
-                                  suggestion.book
-                                }`}
-                              {suggestion.type === "book" &&
-                                `${getTranslation(language, "book")} - ${
-                                  suggestion.category
-                                }`}
-                              {suggestion.type === "chapter" &&
-                                `${getTranslation(language, "chapter")} - ${
-                                  suggestion.book
-                                }`}
-                            </div>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Filters Header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2 space-x-reverse">
-                  <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
-                  <span className="font-cairo font-medium text-gray-700 text-sm sm:text-base">
-                    {getTranslation(language, "filters")}:
-                  </span>
+                        {suggestions.map((suggestion, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => handleSuggestionClick(suggestion)}
+                            className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-start transition ${t.suggestionHover}`}
+                          >
+                            <span
+                              className={`h-2 w-2 shrink-0 rounded-full ${
+                                suggestion.type === "narrator"
+                                  ? "bg-sky-400"
+                                  : suggestion.type === "book"
+                                    ? "bg-emerald-400"
+                                    : suggestion.type === "chapter"
+                                      ? "bg-[#9e98db]"
+                                      : "bg-gray-400"
+                              }`}
+                            />
+                            <span className="flex-1">
+                              <span
+                                className={`block text-sm font-medium ${t.strong}`}
+                              >
+                                {suggestion.value}
+                              </span>
+                              <span className={`block text-xs ${t.faint2}`}>
+                                {suggestion.type === "narrator" &&
+                                  `${getTranslation(language, "narrator")} - ${
+                                    suggestion.book
+                                  }`}
+                                {suggestion.type === "book" &&
+                                  `${getTranslation(language, "book")} - ${
+                                    suggestion.category
+                                  }`}
+                                {suggestion.type === "chapter" &&
+                                  `${getTranslation(language, "chapter")} - ${
+                                    suggestion.book
+                                  }`}
+                              </span>
+                            </span>
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="flex items-center space-x-2 space-x-reverse text-purple-600 hover:text-purple-700 transition-colors text-sm sm:text-base px-3 py-2 rounded-lg hover:bg-purple-50"
-                >
-                  <span>
-                    {showFilters
-                      ? getTranslation(language, "hideFilters")
-                      : getTranslation(language, "showFilters")}
-                  </span>
-                  {showFilters ? (
-                    <ChevronUp className="w-4 h-4" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4" />
-                  )}
-                </button>
-              </div>
-
-              {/* Enhanced Filters */}
-              {showFilters && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4"
-                >
-                  {/* Book Filter */}
-                  <select
-                    value={selectedBookFilter}
-                    onChange={(e) => setSelectedBookFilter(e.target.value)}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/50 backdrop-blur-sm text-sm sm:text-base"
+                {/* Advanced filters toggle */}
+                <div className="mt-4 flex items-center justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition ${t.iconBtn}`}
                   >
-                    <option value="">
-                      {getTranslation(language, "selectBook")}
-                    </option>
-                    {allBooks.map((book, index) => (
-                      <option key={index} value={book.bookSlug}>
-                        {getBookTranslation(language, book.bookName)}
-                      </option>
-                    ))}
-                  </select>
-
-                  {/* Category Filter */}
-                  <select
-                    value={selectedCategoryFilter}
-                    onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/50 backdrop-blur-sm text-sm sm:text-base"
-                  >
-                    <option value="">
-                      {getTranslation(language, "selectCategory")}
-                    </option>
-                    {Object.keys(categories).map((categoryId) => {
-                      const category = categories[categoryId];
-                      return (
-                        <option key={categoryId} value={categoryId}>
-                          {language === "ar"
-                            ? category.name
-                            : language === "en"
-                            ? category.nameEn
-                            : category.nameUr}
-                        </option>
-                      );
-                    })}
-                  </select>
-
-                  {/* Narrator Filter */}
-                  <input
-                    type="text"
-                    value={selectedNarrator}
-                    onChange={(e) => setSelectedNarrator(e.target.value)}
-                    placeholder={getTranslation(
-                      language,
-                      "narratorPlaceholder"
-                    )}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/50 backdrop-blur-sm text-sm sm:text-base"
-                  />
-
-                  {/* Status Filter */}
-                  <select
-                    value={selectedStatusFilter}
-                    onChange={(e) => setSelectedStatusFilter(e.target.value)}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/50 backdrop-blur-sm text-sm sm:text-base"
-                  >
-                    <option value="">
-                      {getTranslation(language, "selectGrade")}
-                    </option>
-                    <option value="Sahih">
-                      {getTranslation(language, "sahih")}
-                    </option>
-                    <option value="Hasan">
-                      {getTranslation(language, "hasan")}
-                    </option>
-                    <option value="Daif">
-                      {getTranslation(language, "daif")}
-                    </option>
-                  </select>
-
-                  {/* Chapter Filter */}
-                  <input
-                    type="text"
-                    value={selectedChapterFilter}
-                    onChange={(e) => setSelectedChapterFilter(e.target.value)}
-                    placeholder={getTranslation(language, "chapterPlaceholder")}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white/50 backdrop-blur-sm text-sm sm:text-base"
-                  />
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-2">
-                    {/* Search with Filters Button */}
-                    {(selectedBookFilter ||
-                      selectedCategoryFilter ||
-                      selectedNarrator ||
-                      selectedStatusFilter ||
-                      selectedChapterFilter) && (
-                      <button
-                        type="button"
-                        onClick={handleSearch}
-                        className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                    <SlidersHorizontal className={`h-5 w-5 ${t.accentIcon}`} />
+                    <span>
+                      {showFilters
+                        ? getTranslation(language, "hideFilters")
+                        : getTranslation(language, "showFilters")}
+                    </span>
+                    {activeFilterCount > 0 && (
+                      <span
+                        className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold ${t.accentBg} ${t.onAccent}`}
                       >
-                        {getTranslation(language, "search")}
-                      </button>
+                        {activeFilterCount}
+                      </span>
                     )}
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform ${
+                        showFilters ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+                </div>
 
-                    {/* Clear Filters Button */}
-                    <button
-                      type="button"
-                      onClick={clearSearch}
-                      className="flex-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium px-4 py-2"
+                {/* Advanced Filters Accordion */}
+                <AnimatePresence initial={false}>
+                  {showFilters && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3, ease: "easeInOut" }}
+                      className="overflow-hidden"
                     >
-                      {getTranslation(language, "clearAllFilters")}
-                    </button>
+                      <div className="mt-5 grid grid-cols-1 gap-3 text-start sm:grid-cols-2 lg:grid-cols-3">
+                        {/* Book Filter */}
+                        <select
+                          value={selectedBookFilter}
+                          onChange={(e) =>
+                            setSelectedBookFilter(e.target.value)
+                          }
+                          className={t.field}
+                        >
+                          <option value="">
+                            {getTranslation(language, "selectBook")}
+                          </option>
+                          {allBooks.map((book, index) => (
+                            <option key={index} value={book.bookSlug}>
+                              {getBookTranslation(language, book.bookName)}
+                            </option>
+                          ))}
+                        </select>
+
+                        {/* Category Filter */}
+                        <select
+                          value={selectedCategoryFilter}
+                          onChange={(e) =>
+                            setSelectedCategoryFilter(e.target.value)
+                          }
+                          className={t.field}
+                        >
+                          <option value="">
+                            {getTranslation(language, "selectCategory")}
+                          </option>
+                          {Object.keys(categories).map((categoryId) => {
+                            const category = categories[categoryId];
+                            return (
+                              <option key={categoryId} value={categoryId}>
+                                {language === "ar"
+                                  ? category.name
+                                  : language === "en"
+                                    ? category.nameEn
+                                    : category.nameUr}
+                              </option>
+                            );
+                          })}
+                        </select>
+
+                        {/* Narrator Filter */}
+                        <input
+                          type="text"
+                          value={selectedNarrator}
+                          onChange={(e) => setSelectedNarrator(e.target.value)}
+                          placeholder={getTranslation(
+                            language,
+                            "narratorPlaceholder",
+                          )}
+                          className={t.field}
+                        />
+
+                        {/* Status Filter */}
+                        <select
+                          value={selectedStatusFilter}
+                          onChange={(e) =>
+                            setSelectedStatusFilter(e.target.value)
+                          }
+                          className={t.field}
+                        >
+                          <option value="">
+                            {getTranslation(language, "selectGrade")}
+                          </option>
+                          <option value="Sahih">
+                            {getTranslation(language, "sahih")}
+                          </option>
+                          <option value="Hasan">
+                            {getTranslation(language, "hasan")}
+                          </option>
+                          <option value="Daif">
+                            {getTranslation(language, "daif")}
+                          </option>
+                        </select>
+
+                        {/* Chapter Filter */}
+                        <input
+                          type="text"
+                          value={selectedChapterFilter}
+                          onChange={(e) =>
+                            setSelectedChapterFilter(e.target.value)
+                          }
+                          placeholder={getTranslation(
+                            language,
+                            "chapterPlaceholder",
+                          )}
+                          className={t.field}
+                        />
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-2">
+                          {(selectedBookFilter ||
+                            selectedCategoryFilter ||
+                            selectedNarrator ||
+                            selectedStatusFilter ||
+                            selectedChapterFilter) && (
+                            <button
+                              type="button"
+                              onClick={handleSearch}
+                              className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold ${primaryBtn}`}
+                            >
+                              {getTranslation(language, "search")}
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={clearSearch}
+                            className={`flex-1 rounded-xl px-4 py-3 text-sm font-medium transition ${t.iconBtn}`}
+                          >
+                            {getTranslation(language, "clearAllFilters")}
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </form>
+            </motion.div>
+          </section>
+
+          {/* ——— STATISTICS (grid of flat #212328 cards) ——— */}
+          <motion.div
+            variants={gridContainer}
+            initial="hidden"
+            animate="show"
+            className="mb-8 grid grid-cols-2 gap-6 lg:grid-cols-4"
+          >
+            {dashboardStats.map((stat, i) => {
+              const Icon = stat.icon;
+              return (
+                <motion.div
+                  key={i}
+                  variants={gridItem}
+                  whileHover={{ y: -4 }}
+                  className={`${t.card} p-6 sm:p-8`}
+                >
+                  <span
+                    className={`mb-4 flex h-12 w-12 items-center justify-center rounded-2xl ${
+                      isNight ? "bg-[#9e98db]/10" : "bg-[#7440E9]/10"
+                    }`}
+                  >
+                    <Icon className={`h-7 w-7 ${t.accentIcon}`} />
+                  </span>
+                  <div
+                    className={`text-3xl font-bold sm:text-4xl ${t.accentText}`}
+                  >
+                    {stat.value}
+                  </div>
+                  <div
+                    className={`mt-1 text-xs font-medium sm:text-sm ${t.muted}`}
+                  >
+                    {stat.label}
                   </div>
                 </motion.div>
-              )}
-            </form>
+              );
+            })}
           </motion.div>
 
-          {/* Search Results */}
+          {/* ——— SEARCH RESULTS ——— */}
           {showSearchResults && (
             <div className="space-y-6">
-              {/* Enhanced Search Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-cairo font-bold text-gray-900">
+                  <h2 className={`text-xl font-bold sm:text-2xl ${t.strong}`}>
                     {getTranslation(language, "searchResults")}
                   </h2>
-                  <p className="text-gray-600 mt-1 text-sm sm:text-base">
+                  <p className={`mt-1 text-sm ${t.muted}`}>
                     {searchLoading
                       ? getTranslation(language, "searching")
                       : `${hadiths.length} ${getTranslation(
                           language,
-                          "hadithsFound"
+                          "hadithsFound",
                         )}`}
                   </p>
-                  {/* Search Statistics */}
                   {searchStats && (
-                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-500">
+                    <div
+                      className={`mt-2 flex flex-wrap gap-3 text-xs ${t.faint}`}
+                    >
                       <span>
                         {getTranslation(language, "totalBooks")}:{" "}
                         {searchStats.totalBooks}
@@ -733,14 +946,15 @@ const IslamicLibraryPage = () => {
                       </span>
                     </div>
                   )}
-                  {/* Language Indicator */}
                   <div className="mt-2">
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                    <span
+                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${t.badge}`}
+                    >
                       {language === "ar"
                         ? "العربية"
                         : language === "en"
-                        ? "English"
-                        : "اردو"}
+                          ? "English"
+                          : "اردو"}
                     </span>
                   </div>
                 </div>
@@ -749,18 +963,21 @@ const IslamicLibraryPage = () => {
                     setShowSearchResults(false);
                     clearSearch();
                   }}
-                  className="text-purple-600 hover:text-purple-800 transition-colors text-sm sm:text-base"
+                  className={`inline-flex items-center gap-2 self-start rounded-xl px-4 py-2.5 text-sm transition ${t.iconBtn}`}
                 >
+                  <ArrowLeft className="h-4 w-4" />
                   {getTranslation(language, "backToBooks")}
                 </button>
               </div>
 
               {/* Loading State */}
               {searchLoading && (
-                <div className="flex justify-center py-8 sm:py-12">
+                <div className="flex justify-center py-12">
                   <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600 text-sm sm:text-base">
+                    <div
+                      className={`mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 ${t.spinner}`}
+                    />
+                    <p className={`text-sm ${t.muted}`}>
                       {getTranslation(language, "searching")}...
                     </p>
                   </div>
@@ -769,33 +986,25 @@ const IslamicLibraryPage = () => {
 
               {/* No Results */}
               {!searchLoading && hadiths.length === 0 && (
-                <div className="text-center py-8 sm:py-12">
-                  <div className="w-16 h-16 sm:w-24 sm:h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                    <svg
-                      className="w-8 h-8 sm:w-12 sm:h-12 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
+                <div className={`${t.card} py-14 text-center`}>
+                  <div
+                    className={`mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-2xl ${t.emptyIconWrap}`}
+                  >
+                    <Search className={`h-10 w-10 ${t.emptyIcon}`} />
                   </div>
-                  <h3 className="text-lg sm:text-xl font-cairo font-semibold text-gray-900 mb-2">
+                  <h3
+                    className={`mb-2 text-lg font-semibold sm:text-xl ${t.strong}`}
+                  >
                     {getTranslation(language, "noResults")}
                   </h3>
-                  <p className="text-gray-600 mb-4 text-sm sm:text-base">
+                  <p className={`mb-4 text-sm ${t.muted}`}>
                     {getTranslation(language, "tryDifferentKeywords")}
                   </p>
-                  <div className="space-y-2">
-                    <p className="text-xs sm:text-sm text-gray-500">
+                  <div className="mx-auto max-w-md space-y-2 text-start">
+                    <p className={`text-xs ${t.faint}`}>
                       {getTranslation(language, "searchTips")}
                     </p>
-                    <ul className="text-xs sm:text-sm text-gray-500 space-y-1">
+                    <ul className={`space-y-1 text-xs ${t.faint}`}>
                       <li>• {getTranslation(language, "searchTip1")}</li>
                       <li>• {getTranslation(language, "searchTip2")}</li>
                       <li>• {getTranslation(language, "searchTip3")}</li>
@@ -819,263 +1028,269 @@ const IslamicLibraryPage = () => {
                       setShowSearchResults(false);
                       clearSearch();
                     }}
-                    className="mt-4 sm:mt-6 bg-purple-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg hover:bg-purple-700 transition-colors text-sm sm:text-base"
+                    className={`mt-6 rounded-xl px-6 py-3 text-sm font-semibold ${primaryBtn}`}
                   >
                     {getTranslation(language, "backToBooks")}
                   </button>
                 </div>
               )}
 
-              {/* Enhanced Hadiths List */}
+              {/* Hadiths List */}
               {!searchLoading && hadiths.length > 0 && (
-                <div className="grid gap-4 sm:gap-6">
+                <motion.div
+                  variants={gridContainer}
+                  initial="hidden"
+                  animate="show"
+                  className="grid gap-6"
+                >
                   {hadiths.map((hadith, index) => (
                     <motion.div
                       key={index}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="bg-white/80 backdrop-blur-md rounded-xl p-4 sm:p-6 border border-purple-200/50 shadow-md cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
+                      variants={gridItem}
+                      whileHover={{ y: -3 }}
+                      className={`${t.cardSm} cursor-pointer p-5`}
                       onClick={() => {
-                        // Check if it's a local book
                         const isLocalBook =
                           hadith.bookSlug && LOCAL_BOOKS[hadith.bookSlug];
 
                         if (isLocalBook) {
-                          // Navigate to local book hadith page using hadithNumber
                           const hadithNumber = hadith.id;
                           navigate(
-                            `/islamic-library/local-books/${hadith.bookSlug}/hadith/${hadithNumber}`
+                            `/islamic-library/local-books/${hadith.bookSlug}/hadith/${hadithNumber}`,
                           );
                         } else {
-                          // Navigate to API book hadith page using hadith ID
                           navigate(
-                            `/islamic-library/book/${hadith.bookSlug}/chapter/${hadith.chapter.chapterNumber}/hadith/${hadith.hadithNumber}`
+                            `/islamic-library/book/${hadith.bookSlug}/chapter/${hadith.chapter.chapterNumber}/hadith/${hadith.hadithNumber}`,
                           );
                         }
                       }}
                     >
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center space-x-3 space-x-reverse">
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
-                            <span className="font-cairo font-bold text-white text-sm sm:text-base">
-                              {hadith.hadithNumber}
-                            </span>
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-cairo font-semibold text-gray-900 text-sm sm:text-base mb-1">
-                              {getTranslation(language, "hadith")}{" "}
-                              {hadith.hadithNumber}
-                            </h3>
-                            <div className="flex flex-wrap items-center gap-2 text-xs">
-                              {hadith.volume && (
-                                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                  {getTranslation(language, "volume")}{" "}
-                                  {hadith.volume}
-                                </span>
-                              )}
-                              {hadith.status && (
-                                <span
-                                  className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                    hadith.status === "Sahih"
-                                      ? "bg-green-100 text-green-800"
-                                      : hadith.status === "Hasan"
-                                      ? "bg-blue-100 text-blue-800"
-                                      : "bg-yellow-100 text-yellow-800"
-                                  }`}
-                                >
-                                  {getTranslation(
-                                    language,
-                                    hadith.status.toLowerCase()
-                                  )}
-                                </span>
-                              )}
-                              {hadith.bookSlug &&
-                                LOCAL_BOOKS[hadith.bookSlug] && (
-                                  <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
-                                    {getTranslation(language, "localBook")}
-                                  </span>
-                                )}
-                              {hadith.bookSlug &&
-                                !LOCAL_BOOKS[hadith.bookSlug] && (
-                                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                    {getTranslation(language, "apiBook")}
-                                  </span>
-                                )}
-                            </div>
-                          </div>
+                      <div className="mb-4 flex items-start gap-3">
+                        <div
+                          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${t.accentBg}`}
+                        >
+                          <span className={`text-sm font-bold ${t.onAccent}`}>
+                            {hadith.hadithNumber}
+                          </span>
                         </div>
-                      </div>
-
-                      {/* Enhanced Hadith Text */}
-                      <div className="mb-4">
-                        <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
-                          {/* Arabic Text - Always show if available */}
-                          {hadith.hadithArabic && (
-                            <div className="mb-3">
-                              <p
-                                className="text-gray-800 leading-relaxed text-sm sm:text-base line-clamp-3 font-cairo"
-                                dir="rtl"
+                        <div className="flex-1">
+                          <h3
+                            className={`mb-1 text-sm font-semibold sm:text-base ${t.strong}`}
+                          >
+                            {getTranslation(language, "hadith")}{" "}
+                            {hadith.hadithNumber}
+                          </h3>
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            {hadith.volume && (
+                              <span
+                                className={`rounded-full px-2 py-1 ${t.chips.sky}`}
                               >
-                                {hadith.hadithArabic}
-                              </p>
-                            </div>
-                          )}
-
-                          {/* English/Urdu Text - Show based on language preference */}
-                          {(language === "en" || language === "ur") && (
-                            <div className="mt-3 pt-3 border-t border-gray-200">
-                              <p className="text-gray-600 leading-relaxed text-sm sm:text-base line-clamp-3">
-                                {language === "en"
-                                  ? hadith.hadithEnglish
-                                  : hadith.hadithUrdu}
-                              </p>
-                            </div>
-                          )}
+                                {getTranslation(language, "volume")}{" "}
+                                {hadith.volume}
+                              </span>
+                            )}
+                            {hadith.status && (
+                              <span
+                                className={`rounded-full px-2 py-1 font-semibold ${
+                                  hadith.status === "Sahih"
+                                    ? t.chips.emerald
+                                    : hadith.status === "Hasan"
+                                      ? t.chips.sky
+                                      : t.chips.amber
+                                }`}
+                              >
+                                {getTranslation(
+                                  language,
+                                  hadith.status.toLowerCase(),
+                                )}
+                              </span>
+                            )}
+                            {hadith.bookSlug &&
+                              LOCAL_BOOKS[hadith.bookSlug] && (
+                                <span
+                                  className={`rounded-full px-2 py-1 ${t.chips.lilac}`}
+                                >
+                                  {getTranslation(language, "localBook")}
+                                </span>
+                              )}
+                            {hadith.bookSlug &&
+                              !LOCAL_BOOKS[hadith.bookSlug] && (
+                                <span
+                                  className={`rounded-full px-2 py-1 ${t.chips.sky}`}
+                                >
+                                  {getTranslation(language, "apiBook")}
+                                </span>
+                              )}
+                          </div>
                         </div>
                       </div>
 
-                      {/* Enhanced Metadata */}
-                      <div className="flex flex-wrap gap-2 text-xs">
+                      {/* Hadith Text */}
+                      <div className={`${t.textBox} p-4`}>
+                        {hadith.hadithArabic && (
+                          <p
+                            className={`text-sm leading-relaxed line-clamp-3 sm:text-base ${t.strong}`}
+                            dir="rtl"
+                          >
+                            {hadith.hadithArabic}
+                          </p>
+                        )}
+                        {(language === "en" || language === "ur") && (
+                          <div className={`mt-3 border-t pt-3 ${t.divider}`}>
+                            <p
+                              className={`text-sm leading-relaxed line-clamp-3 sm:text-base ${t.muted}`}
+                            >
+                              {language === "en"
+                                ? hadith.hadithEnglish
+                                : hadith.hadithUrdu}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Metadata */}
+                      <div className="mt-4 flex flex-wrap gap-2 text-xs">
                         {hadith.book && (
-                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                          <span
+                            className={`rounded-full px-2 py-1 ${t.chips.sky}`}
+                          >
                             {language === "ar"
                               ? hadith.book.bookName
                               : getBookTranslation(
                                   language,
-                                  hadith.book.bookName
+                                  hadith.book.bookName,
                                 )}
                           </span>
                         )}
                         {hadith.chapter && (
-                          <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
+                          <span
+                            className={`rounded-full px-2 py-1 ${t.chips.lilac}`}
+                          >
                             {language === "ar"
                               ? hadith.chapter.chapterArabic
                               : language === "en"
-                              ? hadith.chapter.chapterEnglish
-                              : hadith.chapter.chapterUrdu}
+                                ? hadith.chapter.chapterEnglish
+                                : hadith.chapter.chapterUrdu}
                           </span>
                         )}
                         {hadith.englishNarrator && (
-                          <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                            {language === "ar"
-                              ? hadith.englishNarrator
-                              : hadith.englishNarrator}
+                          <span
+                            className={`rounded-full px-2 py-1 ${t.chips.emerald}`}
+                          >
+                            {hadith.englishNarrator}
                           </span>
                         )}
                       </div>
                     </motion.div>
                   ))}
-                </div>
+                </motion.div>
               )}
             </div>
           )}
 
-          {/* Enhanced Category Tabs */}
           {!showSearchResults && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="mb-6 sm:mb-8"
+            <div
+              className="sticky top-[4.75rem] z-30 -mx-4 mb-8 px-4 sm:mx-0 sm:px-0"
+              style={
+                isRamadanThemeActive ? undefined : { backgroundColor: pageBg }
+              }
             >
-              <div className="flex flex-wrap gap-2 sm:gap-3 justify-center">
-                {Object.keys(categories).map((categoryId, index) => {
+              <div
+                className={`flex gap-1 overflow-x-auto border-b py-1 ${t.divider} [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
+              >
+                {Object.keys(categories).map((categoryId) => {
                   const category = categories[categoryId];
                   const isActive = selectedCategory === categoryId;
                   const bookCount = category.books?.length || 0;
 
                   return (
-                    <motion.button
-                      key={index}
+                    <button
+                      key={categoryId}
                       onClick={() => setSelectedCategory(categoryId)}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className={`relative px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-cairo font-bold transition-all duration-300 ${
-                        isActive
-                          ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-xl shadow-purple-500/30"
-                          : "bg-white/90 backdrop-blur-xl text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-blue-50 border-2 border-purple-200/50 hover:border-purple-300/70 shadow-lg hover:shadow-xl"
+                      className={`relative shrink-0 whitespace-nowrap rounded-t-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
+                        isActive ? t.pillActive : t.pillInactive
                       }`}
                     >
-                      <div className="flex flex-col items-center space-y-1 sm:space-y-2">
-                        <span className="text-sm sm:text-lg">
-                          {language === "ar"
-                            ? category.name
-                            : language === "en"
+                      <span>
+                        {language === "ar"
+                          ? category.name
+                          : language === "en"
                             ? category.nameEn
                             : category.nameUr}
-                        </span>
-                        <span className="text-xs opacity-80">
-                          {bookCount} {getTranslation(language, "book")}
-                        </span>
-                      </div>
-
-                      {/* Active Indicator */}
-                      {isActive && (
-                        <motion.div
-                          layoutId="activeCategory"
-                          className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-6 h-1 bg-white rounded-full"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ duration: 0.3 }}
-                        />
-                      )}
-                    </motion.button>
+                      </span>
+                      <span
+                        className={`ms-2 rounded-full px-1.5 py-0.5 text-[11px] ${
+                          isActive ? t.countActive : t.countInactive
+                        }`}
+                      >
+                        {bookCount}
+                      </span>
+                    </button>
                   );
                 })}
               </div>
-            </motion.div>
+            </div>
           )}
 
-          {/* Enhanced Category Description */}
+          {/* ——— CATEGORY DESCRIPTION ——— */}
           {!showSearchResults && categories[selectedCategory] && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-6 sm:mb-8 p-4 sm:p-6 lg:p-8 bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 rounded-2xl sm:rounded-3xl border-2 border-purple-200/50 shadow-xl"
+              className={`${t.card} mb-8 p-6 sm:p-8`}
             >
-              <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4 sm:space-x-reverse">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg"></div>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                <div
+                  className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${t.accentBg}`}
+                >
+                  <BookOpen className={`h-7 w-7 ${t.onAccent}`} />
+                </div>
                 <div className="flex-1">
-                  <h3 className="text-xl sm:text-2xl lg:text-3xl font-cairo font-bold text-gray-900 mb-2 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                  <h3
+                    className={`mb-2 text-2xl font-bold sm:text-3xl ${t.accentText}`}
+                  >
                     {language === "ar"
                       ? categories[selectedCategory].name
                       : language === "en"
-                      ? categories[selectedCategory].nameEn
-                      : categories[selectedCategory].nameUr}
+                        ? categories[selectedCategory].nameEn
+                        : categories[selectedCategory].nameUr}
                   </h3>
-                  <p className="text-gray-700 text-sm sm:text-base lg:text-lg leading-relaxed">
+                  <p
+                    className={`text-sm leading-relaxed sm:text-base ${t.muted}`}
+                  >
                     {language === "ar"
                       ? categories[selectedCategory].description
                       : language === "en"
-                      ? categories[selectedCategory].descriptionEn
-                      : categories[selectedCategory].descriptionUr}
+                        ? categories[selectedCategory].descriptionEn
+                        : categories[selectedCategory].descriptionUr}
                   </p>
                 </div>
               </div>
 
-              {/* Category Stats */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mt-4 sm:mt-6">
-                <div className="bg-white/70 backdrop-blur-sm rounded-lg sm:rounded-xl p-3 sm:p-4 text-center">
-                  <div className="text-lg sm:text-2xl font-bold text-purple-800">
+              <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
+                <div className={`${t.innerStat} p-5 text-center`}>
+                  <div className={`text-2xl font-bold ${t.accentText}`}>
                     {categories[selectedCategory].books?.length || 0}
                   </div>
-                  <div className="text-xs sm:text-sm text-purple-600 font-semibold">
+                  <div className={`text-xs font-semibold ${t.faint2}`}>
                     {getTranslation(language, "book")}
                   </div>
                 </div>
-                <div className="bg-white/70 backdrop-blur-sm rounded-lg sm:rounded-xl p-3 sm:p-4 text-center">
-                  <div className="text-lg sm:text-2xl font-bold text-blue-800">
+                <div className={`${t.innerStat} p-5 text-center`}>
+                  <div className={`text-2xl font-bold ${t.accentText}`}>
                     {getTranslation(language, "authentic")}
                   </div>
-                  <div className="text-xs sm:text-sm text-blue-600 font-semibold">
+                  <div className={`text-xs font-semibold ${t.faint2}`}>
                     {getTranslation(language, "quality")}
                   </div>
                 </div>
-                <div className="bg-white/70 backdrop-blur-sm rounded-lg sm:rounded-xl p-3 sm:p-4 text-center sm:col-span-1 col-span-2">
-                  <div className="text-lg sm:text-2xl font-bold text-green-800">
+                <div
+                  className={`${t.innerStat} col-span-2 p-5 text-center sm:col-span-1`}
+                >
+                  <div className={`text-2xl font-bold ${t.accentText}`}>
                     100%
                   </div>
-                  <div className="text-xs sm:text-sm text-green-600 font-semibold">
+                  <div className={`text-xs font-semibold ${t.faint2}`}>
                     {getTranslation(language, "available")}
                   </div>
                 </div>
@@ -1083,49 +1298,36 @@ const IslamicLibraryPage = () => {
             </motion.div>
           )}
 
-          {/* Enhanced Books Grid */}
+          {/* ——— BOOKS GRID ——— */}
           {!showSearchResults && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="space-y-6 sm:space-y-8"
-            >
-              {/* Books Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+            <div className="space-y-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h2 className="text-xl sm:text-2xl lg:text-3xl font-cairo font-bold text-gray-900 mb-2">
+                  <h2 className={`text-2xl font-bold sm:text-3xl ${t.strong}`}>
                     {getTranslation(language, "availableBooks")}
                   </h2>
-                  <p className="text-gray-600 text-sm sm:text-base">
+                  <p className={`mt-1 text-sm ${t.muted}`}>
                     {filteredBooks.length}{" "}
                     {getTranslation(language, "booksFound")}
                   </p>
                 </div>
-
-                {/* View Toggle */}
-                <div className="flex items-center justify-center sm:justify-end">
-                  <div className="flex items-center space-x-2 space-x-reverse bg-white/80 backdrop-blur-sm rounded-xl p-1 border border-purple-200/50">
-                    <button className="p-2 rounded-lg bg-purple-100 text-purple-700">
-                      <div className="w-4 h-4 grid grid-cols-2 gap-1">
-                        <div className="bg-current rounded-sm"></div>
-                        <div className="bg-current rounded-sm"></div>
-                        <div className="bg-current rounded-sm"></div>
-                        <div className="bg-current rounded-sm"></div>
-                      </div>
-                    </button>
-                  </div>
-                </div>
               </div>
 
-              {/* Books Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
-                {filteredBooks.map((book, index) => (
-                  <motion.div key={index}>
-                    <BookCard book={book} language={language} />
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
+              {filteredBooks.length > 0 && (
+                <motion.div
+                  variants={gridContainer}
+                  initial="hidden"
+                  animate="show"
+                  className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                >
+                  {filteredBooks.map((book, index) => (
+                    <motion.div key={index} variants={gridItem}>
+                      <BookCard book={book} language={language} />
+                    </motion.div>
+                  ))}
+                </motion.div>
+              )}
+            </div>
           )}
 
           {/* No Results for Books */}
@@ -1133,34 +1335,26 @@ const IslamicLibraryPage = () => {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-center py-12 sm:py-20"
+              className={`${t.card} py-16 text-center`}
             >
-              <div className="w-16 h-16 sm:w-24 sm:h-24 mx-auto mb-4 sm:mb-6 bg-gray-100 rounded-full flex items-center justify-center">
-                <svg
-                  className="w-8 h-8 sm:w-12 sm:h-12 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
+              <div
+                className={`mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl ${t.emptyIconWrap}`}
+              >
+                <Search className={`h-10 w-10 ${t.emptyIcon}`} />
               </div>
-              <h3 className="text-lg sm:text-xl font-cairo font-semibold text-gray-900 mb-2">
+              <h3
+                className={`mb-2 text-lg font-semibold sm:text-xl ${t.strong}`}
+              >
                 {getTranslation(language, "noResults")}
               </h3>
-              <p className="text-gray-600 mb-4 text-sm sm:text-base">
+              <p className={`mb-4 text-sm ${t.muted}`}>
                 {getTranslation(language, "tryDifferentKeywords")}
               </p>
-              <div className="space-y-2">
-                <p className="text-xs sm:text-sm text-gray-500">
+              <div className="mx-auto max-w-md space-y-2 text-start">
+                <p className={`text-xs ${t.faint}`}>
                   {getTranslation(language, "searchTips")}
                 </p>
-                <ul className="text-xs sm:text-sm text-gray-500 space-y-1">
+                <ul className={`space-y-1 text-xs ${t.faint}`}>
                   <li>• {getTranslation(language, "searchTip1")}</li>
                   <li>• {getTranslation(language, "searchTip2")}</li>
                   <li>• {getTranslation(language, "searchTip3")}</li>
@@ -1172,7 +1366,7 @@ const IslamicLibraryPage = () => {
                   setSearchTerm("");
                   setHadiths([]);
                 }}
-                className="mt-4 sm:mt-6 bg-purple-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg hover:bg-purple-700 transition-colors text-sm sm:text-base"
+                className={`mt-6 rounded-xl px-6 py-3 text-sm font-semibold ${primaryBtn}`}
               >
                 {getTranslation(language, "backToBooks")}
               </button>

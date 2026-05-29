@@ -49,3 +49,680 @@ html.dark [data-sonner-toaster] {
   --normal-border: var(--night-border);
   --normal-text: #f4f4f5;
 }
+
+html.night-theme .theme-aware-page,
+html.night-theme .camps-page,
+html.night-theme .camp-details-page,
+html.night-theme .islamic-library-page,
+html.night-theme .islamic-library-detail-page,
+html.night-theme .journey-page-scope,
+html.night-theme .review-page-scope,
+html.night-theme .saved-page-scope,
+html.night-theme .daily-hadith-page {
+  background: var(--night-bg) !important;
+  color: #e4e4e7;
+}
+
+html.night-theme .camp-details-content,
+html.night-theme .camp-public-view > div {
+  background: transparent !important;
+}
+
+html.night-theme .camp-card .text-gray-900,
+html.night-theme .camp-card .text-gray-800,
+html.night-theme .camp-card .text-gray-700,
+html.night-theme .camp-card .text-gray-600,
+html.night-theme .camp-card .text-gray-500,
+html.night-theme .camp-card .text-gray-400,
+html.night-theme .camp-public-view .text-gray-900,
+html.night-theme .camp-public-view .text-gray-800,
+html.night-theme .camp-public-view .text-gray-700,
+html.night-theme .camp-public-view .text-gray-600,
+html.night-theme .camp-public-view .text-gray-500,
+html.night-theme .camps-page .text-gray-900,
+html.night-theme .camps-page .text-gray-800,
+html.night-theme .camps-page .text-gray-700,
+html.night-theme .camps-page .text-gray-600,
+html.night-theme .camps-page .text-gray-500,
+html.night-theme .camp-details-page .text-gray-900,
+html.night-theme .camp-details-page .text-gray-800,
+html.night-theme .camp-details-page .text-gray-700,
+html.night-theme .camp-details-page .text-gray-600,
+html.night-theme .camp-details-page .text-gray-500,
+html.night-theme .islamic-library-page .text-gray-900,
+html.night-theme .islamic-library-page .text-gray-800,
+html.night-theme .islamic-library-page .text-gray-700,
+html.night-theme .islamic-library-page .text-gray-600,
+html.night-theme .islamic-library-page .text-gray-500,
+html.night-theme .islamic-library-detail-page .text-gray-900,
+html.night-theme .islamic-library-detail-page .text-gray-800,
+html.night-theme .islamic-library-detail-page .text-gray-700,
+html.night-theme .islamic-library-detail-page .text-gray-600,
+html.night-theme .islamic-library-detail-page .text-gray-500,
+html.night-theme .journey-page-scope .text-gray-900,
+html.night-theme .journey-page-scope .text-gray-800,
+html.night-theme .journey-page-scope .text-gray-700,
+html.night-theme .journey-page-scope .text-gray-600,
+html.night-theme .journey-page-scope .text-gray-500,
+html.night-theme .review-page-scope .text-gray-900,
+html.night-theme .review-page-scope .text-gray-800,
+html.night-theme .review-page-scope .text-gray-700,
+html.night-theme .review-page-scope .text-gray-600,
+html.night-theme .review-page-scope .text-gray-500,
+html.night-theme .saved-page-scope .text-gray-900,
+html.night-theme .saved-page-scope .text-gray-800,
+html.night-theme .saved-page-scope .text-gray-700,
+html.night-theme .saved-page-scope .text-gray-600,
+html.night-theme .saved-page-scope .text-gray-500 {
+  color: #d4d4d8 !important;
+}
+
+html.night-theme .camp-public-view h2,
+html.night-theme .camp-public-view h3,
+html.night-theme .camp-public-view h4,
+html.night-theme .islamic-library-page h1,
+html.night-theme .islamic-library-page h2,
+html.night-theme .islamic-library-page h3,
+html.night-theme .islamic-library-detail-page h1,
+html.night-theme .islamic-library-detail-page h2,
+html.night-theme .islamic-library-detail-page h3,
+html.night-theme .journey-page-scope h3,
+html.night-theme .journey-page-scope h4,
+html.night-theme .review-page-scope h2,
+html.night-theme .review-page-scope h3,
+html.night-theme .saved-page-scope h2,
+html.night-theme .saved-page-scope h3 {
+  color: #f4f4f5 !important;
+}
+
+html.night-theme .camps-page .bg-white,
+html.night-theme .camps-page .bg-white\/60,
+html.night-theme .camps-page .bg-white\/70,
+html.night-theme .camps-page .bg-white\/80,
+html.night-theme .camps-page .bg-white\/90,
+html.night-theme .camp-details-page .bg-white,
+html.night-theme .camp-details-page .bg-white\/70,
+html.night-theme .camp-details-page .bg-white\/80,
+html.night-theme .camp-details-page .bg-white\/90,
+html.night-theme .camp-public-view .bg-white,
+html.night-theme .camp-public-view .bg-white\/80,
+html.night-theme .camp-public-view .bg-white\/90,
+html.night-theme .islamic-library-page .bg-white,
+html.night-theme .islamic-library-page .bg-white\/50,
+html.night-theme .islamic-library-page .bg-white\/70,
+html.night-theme .islamic-library-page .bg-white\/80,
+html.night-theme .islamic-library-page .bg-white\/90,
+html.night-theme .islamic-library-detail-page .bg-white,
+html.night-theme .islamic-library-detail-page .bg-white\/50,
+html.night-theme .islamic-library-detail-page .bg-white\/70,
+html.night-theme .islamic-library-detail-page .bg-white\/80,
+html.night-theme .islamic-library-detail-page .bg-white\/90,
+html.night-theme .journey-page-scope .bg-white,
+html.night-theme .journey-page-scope .bg-white\/80,
+html.night-theme .review-page-scope .bg-white,
+html.night-theme .review-page-scope .bg-white\/80,
+html.night-theme .saved-page-scope .bg-white,
+html.night-theme .saved-page-scope .bg-white\/80 {
+  background-color: var(--night-surface) !important;
+  border-color: var(--night-border) !important;
+  color: #e4e4e7;
+}
+
+html.night-theme .camp-public-view .bg-gray-50,
+html.night-theme .camp-public-view .bg-gray-100,
+html.night-theme .camp-public-view .bg-red-50,
+html.night-theme .camp-public-view .bg-blue-50,
+html.night-theme .camp-public-view .bg-purple-50,
+html.night-theme .camp-public-view .bg-emerald-50,
+html.night-theme .camp-details-page .bg-gray-50,
+html.night-theme .camp-details-page .bg-gray-100,
+html.night-theme .camps-page .bg-gray-50,
+html.night-theme .camps-page .bg-gray-100,
+html.night-theme .islamic-library-page .bg-gray-50,
+html.night-theme .islamic-library-page .bg-gray-100,
+html.night-theme .islamic-library-detail-page .bg-gray-50,
+html.night-theme .islamic-library-detail-page .bg-gray-100,
+html.night-theme .journey-page-scope .bg-gray-50,
+html.night-theme .journey-page-scope .bg-gray-100,
+html.night-theme .review-page-scope .bg-gray-50,
+html.night-theme .review-page-scope .bg-gray-100,
+html.night-theme .saved-page-scope .bg-gray-50,
+html.night-theme .saved-page-scope .bg-gray-100 {
+  background-color: var(--night-surface-raised) !important;
+  border-color: var(--night-border) !important;
+}
+
+html.night-theme .camps-page input,
+html.night-theme .camps-page select,
+html.night-theme .camp-details-page input,
+html.night-theme .camp-details-page select,
+html.night-theme .camp-details-page textarea,
+html.night-theme .islamic-library-page input,
+html.night-theme .islamic-library-page select,
+html.night-theme .islamic-library-page textarea,
+html.night-theme .islamic-library-detail-page input,
+html.night-theme .islamic-library-detail-page select,
+html.night-theme .islamic-library-detail-page textarea,
+html.night-theme .journey-page-scope input,
+html.night-theme .journey-page-scope textarea,
+html.night-theme .review-page-scope input,
+html.night-theme .review-page-scope textarea,
+html.night-theme .saved-page-scope input,
+html.night-theme .saved-page-scope select {
+  background: var(--night-surface-raised) !important;
+  border-color: var(--night-border) !important;
+  color: #f4f4f5 !important;
+}
+
+html.night-theme .camps-page input::placeholder,
+html.night-theme .camp-details-page textarea::placeholder,
+html.night-theme .islamic-library-page input::placeholder,
+html.night-theme .islamic-library-detail-page input::placeholder,
+html.night-theme .journey-page-scope input::placeholder,
+html.night-theme .journey-page-scope textarea::placeholder,
+html.night-theme .review-page-scope textarea::placeholder,
+html.night-theme .saved-page-scope input::placeholder {
+  color: #71717a !important;
+}
+
+html.night-theme .camp-public-view .border-gray-100,
+html.night-theme .camp-public-view .border-gray-200,
+html.night-theme .camp-public-view .border-purple-200\/50,
+html.night-theme .camp-details-page .border-gray-100,
+html.night-theme .camp-details-page .border-gray-200,
+html.night-theme .camp-details-page .border-purple-200\/50,
+html.night-theme .camps-page .border-gray-100,
+html.night-theme .camps-page .border-gray-200,
+html.night-theme .camps-page .border-white\/50,
+html.night-theme .islamic-library-page .border-gray-100,
+html.night-theme .islamic-library-page .border-gray-200,
+html.night-theme .islamic-library-page .border-purple-200,
+html.night-theme .islamic-library-page .border-purple-200\/50,
+html.night-theme .islamic-library-detail-page .border-gray-100,
+html.night-theme .islamic-library-detail-page .border-gray-200,
+html.night-theme .islamic-library-detail-page .border-purple-100,
+html.night-theme .islamic-library-detail-page .border-purple-200,
+html.night-theme .islamic-library-detail-page .border-purple-200\/50,
+html.night-theme .journey-page-scope .border-gray-100,
+html.night-theme .journey-page-scope .border-gray-200,
+html.night-theme .review-page-scope .border-gray-100,
+html.night-theme .review-page-scope .border-gray-200,
+html.night-theme .review-page-scope .border-purple-100,
+html.night-theme .review-page-scope .border-purple-200,
+html.night-theme .saved-page-scope .border-purple-200\/50 {
+  border-color: var(--night-border) !important;
+}
+
+html.night-theme .camp-public-view .shadow-lg,
+html.night-theme .camp-public-view .shadow-xl,
+html.night-theme .camp-public-view .shadow-2xl,
+html.night-theme .islamic-library-page .shadow-lg,
+html.night-theme .islamic-library-page .shadow-xl,
+html.night-theme .islamic-library-detail-page .shadow-lg,
+html.night-theme .islamic-library-detail-page .shadow-xl,
+html.night-theme .journey-page-scope .shadow-lg,
+html.night-theme .journey-page-scope .shadow-xl,
+html.night-theme .review-page-scope .shadow-lg,
+html.night-theme .review-page-scope .shadow-xl,
+html.night-theme .saved-page-scope .shadow-lg,
+html.night-theme .saved-page-scope .shadow-xl {
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28) !important;
+}
+
+html.night-theme .journey-page-scope .journey-book-card,
+html.night-theme .journey-page-scope .journey-active-card,
+html.night-theme .journey-page-scope .journey-tabs,
+html.night-theme .journey-page-scope .journey-stat-card,
+html.night-theme .journey-page-scope .journey-modal-content,
+html.night-theme .journey-page-scope .journey-hadith-card,
+html.night-theme .review-page-scope .journey-hadith-card,
+html.night-theme .review-page-scope .journey-tabs,
+html.night-theme .review-page-scope .journey-stat-card {
+  background: var(--night-surface) !important;
+  border-color: var(--night-border) !important;
+  color: #e4e4e7;
+}
+
+html.night-theme .journey-page-scope .journey-tab {
+  color: #d4d4d8;
+}
+
+html.night-theme .journey-page-scope .journey-tab:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+html.night-theme .journey-page-scope .journey-progress-bar,
+html.night-theme .review-page-scope .journey-progress-bar {
+  background: #34343a;
+}
+
+html.night-theme .camp-details-page .from-purple-50,
+html.night-theme .camp-details-page .from-purple-100,
+html.night-theme .camp-details-page .from-blue-50,
+html.night-theme .camp-details-page .from-blue-100,
+html.night-theme .camp-details-page .from-indigo-50,
+html.night-theme .camp-details-page .from-indigo-100,
+html.night-theme .camp-details-page .from-green-50,
+html.night-theme .camp-details-page .from-green-100,
+html.night-theme .camp-details-page .from-emerald-50,
+html.night-theme .camp-details-page .from-red-50,
+html.night-theme .camp-details-page .from-yellow-50,
+html.night-theme .camp-details-page .from-amber-50,
+html.night-theme .camp-details-page .from-violet-50,
+html.night-theme .camp-details-page .from-gray-50,
+html.night-theme .camp-details-page .from-gray-100,
+html.night-theme .islamic-library-page .from-purple-50,
+html.night-theme .islamic-library-page .from-purple-100,
+html.night-theme .islamic-library-page .from-blue-50,
+html.night-theme .islamic-library-page .from-blue-100,
+html.night-theme .islamic-library-page .from-indigo-50,
+html.night-theme .islamic-library-page .from-indigo-100,
+html.night-theme .islamic-library-page .from-green-50,
+html.night-theme .islamic-library-page .from-green-100,
+html.night-theme .islamic-library-page .from-emerald-50,
+html.night-theme .islamic-library-page .from-red-50,
+html.night-theme .islamic-library-page .from-yellow-50,
+html.night-theme .islamic-library-page .from-amber-50,
+html.night-theme .islamic-library-page .from-violet-50,
+html.night-theme .islamic-library-page .from-gray-50,
+html.night-theme .islamic-library-page .from-gray-100,
+html.night-theme .islamic-library-detail-page .from-purple-50,
+html.night-theme .islamic-library-detail-page .from-purple-100,
+html.night-theme .islamic-library-detail-page .from-blue-50,
+html.night-theme .islamic-library-detail-page .from-blue-100,
+html.night-theme .islamic-library-detail-page .from-indigo-50,
+html.night-theme .islamic-library-detail-page .from-indigo-100,
+html.night-theme .islamic-library-detail-page .from-green-50,
+html.night-theme .islamic-library-detail-page .from-green-100,
+html.night-theme .islamic-library-detail-page .from-emerald-50,
+html.night-theme .islamic-library-detail-page .from-red-50,
+html.night-theme .islamic-library-detail-page .from-yellow-50,
+html.night-theme .islamic-library-detail-page .from-amber-50,
+html.night-theme .islamic-library-detail-page .from-violet-50,
+html.night-theme .islamic-library-detail-page .from-gray-50,
+html.night-theme .islamic-library-detail-page .from-gray-100,
+html.night-theme .journey-page-scope .from-purple-50,
+html.night-theme .journey-page-scope .from-purple-100,
+html.night-theme .journey-page-scope .from-blue-50,
+html.night-theme .journey-page-scope .from-blue-100,
+html.night-theme .journey-page-scope .from-indigo-50,
+html.night-theme .journey-page-scope .from-indigo-100,
+html.night-theme .journey-page-scope .from-green-50,
+html.night-theme .journey-page-scope .from-green-100,
+html.night-theme .journey-page-scope .from-emerald-50,
+html.night-theme .journey-page-scope .from-red-50,
+html.night-theme .journey-page-scope .from-yellow-50,
+html.night-theme .journey-page-scope .from-amber-50,
+html.night-theme .journey-page-scope .from-violet-50,
+html.night-theme .journey-page-scope .from-gray-50,
+html.night-theme .journey-page-scope .from-gray-100 {
+  --tw-gradient-from: #2c2c31 var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgba(44, 44, 49, 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+html.night-theme .camp-details-page .via-blue-50,
+html.night-theme .camp-details-page .via-white,
+html.night-theme .camp-details-page .via-purple-50,
+html.night-theme .islamic-library-page .via-blue-50,
+html.night-theme .islamic-library-page .via-white,
+html.night-theme .islamic-library-page .via-purple-50,
+html.night-theme .islamic-library-detail-page .via-blue-50,
+html.night-theme .islamic-library-detail-page .via-white,
+html.night-theme .islamic-library-detail-page .via-purple-50,
+html.night-theme .journey-page-scope .via-blue-50,
+html.night-theme .journey-page-scope .via-white,
+html.night-theme .journey-page-scope .via-purple-50 {
+  --tw-gradient-to: rgba(44, 44, 49, 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), #242428 var(--tw-gradient-via-position), var(--tw-gradient-to) !important;
+}
+
+html.night-theme .camp-details-page .to-purple-50,
+html.night-theme .camp-details-page .to-purple-100,
+html.night-theme .camp-details-page .to-purple-200,
+html.night-theme .camp-details-page .to-blue-50,
+html.night-theme .camp-details-page .to-blue-100,
+html.night-theme .camp-details-page .to-blue-200,
+html.night-theme .camp-details-page .to-indigo-50,
+html.night-theme .camp-details-page .to-indigo-100,
+html.night-theme .camp-details-page .to-indigo-200,
+html.night-theme .camp-details-page .to-green-50,
+html.night-theme .camp-details-page .to-green-100,
+html.night-theme .camp-details-page .to-green-200,
+html.night-theme .camp-details-page .to-emerald-50,
+html.night-theme .camp-details-page .to-gray-100,
+html.night-theme .camp-details-page .to-gray-200,
+html.night-theme .islamic-library-page .to-purple-50,
+html.night-theme .islamic-library-page .to-purple-100,
+html.night-theme .islamic-library-page .to-purple-200,
+html.night-theme .islamic-library-page .to-blue-50,
+html.night-theme .islamic-library-page .to-blue-100,
+html.night-theme .islamic-library-page .to-blue-200,
+html.night-theme .islamic-library-page .to-indigo-50,
+html.night-theme .islamic-library-page .to-indigo-100,
+html.night-theme .islamic-library-page .to-indigo-200,
+html.night-theme .islamic-library-page .to-green-50,
+html.night-theme .islamic-library-page .to-green-100,
+html.night-theme .islamic-library-page .to-green-200,
+html.night-theme .islamic-library-page .to-emerald-50,
+html.night-theme .islamic-library-page .to-gray-100,
+html.night-theme .islamic-library-page .to-gray-200,
+html.night-theme .islamic-library-detail-page .to-purple-50,
+html.night-theme .islamic-library-detail-page .to-purple-100,
+html.night-theme .islamic-library-detail-page .to-purple-200,
+html.night-theme .islamic-library-detail-page .to-blue-50,
+html.night-theme .islamic-library-detail-page .to-blue-100,
+html.night-theme .islamic-library-detail-page .to-blue-200,
+html.night-theme .islamic-library-detail-page .to-indigo-50,
+html.night-theme .islamic-library-detail-page .to-indigo-100,
+html.night-theme .islamic-library-detail-page .to-indigo-200,
+html.night-theme .islamic-library-detail-page .to-green-50,
+html.night-theme .islamic-library-detail-page .to-green-100,
+html.night-theme .islamic-library-detail-page .to-green-200,
+html.night-theme .islamic-library-detail-page .to-emerald-50,
+html.night-theme .islamic-library-detail-page .to-gray-100,
+html.night-theme .islamic-library-detail-page .to-gray-200,
+html.night-theme .journey-page-scope .to-purple-50,
+html.night-theme .journey-page-scope .to-purple-100,
+html.night-theme .journey-page-scope .to-purple-200,
+html.night-theme .journey-page-scope .to-blue-50,
+html.night-theme .journey-page-scope .to-blue-100,
+html.night-theme .journey-page-scope .to-blue-200,
+html.night-theme .journey-page-scope .to-indigo-50,
+html.night-theme .journey-page-scope .to-indigo-100,
+html.night-theme .journey-page-scope .to-indigo-200,
+html.night-theme .journey-page-scope .to-green-50,
+html.night-theme .journey-page-scope .to-green-100,
+html.night-theme .journey-page-scope .to-green-200,
+html.night-theme .journey-page-scope .to-emerald-50,
+html.night-theme .journey-page-scope .to-gray-100,
+html.night-theme .journey-page-scope .to-gray-200 {
+  --tw-gradient-to: #242428 var(--tw-gradient-to-position) !important;
+}
+
+html.night-theme .journey-page-scope .journey-hadith-text {
+  color: #e4e4e7;
+}
+
+html.night-theme .journey-page-scope .journey-friend-item,
+html.night-theme .journey-page-scope .journey-certificate-preview,
+html.night-theme .journey-page-scope .journey-btn-secondary {
+  background: #2c2c31;
+  border-color: var(--night-border);
+  color: #e4e4e7;
+}
+
+html.night-theme .review-page-scope .bg-gradient-to-br {
+  background-image: none !important;
+  background-color: var(--night-surface) !important;
+}
+
+html.night-theme .islamic-library-page .sticky,
+html.night-theme .islamic-library-page [class*="backdrop-blur"],
+html.night-theme .saved-page-scope [class*="backdrop-blur"] {
+  border-color: var(--night-border) !important;
+}
+
+html.night-theme .nav-drawer-night .text-gray-700,
+html.night-theme .nav-drawer-night .text-gray-600,
+html.night-theme .nav-drawer-night .text-gray-500 {
+  color: #d4d4d8 !important;
+}
+
+html.night-theme .camp-task-sidebar {
+  background: #1a1a1e !important;
+  color: #e4e4e7;
+  border-right: 1px solid var(--night-border);
+}
+
+html.night-theme .camp-task-sidebar .sticky {
+  background: rgba(36, 36, 40, 0.96) !important;
+  border-color: var(--night-border) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25) !important;
+  backdrop-filter: blur(16px);
+}
+
+html.night-theme .camp-task-sidebar .bg-white,
+html.night-theme .camp-task-sidebar .bg-white\/40,
+html.night-theme .camp-task-sidebar .bg-white\/50,
+html.night-theme .camp-task-sidebar .bg-white\/80,
+html.night-theme .camp-task-sidebar .bg-gray-50,
+html.night-theme .camp-task-sidebar .bg-gray-100,
+html.night-theme .camp-task-sidebar .bg-purple-50,
+html.night-theme .camp-task-sidebar .bg-blue-50,
+html.night-theme .camp-task-sidebar .bg-green-50,
+html.night-theme .camp-task-sidebar .bg-orange-50,
+html.night-theme .camp-task-sidebar .bg-amber-50 {
+  background-color: #242428 !important;
+  border-color: var(--night-border) !important;
+}
+
+html.night-theme .camp-task-sidebar .text-gray-900,
+html.night-theme .camp-task-sidebar .text-gray-800,
+html.night-theme .camp-task-sidebar .text-gray-700,
+html.night-theme .camp-task-sidebar .text-gray-600,
+html.night-theme .camp-task-sidebar .text-gray-500 {
+  color: #d4d4d8 !important;
+}
+
+html.night-theme .camp-task-sidebar h3,
+html.night-theme .camp-task-sidebar h4,
+html.night-theme .camp-task-sidebar .text-purple-900,
+html.night-theme .camp-task-sidebar .text-blue-900,
+html.night-theme .camp-task-sidebar .text-amber-900,
+html.night-theme .camp-task-sidebar .text-orange-800 {
+  color: #f4f4f5 !important;
+}
+
+html.night-theme .camp-task-sidebar .text-purple-700,
+html.night-theme .camp-task-sidebar .text-purple-600,
+html.night-theme .camp-task-sidebar .text-blue-800,
+html.night-theme .camp-task-sidebar .text-blue-700,
+html.night-theme .camp-task-sidebar .text-amber-800,
+html.night-theme .camp-task-sidebar .text-amber-700,
+html.night-theme .camp-task-sidebar .text-orange-700,
+html.night-theme .camp-task-sidebar .text-green-700,
+html.night-theme .camp-task-sidebar .text-green-600 {
+  color: #c4b5fd !important;
+}
+
+html.night-theme .camp-task-sidebar .border-gray-200,
+html.night-theme .camp-task-sidebar .border-purple-100,
+html.night-theme .camp-task-sidebar .border-purple-200,
+html.night-theme .camp-task-sidebar .border-blue-200,
+html.night-theme .camp-task-sidebar .border-amber-200,
+html.night-theme .camp-task-sidebar .border-orange-200,
+html.night-theme .camp-task-sidebar .border-green-200 {
+  border-color: var(--night-border) !important;
+}
+
+html.night-theme .camp-task-sidebar .from-purple-50,
+html.night-theme .camp-task-sidebar .from-purple-100,
+html.night-theme .camp-task-sidebar .from-blue-50,
+html.night-theme .camp-task-sidebar .from-indigo-50,
+html.night-theme .camp-task-sidebar .from-green-50,
+html.night-theme .camp-task-sidebar .from-emerald-50,
+html.night-theme .camp-task-sidebar .from-orange-50,
+html.night-theme .camp-task-sidebar .from-amber-50,
+html.night-theme .camp-task-sidebar .from-\[\#F7F6FB\] {
+  --tw-gradient-from: #242428 var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgba(36, 36, 40, 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+html.night-theme .camp-task-sidebar .to-purple-50,
+html.night-theme .camp-task-sidebar .to-purple-100,
+html.night-theme .camp-task-sidebar .to-blue-50,
+html.night-theme .camp-task-sidebar .to-indigo-50,
+html.night-theme .camp-task-sidebar .to-green-50,
+html.night-theme .camp-task-sidebar .to-emerald-50,
+html.night-theme .camp-task-sidebar .to-orange-50,
+html.night-theme .camp-task-sidebar .to-amber-50,
+html.night-theme .camp-task-sidebar .to-\[\#F3EDFF\],
+html.night-theme .camp-task-sidebar .to-\[\#E9E4F5\] {
+  --tw-gradient-to: #2c2c31 var(--tw-gradient-to-position) !important;
+}
+
+html.night-theme .camp-task-sidebar button:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+html.night-theme .camp-task-sidebar .hover\:bg-gray-100:hover,
+html.night-theme .camp-task-sidebar .hover\:bg-purple-50:hover,
+html.night-theme .camp-task-sidebar .hover\:bg-white:hover {
+  background-color: #34343a !important;
+}
+
+html.night-theme .camp-details-page .hover\:bg-white:hover,
+html.night-theme .camp-details-page .hover\:bg-white\/20:hover,
+html.night-theme .camp-details-page .hover\:bg-white\/30:hover,
+html.night-theme .camp-details-page .hover\:bg-gray-50:hover,
+html.night-theme .camp-details-page .hover\:bg-gray-100:hover,
+html.night-theme .camp-details-page .hover\:bg-purple-50:hover,
+html.night-theme .camp-details-page .hover\:bg-purple-50\/30:hover,
+html.night-theme .camp-details-page .camp-tabs-nav .hover\:bg-gray-100:hover,
+html.night-theme .camp-task-sidebar .hover\:bg-white\/20:hover,
+html.night-theme .camp-task-sidebar .hover\:bg-white\/30:hover,
+html.night-theme .camp-task-sidebar .hover\:bg-gray-50:hover,
+html.night-theme .camp-task-sidebar .hover\:bg-purple-50\/30:hover {
+  background-color: #34343a !important;
+}
+
+html.night-theme .camp-details-page .hover\:text-gray-900:hover,
+html.night-theme .camp-details-page .camp-tabs-nav .hover\:text-gray-900:hover {
+  color: #f4f4f5 !important;
+}
+
+html.night-theme .camp-details-page .group:hover .group-hover\:bg-white\/20,
+html.night-theme .camp-details-page .group:hover .group-hover\:bg-white\/30,
+html.night-theme .camp-task-sidebar .group:hover .group-hover\:bg-white\/20,
+html.night-theme .camp-task-sidebar .group:hover .group-hover\:bg-white\/30 {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+html.night-theme .camp-task-sidebar .hover\:from-green-100:hover,
+html.night-theme .camp-task-sidebar .hover\:from-emerald-100:hover,
+html.night-theme .camp-task-sidebar .hover\:from-purple-50:hover,
+html.night-theme .camp-task-sidebar .hover\:from-\[\#F3EDFF\]:hover {
+  --tw-gradient-from: #303036 var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgba(48, 48, 54, 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+html.night-theme .camp-task-sidebar .hover\:to-green-100:hover,
+html.night-theme .camp-task-sidebar .hover\:to-emerald-100:hover,
+html.night-theme .camp-task-sidebar .hover\:to-purple-50:hover,
+html.night-theme .camp-task-sidebar .hover\:to-\[\#E9E4F5\]:hover {
+  --tw-gradient-to: #3a3448 var(--tw-gradient-to-position) !important;
+}
+
+html.night-theme .camp-friends-tab,
+html.night-theme .camp-invite-friends-card {
+  background: var(--night-surface) !important;
+  border-color: var(--night-border) !important;
+  color: #e4e4e7;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35) !important;
+}
+
+html.night-theme .camp-friends-tab .bg-white,
+html.night-theme .camp-friends-tab .bg-white\/60,
+html.night-theme .camp-friends-tab .bg-white\/80,
+html.night-theme .camp-friends-tab .bg-gray-50,
+html.night-theme .camp-friends-tab .bg-gray-100,
+html.night-theme .camp-friends-tab .bg-purple-100,
+html.night-theme .camp-friends-tab .bg-blue-50,
+html.night-theme .camp-friends-tab .bg-green-50,
+html.night-theme .camp-friends-tab .bg-orange-50,
+html.night-theme .camp-friends-tab .bg-indigo-50,
+html.night-theme .camp-invite-friends-card .bg-white,
+html.night-theme .camp-invite-friends-card .bg-\[\#F4F0FF\],
+html.night-theme .camp-invite-friends-card .bg-\[\#F8F6FF\] {
+  background-color: #2c2c31 !important;
+  border-color: var(--night-border) !important;
+}
+
+html.night-theme .camp-friends-tab .text-gray-900,
+html.night-theme .camp-friends-tab .text-gray-800,
+html.night-theme .camp-friends-tab .text-gray-700,
+html.night-theme .camp-friends-tab .text-gray-600,
+html.night-theme .camp-friends-tab .text-gray-500,
+html.night-theme .camp-invite-friends-card .text-gray-600,
+html.night-theme .camp-invite-friends-card .text-gray-500 {
+  color: #d4d4d8 !important;
+}
+
+html.night-theme .camp-friends-tab h2,
+html.night-theme .camp-friends-tab h3,
+html.night-theme .camp-friends-tab h4,
+html.night-theme .camp-friends-tab strong,
+html.night-theme .camp-friends-tab .text-\[\#2F1C65\],
+html.night-theme .camp-invite-friends-card h3,
+html.night-theme .camp-invite-friends-card .text-\[\#2F1C65\] {
+  color: #f4f4f5 !important;
+}
+
+html.night-theme .camp-friends-tab .text-purple-700,
+html.night-theme .camp-friends-tab .text-purple-600,
+html.night-theme .camp-friends-tab .text-\[\#7440E9\],
+html.night-theme .camp-invite-friends-card .text-\[\#7440E9\] {
+  color: #c4b5fd !important;
+}
+
+html.night-theme .camp-friends-tab .border-gray-100,
+html.night-theme .camp-friends-tab .border-gray-200,
+html.night-theme .camp-friends-tab .border-gray-300,
+html.night-theme .camp-friends-tab .border-purple-200,
+html.night-theme .camp-friends-tab .border-blue-100,
+html.night-theme .camp-friends-tab .border-blue-200,
+html.night-theme .camp-friends-tab .border-\[\#7440E9\]\/20,
+html.night-theme .camp-friends-tab .border-\[\#7440E9\]\/30,
+html.night-theme .camp-invite-friends-card .border-\[\#E8E2FF\],
+html.night-theme .camp-invite-friends-card .border-\[\#ECE3FF\] {
+  border-color: var(--night-border) !important;
+}
+
+html.night-theme .camp-friends-tab .from-\[\#F7F6FB\],
+html.night-theme .camp-friends-tab .from-\[\#F3EDFF\],
+html.night-theme .camp-friends-tab .from-purple-50,
+html.night-theme .camp-friends-tab .from-green-50,
+html.night-theme .camp-friends-tab .from-orange-50,
+html.night-theme .camp-friends-tab .from-indigo-50,
+html.night-theme .camp-friends-tab .from-gray-50 {
+  --tw-gradient-from: #2c2c31 var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgba(44, 44, 49, 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+html.night-theme .camp-friends-tab .via-\[\#F3EDFF\],
+html.night-theme .camp-friends-tab .via-gray-300 {
+  --tw-gradient-to: rgba(44, 44, 49, 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), #34343a var(--tw-gradient-via-position), var(--tw-gradient-to) !important;
+}
+
+html.night-theme .camp-friends-tab .to-white,
+html.night-theme .camp-friends-tab .to-\[\#E9E4F5\],
+html.night-theme .camp-friends-tab .to-gray-100 {
+  --tw-gradient-to: #242428 var(--tw-gradient-to-position) !important;
+}
+
+html.night-theme .camp-friends-tab input {
+  background: #1f1f23 !important;
+  border-color: var(--night-border) !important;
+  color: #f4f4f5 !important;
+}
+
+html.night-theme .camp-friends-tab input::placeholder {
+  color: #a1a1aa !important;
+}
+
+html.night-theme .camp-friends-tab .hover\:bg-gray-50:hover,
+html.night-theme .camp-friends-tab .hover\:bg-purple-200:hover,
+html.night-theme .camp-friends-tab .hover\:bg-red-50:hover,
+html.night-theme .camp-invite-friends-card .hover\:bg-\[\#F7F3FF\]:hover {
+  background-color: #34343a !important;
+}
+
+html.night-theme .camp-friends-tab .hover\:text-purple-600:hover,
+html.night-theme .camp-friends-tab .hover\:text-\[\#5a2fc7\]:hover {
+  color: #ddd6fe !important;
+}

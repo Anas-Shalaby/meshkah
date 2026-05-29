@@ -70,12 +70,12 @@ export function getDashboardTheme(isNight) {
   }
 
   return {
-    page: "min-h-screen bg-[#1a1a1e] bg-[radial-gradient(ellipse_100%_80%_at_50%_-20%,rgba(255,255,255,0.02),transparent_50%)]",
-    card: "rounded-2xl border border-white/[0.08] bg-[#242428]/95 backdrop-blur-xl shadow-[0_4px_24px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.05)]",
+    page: "min-h-screen bg-[#414149] bg-[radial-gradient(ellipse_100%_80%_at_50%_-20%,rgba(255,255,255,0.08),transparent_50%)]",
+    card: "rounded-2xl border border-white/[0.1] bg-[#34343a]/95 backdrop-blur-xl shadow-[0_4px_24px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.06)]",
     cardInnerGlow:
       "pointer-events-none absolute top-0 left-0 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/[0.03] blur-3xl",
     iconBtn:
-      "flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#2c2c31] text-zinc-300 transition-all hover:border-white/15 hover:bg-[#34343a] hover:text-zinc-100 hover:scale-105",
+      "flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#3b3b42] text-zinc-300 transition-all hover:border-white/15 hover:bg-[#46464e] hover:text-zinc-100 hover:scale-105",
     textAccent: "text-[#a89bb8]",
     textHeading: "text-zinc-100",
     textBody: "text-zinc-400",
@@ -83,7 +83,7 @@ export function getDashboardTheme(isNight) {
     textSubtle: "text-zinc-500",
     link: "text-[#a89bb8] hover:text-zinc-200 hover:underline",
     statCard:
-      "rounded-xl border border-white/[0.08] bg-[#2c2c31] p-3 text-center",
+      "rounded-xl border border-white/[0.1] bg-[#3b3b42] p-3 text-center",
     statValue: "text-lg font-bold text-zinc-200",
     statLabel: "mt-0.5 text-xs text-zinc-500",
     primaryBtn:
@@ -93,42 +93,42 @@ export function getDashboardTheme(isNight) {
     emptyText: "text-sm text-zinc-500",
     sectionIcon: "text-[#a89bb8]",
     thumbBorder: "border-2 border-white/10 group-hover:border-white/20",
-    thumbBg: "from-[#2c2c31] to-[#242428]",
+    thumbBg: "from-[#3b3b42] to-[#34343a]",
     thumbName: "text-zinc-400 group-hover:text-zinc-200",
     socialCard:
-      "overflow-hidden rounded-2xl border border-white/[0.08] bg-[#242428]/95 p-5 shadow-[0_4px_20px_rgba(0,0,0,0.2)] backdrop-blur-xl",
+      "overflow-hidden rounded-2xl border border-white/[0.1] bg-[#34343a]/95 p-5 shadow-[0_4px_20px_rgba(0,0,0,0.16)] backdrop-blur-xl",
     socialFollow:
-      "flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#2c2c31] px-3 py-2.5 text-sm font-medium text-zinc-400 transition-colors hover:border-white/15 hover:bg-[#34343a]",
+      "flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#3b3b42] px-3 py-2.5 text-sm font-medium text-zinc-400 transition-colors hover:border-white/15 hover:bg-[#46464e]",
     playStoreBtn:
-      "flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#34343a] py-3 text-sm font-semibold text-zinc-100 shadow-md transition-all hover:bg-[#3f3f45]",
+      "flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#46464e] py-3 text-sm font-semibold text-zinc-100 shadow-md transition-all hover:bg-[#505058]",
     loader: "text-[#a89bb8]",
     cardSolid:
-      "rounded-xl sm:rounded-2xl border border-white/[0.08] bg-[#242428] p-4 shadow-[0_4px_24px_rgba(0,0,0,0.25)] sm:p-6 lg:p-8",
+      "rounded-xl sm:rounded-2xl border border-white/[0.1] bg-[#34343a] p-4 shadow-[0_4px_24px_rgba(0,0,0,0.18)] sm:p-6 lg:p-8",
     cardInner:
-      "rounded-xl sm:rounded-2xl border border-white/10 bg-[#2c2c31] p-4 sm:p-6 md:p-8",
+      "rounded-xl sm:rounded-2xl border border-white/10 bg-[#3b3b42] p-4 sm:p-6 md:p-8",
     panel:
-      "rounded-2xl border border-white/[0.08] bg-[#242428]/95 p-4 shadow-[0_4px_24px_rgba(0,0,0,0.25)] backdrop-blur-xl sm:rounded-3xl sm:p-6 lg:p-8",
-    innerPanel: "rounded-2xl border border-white/10 bg-[#2c2c31] p-6",
+      "rounded-2xl border border-white/[0.1] bg-[#34343a]/95 p-4 shadow-[0_4px_24px_rgba(0,0,0,0.18)] backdrop-blur-xl sm:rounded-3xl sm:p-6 lg:p-8",
+    innerPanel: "rounded-2xl border border-white/10 bg-[#3b3b42] p-6",
     input:
-      "w-full rounded-xl border border-white/10 bg-[#2c2c31] text-zinc-100 shadow-lg backdrop-blur-xl placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500",
+      "w-full rounded-xl border border-white/10 bg-[#3b3b42] text-zinc-100 shadow-lg backdrop-blur-xl placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500",
     textarea:
-      "w-full resize-none rounded-2xl border-2 border-white/10 bg-[#2c2c31] px-6 py-4 text-right text-base leading-relaxed text-zinc-100 placeholder-zinc-500 transition-all duration-300 hover:border-white/20 focus:border-white/25 focus:ring-0 sm:text-lg",
-    modal: "rounded-2xl bg-[#242428] p-6 shadow-2xl border border-white/[0.08]",
+      "w-full resize-none rounded-2xl border-2 border-white/10 bg-[#3b3b42] px-6 py-4 text-right text-base leading-relaxed text-zinc-100 placeholder-zinc-500 transition-all duration-300 hover:border-white/20 focus:border-white/25 focus:ring-0 sm:text-lg",
+    modal: "rounded-2xl bg-[#34343a] p-6 shadow-2xl border border-white/[0.1]",
     modalOverlay:
       "fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm",
-    chip: "rounded-lg border border-white/10 bg-[#2c2c31] px-3 py-1.5 text-sm font-medium text-zinc-400 transition-all duration-300 hover:bg-[#34343a] hover:text-zinc-200",
+    chip: "rounded-lg border border-white/10 bg-[#3b3b42] px-3 py-1.5 text-sm font-medium text-zinc-400 transition-all duration-300 hover:bg-[#46464e] hover:text-zinc-200",
     chipActive:
       "rounded-lg bg-[#5b4d6f] px-3 py-1.5 text-sm font-medium text-white shadow-lg",
     ghostBtn:
-      "rounded-xl border border-white/10 bg-[#2c2c31] px-4 py-2 text-zinc-300 shadow-lg backdrop-blur-xl transition-all duration-300 hover:bg-[#34343a]",
+      "rounded-xl border border-white/10 bg-[#3b3b42] px-4 py-2 text-zinc-300 shadow-lg backdrop-blur-xl transition-all duration-300 hover:bg-[#46464e]",
     iconBox: "bg-gradient-to-br from-[#5b4d6f] to-[#4a4058]",
     heroTitle: "text-zinc-100",
-    heroBg: "bg-[#242428]/50",
+    heroBg: "bg-[#34343a]/50",
     decorBlur: "bg-white/[0.03] blur-3xl",
     divider: "border-white/10",
     searchInput:
-      "w-full rounded-xl border border-white/10 bg-[#2c2c31] px-4 py-3 text-base text-zinc-100 focus:border-white/20 focus:ring-2 focus:ring-zinc-500 sm:rounded-2xl sm:py-4 sm:text-lg",
+      "w-full rounded-xl border border-white/10 bg-[#3b3b42] px-4 py-3 text-base text-zinc-100 focus:border-white/20 focus:ring-2 focus:ring-zinc-500 sm:rounded-2xl sm:py-4 sm:text-lg",
     suggestDropdown:
-      "absolute top-full right-0 left-0 z-[9999] mt-2 max-h-60 overflow-y-auto rounded-xl border border-white/10 bg-[#242428] shadow-2xl",
+      "absolute top-full right-0 left-0 z-[9999] mt-2 max-h-60 overflow-y-auto rounded-xl border border-white/10 bg-[#34343a] shadow-2xl",
   };
 }

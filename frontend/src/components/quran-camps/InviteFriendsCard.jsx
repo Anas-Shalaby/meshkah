@@ -36,7 +36,7 @@ const InviteFriendsCard = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 1.5 }}
-      className="bg-white rounded-2xl border border-[#E8E2FF] shadow-lg p-6 mb-8"
+      className="camp-invite-friends-card bg-white rounded-2xl border border-[#E8E2FF] shadow-lg p-6 mb-8"
     >
       <div className="relative">
         <div className="flex items-start gap-4 mb-6">

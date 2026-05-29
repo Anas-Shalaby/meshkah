@@ -41,7 +41,7 @@ const CampPublicView = ({
   const [openFAQ, setOpenFAQ] = useState(null);
 
   return (
-    <>
+    <div className="camp-public-view">
       {/* Course Content Overview Section */}
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
@@ -732,7 +732,7 @@ const CampPublicView = ({
         onClose={() => setShowIdentityModal(false)}
         onChoice={handleIdentityChoice}
       />
-    </>
+    </div>
   );
 };
 

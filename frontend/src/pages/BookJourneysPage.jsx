@@ -509,7 +509,7 @@ const BookJourneysPage = () => {
   if (loading) {
     return (
       <div
-        className={`min-h-screen flex items-center justify-center ${
+        className={`journey-page-scope min-h-screen flex items-center justify-center ${
           isRamadanThemeActive
             ? "ramadan-bg-gradient"
             : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"
@@ -525,7 +525,7 @@ const BookJourneysPage = () => {
 
   return (
     <div
-      className={`min-h-screen pb-20 ${
+      className={`journey-page-scope min-h-screen pb-20 ${
         isRamadanThemeActive
           ? "ramadan-bg-gradient"
           : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"

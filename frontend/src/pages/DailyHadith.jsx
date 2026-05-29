@@ -49,7 +49,26 @@ const DailyHadith = () => {
   const { user } = useAuth();
   const { isRamadanThemeActive } = useRamadanTheme();
   const { isNight } = useTheme();
-  const t = getDashboardTheme(isNight);
+  const t = isNight
+    ? {
+        page: "min-h-screen bg-[#1a1c22]",
+        cardSolid:
+          "rounded-[1.75rem] border border-white/10 bg-[#212328] p-4 shadow-[0_22px_60px_rgba(0,0,0,0.28)] sm:p-6 lg:p-8",
+        cardInner:
+          "rounded-[1.5rem] border border-white/10 bg-[#1a1c22]/75 p-4 shadow-inner sm:p-6 md:p-8",
+        primaryBtn:
+          "bg-[#9e98db] text-[#1a1c22] hover:bg-[#aaa4e4] shadow-[0_12px_30px_rgba(158,152,219,0.22)]",
+        textHeading: "text-[#e0e0e0]",
+        textBody: "text-[#e0e0e0]/80",
+        textMuted: "text-[#e0e0e0]/55",
+        textAccent: "text-[#9e98db]",
+        divider: "border-white/10",
+        modalOverlay:
+          "fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm",
+        modal:
+          "rounded-2xl border border-white/10 bg-[#212328] p-6 text-[#e0e0e0] shadow-2xl",
+      }
+    : getDashboardTheme(false);
 
   // جلب حديث عشوائي
   const fetchRandomHadith = async () => {
@@ -306,58 +325,14 @@ const DailyHadith = () => {
 
   return (
     <div
-      className={`min-h-screen overflow-hidden ${
+      className={`daily-hadith-page min-h-screen overflow-hidden ${
         isRamadanThemeActive
           ? "ramadan-bg-gradient ramadan-pattern-overlay"
           : t.page
       }`}
     >
-      {isRamadanThemeActive && <RamadanFloatingElements />}
-
       {/* Add padding when countdown is fixed */}
       <div>
-        {/* Enhanced Background Elements */}
-        {!isRamadanThemeActive && (
-          <div className="absolute inset-0">
-            <motion.div
-              animate={{
-                rotate: 360,
-                scale: [1, 1.1, 1],
-              }}
-              transition={{
-                duration: 20,
-                repeat: Infinity,
-                ease: "linear",
-              }}
-              className={`absolute -top-20 -right-20 h-60 w-60 rounded-full blur-3xl sm:h-80 sm:w-80 ${isNight ? "bg-white/[0.03]" : "bg-purple-500/5"}`}
-            />
-            <motion.div
-              animate={{
-                rotate: -360,
-                scale: [1, 1.2, 1],
-              }}
-              transition={{
-                duration: 25,
-                repeat: Infinity,
-                ease: "linear",
-              }}
-              className={`absolute -bottom-20 -left-20 h-72 w-72 rounded-full blur-3xl sm:h-96 sm:w-96 ${isNight ? "bg-white/[0.02]" : "bg-blue-500/5"}`}
-            />
-            <motion.div
-              animate={{
-                scale: [1, 1.15, 1],
-                opacity: [0.1, 0.2, 0.1],
-              }}
-              transition={{
-                duration: 8,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-              className={`absolute top-1/2 left-1/2 h-48 w-48 -translate-x-1/2 -translate-y-1/2 transform rounded-full blur-2xl sm:h-64 sm:w-64 ${isNight ? "bg-white/[0.02]" : "bg-indigo-500/5"}`}
-            />
-          </div>
-        )}
-
         <SEO
           title="حديث اليوم - مشكاة الأحاديث"
           description="حديث اليوم من الأحاديث النبوية الشريفة مع التحليل والشرح"
@@ -392,7 +367,7 @@ const DailyHadith = () => {
                   <div className={`mb-4 w-full sm:mb-6 ${t.cardInner}`}>
                     <div className="relative">
                       <p
-                        className={`prose amiri-regular relative z-10 max-w-none text-right text-lg leading-loose sm:text-xl md:text-2xl ${isNight ? "text-zinc-200" : "text-gray-800"}`}
+                        className={`prose amiri-regular relative z-10 max-w-none text-right text-lg leading-loose sm:text-xl md:text-2xl ${isNight ? "text-[#e0e0e0]" : "text-gray-800"}`}
                         style={{ lineHeight: "2.5" }}
                       >
                         {dailyHadith.hadeeth}
@@ -409,7 +384,13 @@ const DailyHadith = () => {
 
                       {dailyHadith.grade && (
                         <div className="text-right mt-4 sm:mt-6">
-                          <span className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-xl sm:rounded-2xl bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 font-semibold border border-green-200 shadow-sm">
+                          <span
+                            className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-xl sm:rounded-2xl font-semibold shadow-sm ${
+                              isNight
+                                ? "border border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                                : "border border-green-200 bg-gradient-to-r from-green-100 to-emerald-100 text-green-800"
+                            }`}
+                          >
                             <Shield className="w-3 h-3 sm:w-4 sm:h-4 inline ml-1.5 sm:ml-2" />
                             حكم الحديث : {dailyHadith.grade}
                           </span>
@@ -441,7 +422,7 @@ const DailyHadith = () => {
                         isLiked
                           ? "bg-red-500 text-white"
                           : isNight
-                            ? "border border-white/10 bg-[#34343a] text-zinc-300 hover:bg-[#3f3f45]"
+                            ? "border border-white/10 bg-[#1a1c22]/80 text-[#e0e0e0]/80 hover:border-[#9e98db]/30 hover:bg-[#1a1c22]"
                             : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
                       }`}
                     >
@@ -472,7 +453,7 @@ const DailyHadith = () => {
 
                     <button
                       onClick={shareHadith}
-                      className={`rounded-lg p-2 shadow-lg transition-all duration-300 sm:rounded-xl sm:p-3 ${isNight ? "bg-[#34343a] hover:bg-[#3f3f45]" : "bg-white/90 hover:bg-white"}`}
+                      className={`rounded-lg p-2 shadow-lg transition-all duration-300 sm:rounded-xl sm:p-3 ${isNight ? "border border-white/10 bg-[#1a1c22]/80 hover:border-[#9e98db]/30 hover:bg-[#1a1c22]" : "bg-white/90 hover:bg-white"}`}
                       title="مشاركة"
                     >
                       <Share2
@@ -482,7 +463,7 @@ const DailyHadith = () => {
 
                     <button
                       onClick={handleBookmarkToggle}
-                      className={`rounded-lg p-2 shadow-lg transition-all duration-300 sm:rounded-xl sm:p-3 ${isNight ? "bg-[#34343a] hover:bg-[#3f3f45]" : "bg-white/90 hover:bg-white"}`}
+                      className={`rounded-lg p-2 shadow-lg transition-all duration-300 sm:rounded-xl sm:p-3 ${isNight ? "border border-white/10 bg-[#1a1c22]/80 hover:border-[#9e98db]/30 hover:bg-[#1a1c22]" : "bg-white/90 hover:bg-white"}`}
                       title="حفظ"
                     >
                       <Bookmark
@@ -553,7 +534,7 @@ const DailyHadith = () => {
                         </h3>
                       </div>
                       <p
-                        className={`amiri-regular text-sm leading-relaxed sm:text-base lg:text-lg ${isNight ? "text-zinc-200" : "text-gray-800"}`}
+                        className={`amiri-regular text-sm leading-relaxed sm:text-base lg:text-lg ${isNight ? "text-[#e0e0e0]/90" : "text-gray-800"}`}
                       >
                         {analysis}
                       </p>
@@ -600,10 +581,10 @@ const DailyHadith = () => {
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="text-center mb-6">
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">
+                  <h3 className={`text-xl font-bold mb-2 ${t.textHeading}`}>
                     مشاركة الحديث
                   </h3>
-                  <p className="text-gray-600 text-sm">اختر منصة المشاركة</p>
+                  <p className={`text-sm ${t.textBody}`}>اختر منصة المشاركة</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -611,7 +592,11 @@ const DailyHadith = () => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => shareToSocialMedia("whatsapp")}
-                    className="inline-flex items-center px-4 text-[18px] h-[2.5rem] bg-transparent text-primary rounded-lg hover:bg-primary/10 font-medium gap-3 border border-primary transition-colors"
+                    className={`inline-flex h-[2.5rem] items-center gap-3 rounded-lg border px-4 text-[18px] font-medium transition-colors ${
+                      isNight
+                        ? "border-[#9e98db]/30 bg-[#1a1c22]/55 text-[#e0e0e0] hover:bg-[#1a1c22]"
+                        : "border-primary bg-transparent text-primary hover:bg-primary/10"
+                    }`}
                   >
                     <svg
                       className="w-5 h-5 text-green-800"
@@ -627,7 +612,11 @@ const DailyHadith = () => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => shareToSocialMedia("telegram")}
-                    className="inline-flex items-center px-4 text-[18px] h-[2.5rem] bg-transparent text-primary rounded-lg hover:bg-primary/10 font-medium gap-3 border border-primary transition-colors"
+                    className={`inline-flex h-[2.5rem] items-center gap-3 rounded-lg border px-4 text-[18px] font-medium transition-colors ${
+                      isNight
+                        ? "border-[#9e98db]/30 bg-[#1a1c22]/55 text-[#e0e0e0] hover:bg-[#1a1c22]"
+                        : "border-primary bg-transparent text-primary hover:bg-primary/10"
+                    }`}
                   >
                     <svg
                       className="w-7 h-7 text-blue-800"
@@ -643,7 +632,11 @@ const DailyHadith = () => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => shareToSocialMedia("twitter")}
-                    className="inline-flex items-center px-4 text-[18px] h-[2.5rem] bg-transparent text-primary rounded-lg hover:bg-primary/10 font-medium gap-3 border border-primary transition-colors"
+                    className={`inline-flex h-[2.5rem] items-center gap-3 rounded-lg border px-4 text-[18px] font-medium transition-colors ${
+                      isNight
+                        ? "border-[#9e98db]/30 bg-[#1a1c22]/55 text-[#e0e0e0] hover:bg-[#1a1c22]"
+                        : "border-primary bg-transparent text-primary hover:bg-primary/10"
+                    }`}
                   >
                     <Twitter className="w-7 text-blue-800 h-7" />
                     تويتر
@@ -653,7 +646,11 @@ const DailyHadith = () => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => shareToSocialMedia("qabilah")}
-                    className="inline-flex items-center hover:bg-[#F3E2DE] border border-[#F3E2DE]  px-4 text-[18px] rounded-lg  font-medium gap-3  transition-colors"
+                    className={`inline-flex items-center gap-3 rounded-lg border px-4 text-[18px] font-medium transition-colors ${
+                      isNight
+                        ? "border-[#9e98db]/30 bg-[#1a1c22]/55 text-[#e0e0e0] hover:bg-[#1a1c22]"
+                        : "border-[#F3E2DE] hover:bg-[#F3E2DE]"
+                    }`}
                   >
                     <svg
                       width="24"

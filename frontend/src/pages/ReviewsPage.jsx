@@ -418,7 +418,7 @@ const ReviewsPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50">
+      <div className="review-page-scope min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50">
         <div className="text-center">
           <div className="journey-spinner w-12 h-12 mx-auto mb-4" />
           <p className="text-gray-600 arabic-text">جاري التحميل...</p>
@@ -431,7 +431,7 @@ const ReviewsPage = () => {
 
   return (
     <div
-      className={`min-h-screen pb-20 relative ${
+      className={`review-page-scope min-h-screen pb-20 relative ${
         isRamadanThemeActive
           ? "ramadan-bg-gradient"
           : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"

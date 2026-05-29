@@ -737,7 +737,7 @@ const JourneyDetailsPage = () => {
   if (!journey) {
     return (
       <div
-        className={`min-h-screen flex items-center justify-center ${
+        className={`journey-page-scope min-h-screen flex items-center justify-center ${
           isRamadanThemeActive
             ? "ramadan-bg-gradient"
             : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"
@@ -759,7 +759,7 @@ const JourneyDetailsPage = () => {
   console.log(journey)
   return (
     <div
-      className={`min-h-screen pb-20 relative ${
+      className={`journey-page-scope min-h-screen pb-20 relative ${
         isRamadanThemeActive
           ? "ramadan-bg-gradient"
           : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"

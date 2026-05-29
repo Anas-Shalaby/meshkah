@@ -308,7 +308,7 @@ const FriendsTab = ({ campId }) => {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 shadow-lg border border-gray-100">
+      <div className="camp-friends-tab bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 shadow-lg border border-gray-100">
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#7440E9]"></div>
         </div>
@@ -318,7 +318,7 @@ const FriendsTab = ({ campId }) => {
 
   if (error) {
     return (
-      <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 shadow-lg border border-gray-100">
+      <div className="camp-friends-tab bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 shadow-lg border border-gray-100">
         <div className="text-center py-12">
           <p className="text-red-600 mb-4">{error}</p>
           <button
@@ -337,7 +337,7 @@ const FriendsTab = ({ campId }) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 shadow-lg border border-gray-100"
+      className="camp-friends-tab bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 shadow-lg border border-gray-100"
     >
       <div className="space-y-4 sm:space-y-6">
         {/* التبويبات الفرعية */}

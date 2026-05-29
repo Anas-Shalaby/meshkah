@@ -54,15 +54,15 @@ const getStatusText = (status) => {
 const getStatusColor = (status) => {
   switch (status) {
     case "active":
-      return "bg-purple-600/80 text-white";
+      return "bg-[#9e98db]/15 text-[#9e98db] border border-[#9e98db]/40";
     case "early_registration":
-      return "bg-blue-500/80 text-white";
+      return "bg-blue-900/30 text-blue-300 border border-blue-900/50";
     case "completed":
-      return "bg-gray-500/70 text-white";
+      return "bg-gray-700/40 text-gray-300 border border-gray-600/50";
     case "reopened":
-      return "bg-indigo-500/80 text-white";
+      return "bg-indigo-900/30 text-indigo-300 border border-indigo-900/50";
     default:
-      return "bg-gray-500/70 text-white";
+      return "bg-gray-700/40 text-gray-300 border border-gray-600/50";
   }
 };
 
@@ -87,6 +87,28 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
   const [isInView, setIsInView] = useState(false);
   const cardRef = useRef(null);
 
+  // ——— Flat theme tokens (dark reference / flat light counterpart) ———
+  const ACCENT = isNight ? "#9e98db" : "#7440E9";
+  const c = isNight
+    ? {
+        cardBg: "#212328",
+        innerBg: "#1a1c22",
+        borderClass: "border border-[#2a2d35] hover:border-[#9e98db]/50",
+        text: "#e0e0e0",
+        sub: "#a0a0a0",
+        closedBtn:
+          "bg-[#1a1c22] text-[#a0a0a0] border border-[#2a2d35] cursor-not-allowed",
+      }
+    : {
+        cardBg: "#ffffff",
+        innerBg: "#f4f4f7",
+        borderClass: "border border-gray-200 hover:border-[#7440E9]/40",
+        text: "#24242c",
+        sub: "#6b7280",
+        closedBtn:
+          "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed",
+      };
+
   // Intersection Observer for lazy loading
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -96,7 +118,7 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
           observer.disconnect();
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 },
     );
 
     if (cardRef.current) {
@@ -114,13 +136,13 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
       part.toLowerCase() === query.toLowerCase() ? (
         <mark
           key={i}
-          className="bg-yellow-200 text-yellow-900 rounded px-1 font-semibold"
+          className="bg-[#ffc107] text-[#1a1c22] rounded px-1 font-semibold"
         >
           {part}
         </mark>
       ) : (
         part
-      )
+      ),
     );
   };
   return (
@@ -136,63 +158,30 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
         ease: [0.4, 0, 0.2, 1],
       }}
       whileHover={{
-        scale: 1.05,
-        y: -12,
+        y: -6,
         transition: { duration: 0.3, ease: "easeOut" },
       }}
-      whileTap={{ scale: 0.98 }}
-      className={`relative group camp-card flex min-h-[480px] cursor-pointer flex-col items-center overflow-hidden rounded-3xl border-2 p-0 text-center transition-all duration-300 ${
-        isNight
-          ? "border-white/10 bg-[#242428]/95 backdrop-blur-xl"
-          : "border-[#e3d8fa] bg-white/90 backdrop-blur-xl"
-      }`}
-      style={{
-        minHeight: 480,
-        fontFamily: "Amiri, Cairo, serif",
-        background: isNight
-          ? "linear-gradient(135deg, #242428 0%, #2c2c31 60%, #1a1a1e 100%)"
-          : "linear-gradient(135deg, #f7f6fb 0%, #f3edff 60%, #e9e4f5 100%)",
-        boxShadow: isNight
-          ? "0 2px 16px 0 rgba(0,0,0,0.2) inset, 0 15px 30px -10px rgba(0,0,0,0.35)"
-          : "0 2px 16px 0 rgba(116,64,233,0.08) inset, 0 15px 30px -10px rgba(116,64,233,0.2)",
-      }}
+      whileTap={{ scale: 0.99 }}
+      className={`relative group camp-card font-almarai flex min-h-[480px] cursor-pointer flex-col overflow-hidden rounded-3xl p-0 text-center transition-colors duration-300 ${c.borderClass}`}
+      style={{ minHeight: 480, backgroundColor: c.cardBg }}
     >
-      {/* زخرفة إسلامية أعلى البطاقة */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10 w-full flex justify-center pointer-events-none select-none">
-        <svg
-          width="120"
-          height="32"
-          viewBox="0 0 120 32"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M0 32 Q60 0 120 32"
-            stroke="#7440E9"
-            strokeWidth="2"
-            fill="none"
-            opacity="0.13"
-          />
-          <circle cx="60" cy="16" r="6" fill="#e3d8fa" opacity="0.18" />
-        </svg>
-      </div>
-
-      {/* خلفية مزخرفة */}
+      {/* صورة الغلاف / Placeholder */}
       <div
-        className="h-40 w-full relative rounded-t-3xl mb-6 overflow-hidden"
-        style={{
-          borderBottom: "1px solid #e3d8fa",
-        }}
+        className="relative mb-6 h-40 w-full overflow-hidden rounded-t-3xl"
+        style={{ borderBottom: `1px solid ${isNight ? "#2a2d35" : "#e5e7eb"}` }}
       >
         {camp.banner_image && isInView ? (
           <>
             {!imageLoaded && (
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-100 to-indigo-100 animate-pulse" />
+              <div
+                className="absolute inset-0 animate-pulse"
+                style={{ backgroundColor: c.innerBg }}
+              />
             )}
             <img
               src={camp.banner_image}
               alt={camp.name}
-              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-110 ${
+              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-105 ${
                 imageLoaded ? "opacity-100" : "opacity-0"
               }`}
               onLoad={() => setImageLoaded(true)}
@@ -204,25 +193,27 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
             />
           </>
         ) : camp.banner_image && !isInView ? (
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-100 to-indigo-100 animate-pulse" />
+          <div
+            className="absolute inset-0 animate-pulse"
+            style={{ backgroundColor: c.innerBg }}
+          />
         ) : (
           <div
-            className="absolute inset-0"
-            style={{
-              backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0) 0%, #f3edff 80%), url('/assets/arabic-pattern-classic.svg')`,
-              backgroundSize: "cover, 120px",
-              backgroundPosition: "center, top right",
-              backgroundRepeat: "no-repeat, repeat",
-            }}
-          />
+            className="absolute inset-0 flex items-center justify-center"
+            style={{ backgroundColor: c.innerBg }}
+          >
+            <BookOpen
+              className="h-12 w-12"
+              style={{ color: ACCENT, opacity: 0.5 }}
+            />
+          </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/0 via-white/10 to-[#f3edff]/60 rounded-t-3xl" />
 
         {/* شارة الحالة */}
         <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
           <span
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm shadow-md border border-white/20 ${getStatusColor(
-              camp.status
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(
+              camp.status,
             )}`}
           >
             {getStatusIcon(camp.status)}
@@ -233,7 +224,7 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
 
           {/* شارة المسجل */}
           {camp.is_enrolled && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm shadow-md border border-white/20 bg-green-500/80 text-white">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-900/30 text-green-400 border border-green-900/50">
               <UserCheck className="w-3 h-3" />
               مسجل
             </span>
@@ -241,7 +232,7 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
 
           {/* شارة يبدأ تلقائياً */}
           {camp.auto_start_camp && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm shadow-md border border-white/20 bg-indigo-500/80 text-white">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#9e98db]/15 text-[#9e98db] border border-[#9e98db]/40">
               <Sparkles className="w-3 h-3" />
               يبدأ تلقائياً
             </span>
@@ -249,7 +240,7 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
 
           {/* شارة التسجيل مغلق */}
           {camp.enable_public_enrollment === false && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm shadow-md border border-white/20 bg-gray-500/80 text-white">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-gray-700/40 text-gray-300 border border-gray-600/50">
               <Shield className="w-3 h-3" />
               التسجيل مغلق
             </span>
@@ -258,7 +249,7 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
           {/* شارة ممتلئ */}
           {camp.max_participants &&
             camp.enrolled_count >= camp.max_participants && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm shadow-md border border-white/20 bg-red-500/80 text-white">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-900/30 text-red-400 border border-red-900/50">
                 <Shield className="w-3 h-3" />
                 ممتلئ
               </span>
@@ -272,17 +263,11 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
-        <h3 className="text-2xl sm:text-3xl font-extrabold text-[#7440E9] mb-3 flex items-center gap-2 tracking-tight drop-shadow-sm px-4">
-          <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
-            <circle
-              cx="10"
-              cy="10"
-              r="8"
-              stroke="#7440E9"
-              strokeWidth="2"
-              strokeDasharray="3 3"
-            />
-          </svg>
+        <h3
+          className="mb-3 flex items-center justify-center gap-2 px-4 text-2xl font-extrabold tracking-tight sm:text-3xl"
+          style={{ color: c.text }}
+        >
+          <BookOpen className="h-5 w-5 shrink-0" style={{ color: ACCENT }} />
           {highlightText(camp.name, searchQuery)}
         </h3>
       </motion.div>
@@ -295,8 +280,8 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
           transition={{ delay: 0.15 }}
         >
           <p
-            className="text-gray-700 text-base mb-4 line-clamp-3 px-4 leading-relaxed"
-            style={{ fontFamily: "Cairo, Amiri, serif" }}
+            className="mb-4 px-4 text-base leading-relaxed line-clamp-3"
+            style={{ color: c.sub }}
           >
             {highlightText(camp.description, searchQuery)}
           </p>
@@ -309,18 +294,23 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.18 }}
-          className="flex flex-wrap gap-2.5 mt-4 mb-5 px-4 justify-center"
+          className="mb-5 mt-4 flex flex-wrap justify-center gap-2 px-4"
         >
           {camp.tags.map((tag, index) => (
             <motion.span
               key={index}
-              whileHover={{ scale: 1.05, y: -2 }}
-              className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-800 rounded-full text-sm font-bold shadow-sm border border-purple-200/50 hover:shadow-md hover:border-purple-300 transition-all duration-200"
+              whileHover={{ y: -2 }}
+              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors"
               style={{
-                fontFamily: "Cairo, sans-serif",
+                backgroundColor: c.innerBg,
+                color: ACCENT,
+                borderColor: isNight ? "#2a2d35" : "#e5e7eb",
               }}
             >
-              <span className="w-1.5 h-1.5 bg-purple-500 rounded-full ml-1.5"></span>
+              <span
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ backgroundColor: ACCENT }}
+              />
               {tag}
             </motion.span>
           ))}
@@ -332,37 +322,44 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="flex items-end justify-center gap-6 mb-4 mt-2"
+        className="mx-4 mb-4 mt-2 rounded-2xl px-2 py-3"
+        style={{ backgroundColor: c.innerBg }}
       >
-        <div className="flex flex-col items-center">
-          <div className="flex items-center gap-1">
-            <Users className="w-5 h-5 text-purple-400" />
-            <span className="font-bold text-base text-gray-700">
-              {camp.enrolled_count ?? 0}
-              {camp.max_participants ? ` / ${camp.max_participants}` : ""}
+        <div className="flex items-stretch justify-around">
+          <div className="flex flex-1 flex-col items-center gap-1">
+            <div className="flex items-center gap-1.5">
+              <Users className="h-5 w-5" style={{ color: ACCENT }} />
+              <span className="text-base font-bold" style={{ color: c.text }}>
+                {camp.enrolled_count ?? 0}
+                {camp.max_participants ? ` / ${camp.max_participants}` : ""}
+              </span>
+            </div>
+            <span className="text-[10px]" style={{ color: c.sub }}>
+              {camp.max_participants ? "مشترك / الحد الأقصى" : "مشترك"}
             </span>
           </div>
-          <span className="text-[10px] text-gray-400 mt-0.5">
-            {camp.max_participants ? "مشترك / الحد الأقصى" : "مشترك"}
-          </span>
-        </div>
-        <div className="flex flex-col items-center">
-          <div className="flex items-center gap-1">
-            <Clock className="w-5 h-5 text-blue-400" />
-            <span className="font-bold text-base text-gray-700">
-              {camp.duration_days ?? 0}
+          <div className="flex flex-1 flex-col items-center gap-1">
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-5 w-5" style={{ color: ACCENT }} />
+              <span className="text-base font-bold" style={{ color: c.text }}>
+                {camp.duration_days ?? 0}
+              </span>
+            </div>
+            <span className="text-[10px]" style={{ color: c.sub }}>
+              أيام
             </span>
           </div>
-          <span className="text-[10px] text-gray-400 mt-0.5">أيام</span>
-        </div>
-        <div className="flex flex-col items-center">
-          <div className="flex items-center gap-1">
-            <Calendar className="w-5 h-5 text-green-400" />
-            <span className="font-bold text-base text-gray-700">
-              {formatDate(camp.start_date)}
+          <div className="flex flex-1 flex-col items-center gap-1">
+            <div className="flex items-center gap-1.5">
+              <Calendar className="h-5 w-5" style={{ color: ACCENT }} />
+              <span className="text-base font-bold" style={{ color: c.text }}>
+                {formatDate(camp.start_date)}
+              </span>
+            </div>
+            <span className="text-[10px]" style={{ color: c.sub }}>
+              تاريخ البدء
             </span>
           </div>
-          <span className="text-[10px] text-gray-400 mt-0.5">تاريخ البدء</span>
         </div>
       </motion.div>
 
@@ -373,20 +370,29 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
         transition={{ delay: 0.22 }}
         className="px-4"
       >
-        <div className="flex flex-wrap items-center gap-2 mb-2">
+        <div className="mb-2 flex flex-wrap items-center justify-center gap-2">
           <span
-            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+            className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold"
+            style={
               (camp.camp_type || "quran") === "hadith"
-                ? "bg-amber-50 text-amber-700 border-amber-200"
-                : "bg-purple-50 text-purple-700 border-purple-200"
-            }`}
+                ? {
+                    backgroundColor: `${"#ffc107"}1a`,
+                    color: "#ffc107",
+                    borderColor: `${"#ffc107"}40`,
+                  }
+                : {
+                    backgroundColor: `${ACCENT}1a`,
+                    color: ACCENT,
+                    borderColor: `${ACCENT}40`,
+                  }
+            }
           >
             {(camp.camp_type || "quran") === "hadith"
               ? "مخيم حديث"
               : "مخيم قرآن"}
           </span>
           {(camp.camp_type || "quran") === "hadith" && (
-            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span className="inline-flex items-center rounded-full border border-emerald-900/50 bg-emerald-900/30 px-2.5 py-1 text-[11px] font-semibold text-emerald-400">
               يبدأ تلقائيًا عند الاشتراك
             </span>
           )}
@@ -400,7 +406,10 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
         >
-          <div className="text-[#7440E9] font-bold mb-2 flex items-center gap-2">
+          <div
+            className="mb-2 flex items-center justify-center gap-2 font-bold"
+            style={{ color: ACCENT }}
+          >
             <BookOpen className="w-4 h-4" /> سورة{" "}
             {highlightText(camp.surah_name, searchQuery)}
           </div>
@@ -414,23 +423,24 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
         >
-          <div className="text-amber-700 font-bold mb-2 flex items-center gap-2 px-4">
+          <div
+            className="mb-2 flex items-center justify-center gap-2 px-4 font-bold"
+            style={{ color: "#ffc107" }}
+          >
             <BookOpen className="w-4 h-4" /> الكتاب:{" "}
-            {(
-              {
-                nawawi40: "الأربعين النووية",
-                qudsi40: "الأحاديث القدسية",
-                riyad_assalihin: "رياض الصالحين",
-                bulugh_almaram: "بلوغ المرام",
-                hisnulmuslim: "حصن المسلم",
-                shamail_muhammadiyah: "الشمائل المحمدية",
-                aladab_almufrad: "الأدب المفرد",
-                riyadiah40: "الأربعون الرياضية",
-                shahwaliullah40: "أربعين شاه ولي الله",
-                malik: "موطأ مالك",
-                darimi: "سنن الدارمي",
-              }[camp.content_source_slug] || camp.content_source_slug
-            )}
+            {{
+              nawawi40: "الأربعين النووية",
+              qudsi40: "الأحاديث القدسية",
+              riyad_assalihin: "رياض الصالحين",
+              bulugh_almaram: "بلوغ المرام",
+              hisnulmuslim: "حصن المسلم",
+              shamail_muhammadiyah: "الشمائل المحمدية",
+              aladab_almufrad: "الأدب المفرد",
+              riyadiah40: "الأربعون الرياضية",
+              shahwaliullah40: "أربعين شاه ولي الله",
+              malik: "موطأ مالك",
+              darimi: "سنن الدارمي",
+            }[camp.content_source_slug] || camp.content_source_slug}
           </div>
         </motion.div>
       )}
@@ -440,36 +450,36 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="mt-auto pt-4 px-4 pb-4 w-full"
+        className="mt-auto w-full px-4 pb-4 pt-4"
       >
         <Link
           to={`/quran-camps/${camp.share_link}`}
-          className={`block w-full px-6 py-3 rounded-xl font-bold text-center shadow-lg transition-all duration-300 transform hover:scale-[1.02] relative overflow-hidden group/btn ${
+          className={`group/btn relative block w-full overflow-hidden rounded-xl px-6 py-3 text-center font-bold transition-colors duration-300 ${
             camp.is_enrolled
-              ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700"
+              ? "bg-green-600 text-white hover:bg-green-500"
               : camp.enable_public_enrollment === 0
-              ? "bg-gradient-to-r from-gray-500 to-gray-600 text-white cursor-not-allowed opacity-70"
-              : camp.max_participants &&
-                camp.enrolled_count >= camp.max_participants
-              ? "bg-gradient-to-r from-gray-500 to-gray-600 text-white cursor-not-allowed opacity-70"
-              : "bg-gradient-to-r from-[#7440E9] to-[#8B5CF6] text-white hover:from-[#6D28D9] hover:to-[#7C3AED]"
+                ? c.closedBtn
+                : camp.max_participants &&
+                    camp.enrolled_count >= camp.max_participants
+                  ? c.closedBtn
+                  : "bg-[#7440E9] text-white hover:bg-[#8B5CF6]"
           }`}
         >
           <span className="relative z-10">
             {camp.is_enrolled
               ? "متابعة التعلم"
               : camp.enable_public_enrollment === false
-              ? "التسجيل مغلق"
-              : camp.max_participants &&
-                camp.enrolled_count >= camp.max_participants
-              ? "المخيم ممتلئ"
-              : camp.status === "active"
-              ? "ابدأ التعلم الآن"
-              : camp.status === "early_registration"
-              ? "سجل الآن"
-              : camp.status === "reopened"
-              ? "انضم الآن"
-              : "عرض التفاصيل"}
+                ? "التسجيل مغلق"
+                : camp.max_participants &&
+                    camp.enrolled_count >= camp.max_participants
+                  ? "المخيم ممتلئ"
+                  : camp.status === "active"
+                    ? "ابدأ التعلم الآن"
+                    : camp.status === "early_registration"
+                      ? "سجل الآن"
+                      : camp.status === "reopened"
+                        ? "انضم الآن"
+                        : "عرض التفاصيل"}
           </span>
           {!(
             camp.enable_public_enrollment === 0 ||
@@ -477,7 +487,7 @@ const CampPublicCard = ({ camp, index, searchQuery = "" }) => {
               camp.enrolled_count >= camp.max_participants)
           ) && (
             <motion.div
-              className="absolute inset-0 bg-white/20"
+              className="absolute inset-0 bg-white/15"
               initial={{ x: "-100%" }}
               whileHover={{ x: "100%" }}
               transition={{ duration: 0.6, ease: "easeInOut" }}

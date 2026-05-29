@@ -63,12 +63,12 @@ const MyLearningPanel = ({ isOpen, onClose }) => {
   const renderCamps = () => {
     if (camps.length === 0) {
       return (
-        <p className="py-8 text-center text-sm text-gray-500">
+        <p className="py-8 text-center text-sm text-gray-500 dark:text-zinc-400">
           لا مخيمات ملتحق بها.{" "}
           <Link
             to="/quran-camps"
             onClick={onClose}
-            className="font-semibold text-[#7440E9]"
+            className="font-semibold text-[#7440E9] dark:text-[#9e98db]"
           >
             استكشف المخيمات
           </Link>
@@ -87,9 +87,9 @@ const MyLearningPanel = ({ isOpen, onClose }) => {
               key={camp.id}
               to={`/quran-camps/${camp.id}`}
               onClick={onClose}
-              className="flex gap-3 rounded-xl border border-purple-100 p-3 transition-all hover:border-[#7440E9]/40 hover:shadow-md"
+              className="flex gap-3 rounded-xl border border-purple-100 p-3 transition-all hover:border-[#7440E9]/40 hover:shadow-md dark:border-white/10 dark:bg-[#1a1c22]/45 dark:hover:border-[#9e98db]/50 dark:hover:bg-[#1a1c22]/70"
             >
-              <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-purple-100">
+              <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-purple-100 dark:border-white/10">
                 {camp.banner_image ? (
                   <img
                     src={camp.banner_image}
@@ -97,26 +97,26 @@ const MyLearningPanel = ({ isOpen, onClose }) => {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-purple-50">
-                    <GraduationCap className="h-6 w-6 text-[#7440E9]" />
+                  <div className="flex h-full w-full items-center justify-center bg-purple-50 dark:bg-[#2a2d34]">
+                    <GraduationCap className="h-6 w-6 text-[#7440E9] dark:text-[#9e98db]" />
                   </div>
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-gray-900 line-clamp-2">
+                <p className="text-sm font-semibold text-gray-900 line-clamp-2 dark:text-[#e0e0e0]">
                   {camp.title || camp.name}
                 </p>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-purple-100">
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-purple-100 dark:bg-white/10">
                   <div
                     className="h-full rounded-full bg-gradient-to-l from-[#7440E9] to-indigo-500"
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
                   {pct}% — {done}/{total} مهمة
                 </p>
               </div>
-              <ChevronLeft className="mt-1 h-4 w-4 shrink-0 text-[#7440E9]" />
+              <ChevronLeft className="mt-1 h-4 w-4 shrink-0 text-[#7440E9] dark:text-[#9e98db]" />
             </Link>
           );
         })}
@@ -127,12 +127,12 @@ const MyLearningPanel = ({ isOpen, onClose }) => {
   const renderJourneys = () => {
     if (journeys.length === 0) {
       return (
-        <p className="py-8 text-center text-sm text-gray-500">
+        <p className="py-8 text-center text-sm text-gray-500 dark:text-zinc-400">
           لا ختمات نشطة.{" "}
           <Link
             to="/book-journeys"
             onClick={onClose}
-            className="font-semibold text-[#7440E9]"
+            className="font-semibold text-[#7440E9] dark:text-[#9e98db]"
           >
             ابدأ ختمة
           </Link>
@@ -147,26 +147,26 @@ const MyLearningPanel = ({ isOpen, onClose }) => {
             key={j.id}
             to={`/book-journeys/${j.id}`}
             onClick={onClose}
-            className="flex gap-3 rounded-xl border border-purple-100 p-3 transition-all hover:border-[#7440E9]/40 hover:shadow-md"
+            className="flex gap-3 rounded-xl border border-purple-100 p-3 transition-all hover:border-[#7440E9]/40 hover:shadow-md dark:border-white/10 dark:bg-[#1a1c22]/45 dark:hover:border-[#9e98db]/50 dark:hover:bg-[#1a1c22]/70"
           >
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-indigo-100">
-              <BookOpen className="h-6 w-6 text-[#7440E9]" />
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-indigo-100 dark:from-[#2a2d34] dark:to-[#30333c]">
+              <BookOpen className="h-6 w-6 text-[#7440E9] dark:text-[#9e98db]" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-gray-900 line-clamp-2">
+              <p className="text-sm font-semibold text-gray-900 line-clamp-2 dark:text-[#e0e0e0]">
                 {j.book_name}
               </p>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-purple-100">
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-purple-100 dark:bg-white/10">
                 <div
                   className="h-full rounded-full bg-gradient-to-l from-violet-600 to-indigo-500"
                   style={{ width: `${j.progress_percent || 0}%` }}
                 />
               </div>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
                 {Math.round(j.progress_percent || 0)}% مكتمل
               </p>
             </div>
-            <ChevronLeft className="mt-1 h-4 w-4 shrink-0 text-[#7440E9]" />
+            <ChevronLeft className="mt-1 h-4 w-4 shrink-0 text-[#7440E9] dark:text-[#9e98db]" />
           </Link>
         ))}
       </div>
@@ -181,7 +181,7 @@ const MyLearningPanel = ({ isOpen, onClose }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[1100] bg-black/40 backdrop-blur-sm lg:left-0 lg:right-24"
+            className="fixed inset-0 z-[1100] font-almarai bg-black/40 backdrop-blur-sm dark:bg-black/60 lg:left-0 lg:right-24"
             onClick={onClose}
           />
           <motion.aside
@@ -189,22 +189,24 @@ const MyLearningPanel = ({ isOpen, onClose }) => {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -16 }}
             transition={{ type: "spring", stiffness: 380, damping: 32 }}
-            className="fixed left-4 top-4 bottom-4 z-[1101] flex w-[min(100%,24rem)] flex-col overflow-hidden rounded-2xl border border-purple-200/60 bg-white shadow-2xl"
+            className="fixed left-4 top-4 bottom-4 z-[1101] font-almarai flex w-[min(100%,24rem)] flex-col overflow-hidden rounded-2xl border border-purple-200/60 bg-white shadow-2xl dark:border-white/10 dark:bg-[#212328]"
             dir="rtl"
           >
-            <div className="flex items-center justify-between border-b border-purple-100 bg-gradient-to-l from-purple-50 to-indigo-50 px-4 py-3">
-              <h2 className="font-bold text-[#7440E9]">تعلّمي</h2>
+            <div className="flex items-center justify-between border-b border-purple-100 bg-gradient-to-l from-purple-50 to-indigo-50 px-4 py-3 dark:border-white/10 dark:from-[#1a1c22] dark:to-[#212328]">
+              <h2 className="font-bold text-[#7440E9] dark:text-[#9e98db]">
+                تعلّمي
+              </h2>
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg p-2 text-gray-500 hover:bg-white/80"
+                className="rounded-lg p-2 text-gray-500 hover:bg-white/80 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-100"
                 aria-label="إغلاق"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="flex gap-1 border-b border-purple-100 p-1">
+            <div className="flex gap-1 border-b border-purple-100 p-1 dark:border-white/10">
               {[
                 { id: "camps", label: "المخيمات", icon: GraduationCap },
                 { id: "journeys", label: "ختمات الكتب", icon: BookOpen },
@@ -215,8 +217,8 @@ const MyLearningPanel = ({ isOpen, onClose }) => {
                   onClick={() => setTab(id)}
                   className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold transition-colors ${
                     tab === id
-                      ? "bg-[#7440E9] text-white shadow-sm"
-                      : "text-gray-600 hover:bg-purple-50"
+                      ? "bg-[#7440E9] text-white shadow-sm dark:bg-[#9e98db] dark:text-[#1a1c22]"
+                      : "text-gray-600 hover:bg-purple-50 dark:text-zinc-300 dark:hover:bg-white/10"
                   }`}
                 >
                   <Icon className="h-4 w-4" />
@@ -227,8 +229,8 @@ const MyLearningPanel = ({ isOpen, onClose }) => {
 
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               {loading ? (
-                <div className="flex flex-col items-center py-12 text-gray-500">
-                  <Loader2 className="mb-2 h-8 w-8 animate-spin text-[#7440E9]" />
+                <div className="flex flex-col items-center py-12 text-gray-500 dark:text-zinc-400">
+                  <Loader2 className="mb-2 h-8 w-8 animate-spin text-[#7440E9] dark:text-[#9e98db]" />
                   جاري التحميل...
                 </div>
               ) : tab === "camps" ? (

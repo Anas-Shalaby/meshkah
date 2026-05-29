@@ -26,9 +26,9 @@ function getShortArabicDate() {
   }).format(new Date());
 }
 
-const DailyHadithWidget = () => {
+const DailyHadithWidget = ({ themeOverride = null } = {}) => {
   const { isNight } = useTheme();
-  const t = getDashboardTheme(isNight);
+  const t = themeOverride || getDashboardTheme(isNight);
   const [dailyHadith, setDailyHadith] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);

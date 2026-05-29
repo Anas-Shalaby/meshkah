@@ -3734,7 +3734,7 @@ const CampJourneyInterface = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[1100] bg-black/50"
+              className="fixed inset-0 z-[1100] bg-black/50 dark:bg-black/70"
               onClick={() => setShowTaskSidebar(false)}
             >
               <motion.div
@@ -3742,7 +3742,7 @@ const CampJourneyInterface = ({
                 animate={{ x: 0 }}
                 exit={{ x: "-100%" }}
                 transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                className="fixed left-0 top-0 z-[1101] flex h-[100dvh] w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl sm:max-w-md"
+                className="camp-task-sidebar fixed left-0 top-0 z-[1101] flex h-[100dvh] w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl dark:bg-[#1a1a1e] dark:shadow-[0_24px_60px_rgba(0,0,0,0.55)] sm:max-w-md"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Sidebar Header - Sticky */}

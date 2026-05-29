@@ -60,8 +60,59 @@ import BookmarkModal from "../components/BookmarkModal";
 import Joyride, { STATUS } from "react-joyride";
 import { useAuth } from "../context/AuthContext";
 import FullPageLoadingScreen from "../components/FullPageLoadingScreen";
+import { useTheme } from "../context/ThemeContext";
+
+// ——— Shared flat design tokens (dark / light) ———
+const getHP = (isNight) =>
+  isNight
+    ? {
+        accent: "#9e98db",
+        gold: "#ffc107",
+        pageBg: "bg-[#1a1c22]",
+        card: "bg-[#212328] border border-[#2a2d35]",
+        soft: "bg-[#1a1c22] border border-[#2a2d35]",
+        text: "text-[#e0e0e0]",
+        sub: "text-[#a0a0a0]",
+        faint: "text-[#6b7280]",
+        accentText: "text-[#9e98db]",
+        iconBtn:
+          "bg-[#1a1c22] border border-[#2a2d35] hover:bg-[#2a2d35] text-[#9e98db]",
+        collapseHeader:
+          "bg-[#1a1c22] hover:bg-[#2a2d35] border border-[#2a2d35]",
+        collapseBody: "bg-[#1a1c22] border border-[#2a2d35] text-[#e0e0e0]",
+        chip: "bg-[#1a1c22] text-[#9e98db] border border-[#2a2d35] hover:bg-[#2a2d35]",
+        modal: "bg-[#212328] border border-[#2a2d35]",
+        modalSoft: "bg-[#1a1c22] border border-[#2a2d35]",
+        modalInputText: "text-[#a0a0a0]",
+        divider: "border-[#2a2d35]",
+        gradeBadge: "bg-green-900/30 text-green-400 border border-green-900/50",
+      }
+    : {
+        accent: "#7440E9",
+        gold: "#f59e0b",
+        pageBg: "bg-gradient-to-br from-[#f7f6fb] via-[#f3edff] to-[#e9e4f5]",
+        card: "bg-white/80 backdrop-blur-xl border-2 border-purple-200/50",
+        soft: "bg-gradient-to-br from-white/80 to-purple-50/80 border border-purple-200/50",
+        text: "text-gray-800",
+        sub: "text-gray-500",
+        faint: "text-gray-400",
+        accentText: "text-[#7440E9]",
+        iconBtn: "bg-white/90 hover:bg-white text-[#7440E9]",
+        collapseHeader:
+          "bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 border border-transparent",
+        collapseBody: "bg-white/80 border border-purple-200/50 text-gray-800",
+        chip: "bg-indigo-100 text-indigo-800 hover:bg-indigo-200 border border-transparent",
+        modal: "bg-white border border-purple-200/50",
+        modalSoft: "bg-gray-100 border border-transparent",
+        modalInputText: "text-gray-600",
+        divider: "border-gray-200",
+        gradeBadge:
+          "bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border border-green-200",
+      };
 
 const ShareModal = ({ isOpen, onClose, hadithDetails }) => {
+  const { isNight } = useTheme();
+  const c = getHP(isNight);
   const url = window.location.href;
   const text = `اطلع على هذا الحديث: ${
     hadithDetails.title || hadithDetails.hadeeth.substring(0, 50)
@@ -86,27 +137,27 @@ const ShareModal = ({ isOpen, onClose, hadithDetails }) => {
         </svg>
       ),
       url: `https://twitter.com/intent/tweet?url=${encodeURIComponent(
-        url
+        url,
       )}&text=${encodeURIComponent(text)}`,
     },
     {
       name: "فيسبوك",
       icon: <FacebookFilled className="w-8 h-8 text-2xl text-blue-600" />,
       url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-        url
+        url,
       )}`,
     },
     {
       name: "واتساب",
       icon: <WhatsAppOutlined className="w-8 h-8 text-2xl text-green-500" />,
       url: `https://api.whatsapp.com/send?text=${encodeURIComponent(
-        text + " " + url
+        text + " " + url,
       )}`,
     },
     {
       name: "شارك على قبيلة",
       url: `https://qabilah.com/sharer?text=${encodeURIComponent(
-        text
+        text,
       )}&url=${encodeURIComponent(url)}`,
       dataSize: "medium",
       dataVariant: "button",
@@ -128,27 +179,34 @@ const ShareModal = ({ isOpen, onClose, hadithDetails }) => {
         className="fixed inset-0 bg-black/50 backdrop-blur-sm"
         aria-hidden="true"
       />
-      <Dialog.Panel className="relative z-10 w-full max-w-md bg-white  rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-purple-200/50 ">
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 ">
-          <h3 className="font-bold text-lg text-gray-900 ">مشاركة الحديث</h3>
+      <Dialog.Panel
+        className={`relative z-10 w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden ${c.modal}`}
+      >
+        <div
+          className={`flex items-center justify-between p-4 border-b ${c.divider}`}
+        >
+          <h3 className={`font-bold text-lg ${c.text}`}>مشاركة الحديث</h3>
           <button
             onClick={onClose}
-            className="p-2 rounded-full text-gray-500  hover:bg-black/10  transition-colors"
+            className={`p-2 rounded-full hover:bg-black/10 transition-colors ${c.sub}`}
           >
             <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
         <div className="p-6 space-y-4">
-          <div className="flex items-center space-x-2 space-x-reverse bg-gray-100  rounded-xl p-3">
+          <div
+            className={`flex items-center space-x-2 space-x-reverse rounded-xl p-3 ${c.modalSoft}`}
+          >
             <input
               type="text"
               readOnly
               value={url}
-              className="flex-grow bg-transparent text-sm text-gray-600  outline-none"
+              className={`flex-grow bg-transparent text-sm outline-none ${c.modalInputText}`}
             />
             <button
               onClick={copyLink}
-              className="px-3 py-1 text-sm rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-200  transition-colors"
+              className="px-3 py-1 text-sm rounded-lg transition-colors"
+              style={{ backgroundColor: `${c.accent}26`, color: c.accent }}
             >
               <Copy className="w-5 h-5" />
             </button>
@@ -216,12 +274,14 @@ const ShareModal = ({ isOpen, onClose, hadithDetails }) => {
                   href={option.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex flex-col text-[18px]  font-medium items-center hover:bg-gray-100 justify-center gap-2 p-4 rounded-xl transition-colors"
+                  className={`flex flex-col text-[18px] font-medium items-center justify-center gap-2 p-4 rounded-xl transition-colors ${
+                    isNight ? "hover:bg-[#2a2d35]" : "hover:bg-gray-100"
+                  } ${c.text}`}
                 >
                   {option.icon}
                   <span className="">{option.name}</span>
                 </a>
-              )
+              ),
             )}
           </div>
         </div>
@@ -237,6 +297,8 @@ ShareModal.propTypes = {
 };
 
 const AIAssistant = ({ hadith, isOpen, onClose }) => {
+  const { isNight } = useTheme();
+  const c = getHP(isNight);
   const [messages, setMessages] = useState([
     {
       role: "assistant",
@@ -289,7 +351,7 @@ const AIAssistant = ({ hadith, isOpen, onClose }) => {
           messages: currentMessages,
           hadith: hadith,
         },
-        { headers: { "x-auth-token": localStorage.getItem("token") } }
+        { headers: { "x-auth-token": localStorage.getItem("token") } },
       );
       setMessages((prev) => [
         ...prev,
@@ -306,7 +368,7 @@ const AIAssistant = ({ hadith, isOpen, onClose }) => {
     <Dialog
       open={isOpen}
       onClose={onClose}
-      className="fixed inset-0 z-[9999] font-cairo flex items-center justify-center p-4"
+      className="fixed inset-0 z-[9999] font-almarai flex items-center justify-center p-4"
     >
       <div
         className="fixed inset-0 bg-black/10 backdrop-blur-sm"
@@ -314,7 +376,7 @@ const AIAssistant = ({ hadith, isOpen, onClose }) => {
       />
       <Dialog.Panel
         as={motion.div}
-        className="relative z-10 w-full max-w-xl h-full sm:h-[85vh] bg-white/90 rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-purple-100"
+        className={`relative z-10 w-full max-w-xl h-full sm:h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden ${c.modal}`}
       >
         <div className="flex items-center justify-between p-3 bg-purple-600 text-white">
           <div className="flex items-center gap-3">
@@ -346,8 +408,12 @@ const AIAssistant = ({ hadith, isOpen, onClose }) => {
                 <div
                   className={`max-w-xl p-3 px-4 rounded-2xl shadow-sm border ${
                     msg.role === "user"
-                      ? "bg-indigo-100 text-indigo-900 border-indigo-100"
-                      : "bg-gray-50 text-gray-900 border-gray-100"
+                      ? isNight
+                        ? "bg-[#9e98db]/15 text-[#e0e0e0] border-[#9e98db]/30"
+                        : "bg-indigo-100 text-indigo-900 border-indigo-100"
+                      : isNight
+                        ? "bg-[#1a1c22] text-[#e0e0e0] border-[#2a2d35]"
+                        : "bg-gray-50 text-gray-900 border-gray-100"
                   }`}
                 >
                   {msg.content.split("\n").map((line, i) => (
@@ -398,22 +464,33 @@ const AIAssistant = ({ hadith, isOpen, onClose }) => {
           ))}
           {isLoading && (
             <div className="flex items-end gap-3 justify-start">
-              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                <SparklesIcon className="w-5 h-5 text-purple-600" />
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: `${c.accent}26` }}
+              >
+                <SparklesIcon className="w-5 h-5" style={{ color: c.accent }} />
               </div>
-              <div className="max-w-lg p-3 px-4 rounded-2xl bg-white shadow-sm">
+              <div
+                className={`max-w-lg p-3 px-4 rounded-2xl shadow-sm ${c.modalSoft}`}
+              >
                 <div className="flex items-center gap-1.5">
                   <span
-                    className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"
-                    style={{ animationDelay: "0s" }}
+                    className="w-2 h-2 rounded-full animate-pulse"
+                    style={{ animationDelay: "0s", backgroundColor: c.accent }}
                   ></span>
                   <span
-                    className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"
-                    style={{ animationDelay: "0.2s" }}
+                    className="w-2 h-2 rounded-full animate-pulse"
+                    style={{
+                      animationDelay: "0.2s",
+                      backgroundColor: c.accent,
+                    }}
                   ></span>
                   <span
-                    className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"
-                    style={{ animationDelay: "0.4s" }}
+                    className="w-2 h-2 rounded-full animate-pulse"
+                    style={{
+                      animationDelay: "0.4s",
+                      backgroundColor: c.accent,
+                    }}
                   ></span>
                 </div>
               </div>
@@ -424,7 +501,7 @@ const AIAssistant = ({ hadith, isOpen, onClose }) => {
         {error && (
           <div className="p-2 text-center text-red-500 text-sm">{error}</div>
         )}
-        <div className="p-4 bg-gray-100 border-t border-gray-200">
+        <div className={`p-4 border-t ${c.modalSoft}`}>
           <form
             onSubmit={handleSendMessage}
             className="flex items-center gap-3"
@@ -434,18 +511,24 @@ const AIAssistant = ({ hadith, isOpen, onClose }) => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="اطرح سؤالك..."
-              className="w-full px-4 py-2 rounded-full bg-white text-black border-transparent focus:ring-2 focus:ring-purple-500 focus:outline-none transition"
+              className={`w-full px-4 py-2 rounded-full border-transparent focus:ring-2 focus:outline-none transition ${
+                isNight
+                  ? "bg-[#212328] text-[#e0e0e0] placeholder-[#6b7280]"
+                  : "bg-white text-black"
+              }`}
+              style={{ "--tw-ring-color": c.accent }}
               disabled={isLoading}
             />
             <button
               type="submit"
-              className="p-3 rounded-full bg-purple-600 text-white disabled:opacity-50 transition-transform hover:scale-105 active:scale-95 flex-shrink-0"
+              className="p-3 rounded-full text-white disabled:opacity-50 transition-transform hover:scale-105 active:scale-95 flex-shrink-0"
+              style={{ backgroundColor: "#7440E9" }}
               disabled={isLoading}
             >
               <PaperAirplaneIcon className="w-5 h-5" />
             </button>
           </form>
-          <p className="text-xs text-center text-gray-500 mt-2">
+          <p className={`text-xs text-center mt-2 ${c.sub}`}>
             قد يقدم سراج معلومات غير دقيقة. تحقق من المصادر المهمة.
           </p>
         </div>
@@ -469,6 +552,8 @@ const HadithPage = () => {
   const { categories } = useHadithCategories();
 
   const { isRamadanThemeActive } = useRamadanTheme();
+  const { isNight } = useTheme();
+  const c = getHP(isNight);
 
   // Performance optimizations with useMemo and useCallback
   const [hadithDetails, setHadithDetails] = useState(null);
@@ -518,13 +603,13 @@ const HadithPage = () => {
   // Memoized values for performance
   const isBookmarked = useMemo(() => {
     return bookmarks.some(
-      (bookmark) => bookmark.hadithId === parseInt(hadithId)
+      (bookmark) => bookmark.hadithId === parseInt(hadithId),
     );
   }, [bookmarks, hadithId]);
 
   const bookmarkItem = useMemo(() => {
     return bookmarks.find(
-      (bookmark) => bookmark.hadithId === parseInt(hadithId)
+      (bookmark) => bookmark.hadithId === parseInt(hadithId),
     );
   }, [bookmarks, hadithId]);
 
@@ -533,7 +618,7 @@ const HadithPage = () => {
     try {
       setIsLoading(true);
       const response = await axios.get(
-        `https://hadeethenc.com/api/v1/hadeeths/one/?language=ar&id=${hadithId}`
+        `https://hadeethenc.com/api/v1/hadeeths/one/?language=ar&id=${hadithId}`,
       );
       setHadithDetails(response.data);
 
@@ -556,10 +641,12 @@ const HadithPage = () => {
       setIsLoadingSimilar(true);
       const categoryId = hadithData.categories[0];
       const response = await axios.get(
-        `https://hadeethenc.com/api/v1/hadeeths/list/?language=ar&category_id=${categoryId}&page=1&per_page=6`
+        `https://hadeethenc.com/api/v1/hadeeths/list/?language=ar&category_id=${categoryId}&page=1&per_page=6`,
       );
       setSimilarHadiths(
-        response.data.data.filter((h) => String(h.id) !== String(hadithData.id))
+        response.data.data.filter(
+          (h) => String(h.id) !== String(hadithData.id),
+        ),
       );
     } catch (error) {
       console.error("Error fetching similar hadiths:", error);
@@ -578,7 +665,7 @@ const HadithPage = () => {
           headers: {
             "x-auth-token": localStorage.getItem("token"),
           },
-        }
+        },
       );
 
       // إذا كان المستخدم رقم 5، عيّن عدد غير محدود
@@ -602,7 +689,7 @@ const HadithPage = () => {
           headers: {
             "x-auth-token": localStorage.getItem("token"),
           },
-        }
+        },
       );
       setAnalysisShort(response.data.analysis);
     } catch (error) {
@@ -693,18 +780,25 @@ const HadithPage = () => {
         <motion.div className="w-full">
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="w-full flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4 rounded-lg sm:rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 text-right cursor-pointer transition-all duration-300 shadow-inner hover:from-purple-100 hover:to-indigo-100"
+            className={`w-full flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4 rounded-lg sm:rounded-xl text-right cursor-pointer transition-all duration-300 ${c.collapseHeader}`}
           >
             <div className="flex items-center gap-2 sm:gap-3">
-              <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-[#7440E9]" />
-              <span className="font-bold text-[#7440E9] text-sm sm:text-base">
+              <Icon
+                className="w-4 h-4 sm:w-5 sm:h-5"
+                style={{ color: c.accent }}
+              />
+              <span
+                className="font-bold text-sm sm:text-base"
+                style={{ color: c.accent }}
+              >
                 {title}
               </span>
             </div>
             <ChevronDownIcon
-              className={`w-4 h-4 sm:w-5 sm:h-5 text-[#7440E9] transition-transform duration-300 ${
+              className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 ${
                 isOpen ? "transform rotate-180" : ""
               }`}
+              style={{ color: c.accent }}
             />
           </button>
           <AnimatePresence>
@@ -720,7 +814,9 @@ const HadithPage = () => {
                 transition={{ duration: 0.3, ease: "easeInOut" }}
                 className="overflow-hidden"
               >
-                <div className="p-4 sm:p-5 bg-white/80 rounded-lg sm:rounded-xl border border-purple-200/50 shadow-sm text-gray-800 text-sm sm:text-base leading-relaxed text-right">
+                <div
+                  className={`p-4 sm:p-5 rounded-lg sm:rounded-xl shadow-sm text-sm sm:text-base leading-relaxed text-right ${c.collapseBody}`}
+                >
                   {children}
                 </div>
               </motion.div>
@@ -729,7 +825,7 @@ const HadithPage = () => {
         </motion.div>
       );
     },
-    []
+    [c],
   );
 
   // Enhanced SimilarHadithCard component - Mobile Friendly
@@ -737,40 +833,49 @@ const HadithPage = () => {
     ({ hadith }) => (
       <Link to={`/hadiths/hadith/${hadith.id}`} className="block h-full group">
         <motion.div
-          whileHover={{
-            y: -8,
-            boxShadow: "0px 20px 40px rgba(116, 64, 233, 0.15)",
-          }}
-          className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-purple-200/50 h-full flex flex-col text-right shadow-lg hover:shadow-2xl transition-all duration-300 relative overflow-hidden"
+          whileHover={{ y: -6 }}
+          className={`rounded-2xl sm:rounded-3xl p-4 sm:p-6 h-full flex flex-col text-right transition-colors duration-300 relative overflow-hidden ${c.card} ${
+            isNight ? "hover:border-[#9e98db]/50" : "hover:border-purple-300"
+          }`}
         >
-          {/* Decorative background element */}
-          <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-full opacity-20 -translate-y-2 translate-x-2"></div>
-
           {/* Header with icon */}
           <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4 relative z-10">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#7440E9] to-[#8B5CF6] rounded-lg sm:rounded-xl flex items-center justify-center shadow-md">
-              <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+            <div
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: `${c.accent}1f` }}
+            >
+              <BookOpen
+                className="w-4 h-4 sm:w-5 sm:h-5"
+                style={{ color: c.accent }}
+              />
             </div>
             <div className="flex-1">
-              <h4 className="font-semibold text-gray-800 text-xs sm:text-sm mb-1">
+              <h4 className={`font-semibold text-xs sm:text-sm mb-1 ${c.text}`}>
                 حديث مشابه
               </h4>
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-[#7440E9] rounded-full"></div>
-                <span className="text-xs text-gray-500">ذات صلة</span>
+                <div
+                  className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full"
+                  style={{ backgroundColor: c.accent }}
+                ></div>
+                <span className={`text-xs ${c.sub}`}>ذات صلة</span>
               </div>
             </div>
           </div>
 
           {/* Hadith content */}
           <div className="flex-1 relative z-10">
-            <p className="text-gray-700 text-sm sm:text-base leading-relaxed line-clamp-4 mb-3 sm:mb-4 font-medium">
+            <p
+              className={`text-sm sm:text-base leading-relaxed line-clamp-4 mb-3 sm:mb-4 font-medium ${c.text}`}
+            >
               {hadith.hadeeth || hadith.title}
             </p>
 
             {/* Attribution if available */}
             {hadith.attribution && (
-              <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-gray-500 mb-2 sm:mb-3">
+              <div
+                className={`flex items-center gap-1.5 sm:gap-2 text-xs mb-2 sm:mb-3 ${c.sub}`}
+              >
                 <Users className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                 <span className="text-xs">{hadith.attribution}</span>
               </div>
@@ -778,7 +883,9 @@ const HadithPage = () => {
 
             {/* Grade if available */}
             {hadith.grade && (
-              <div className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-green-50 text-green-700 rounded-full text-xs font-medium">
+              <div
+                className={`inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium ${c.gradeBadge}`}
+              >
                 <Shield className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                 <span className="text-xs">{hadith.grade}</span>
               </div>
@@ -786,19 +893,29 @@ const HadithPage = () => {
           </div>
 
           {/* Footer with arrow */}
-          <div className="flex items-center justify-between mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-purple-100/50 relative z-10">
-            <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-gray-500">
+          <div
+            className={`flex items-center justify-between mt-3 sm:mt-4 pt-3 sm:pt-4 border-t relative z-10 ${c.divider}`}
+          >
+            <div
+              className={`flex items-center gap-1.5 sm:gap-2 text-xs ${c.sub}`}
+            >
               <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
               <span className="text-xs">انقر للقراءة</span>
             </div>
-            <div className="w-5 h-5 sm:w-6 sm:h-6 bg-gradient-to-r from-[#7440E9] to-[#8B5CF6] rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-              <ArrowRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
+            <div
+              className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300"
+              style={{ backgroundColor: c.accent }}
+            >
+              <ArrowRight
+                className="w-2.5 h-2.5 sm:w-3 sm:h-3"
+                style={{ color: isNight ? "#1a1c22" : "#fff" }}
+              />
             </div>
           </div>
         </motion.div>
       </Link>
     ),
-    []
+    [c, isNight],
   );
 
   // Original SimilarHadithCard component (kept for backward compatibility)
@@ -818,7 +935,7 @@ const HadithPage = () => {
         </motion.div>
       </Link>
     ),
-    []
+    [],
   );
 
   // PropTypes for components
@@ -984,13 +1101,12 @@ const HadithPage = () => {
       />
 
       <div
-        className={`min-h-screen  overflow-x-hidden ${
+        className={`min-h-screen overflow-x-hidden ${c.text} ${
           isRamadanThemeActive
             ? "ramadan-bg-gradient ramadan-pattern-overlay"
-            : "bg-gradient-to-br from-[#f7f6fb] via-[#f3edff] to-[#e9e4f5]"
+            : c.pageBg
         }`}
       >
-   
         {isRamadanThemeActive && <RamadanFloatingElements />}
 
         {/* Add padding when countdown is fixed */}
@@ -999,7 +1115,7 @@ const HadithPage = () => {
             title={`شرح حديث ${hadithDetails.title?.substring(0, 50)}...`}
             description={hadithDetails.explanation}
             keywords={`${hadithDetails.grade}, ${getCategoryNames().join(
-              ", "
+              ", ",
             )}`}
             canonicalUrl={`${window.location.origin}${window.location.pathname}`}
           />
@@ -1009,16 +1125,19 @@ const HadithPage = () => {
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="fixed bottom-4 sm:bottom-8 right-4 sm:right-8 z-50 flex flex-col items-center gap-2 sm:gap-3"
+            className="fixed bottom-4 sm:bottom-8 right-4 sm:right-20 z-50 flex flex-col items-center gap-2 sm:gap-3"
           >
             {isAuthenticated && remainingQuestions !== null && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="px-3 sm:px-4 py-2 sm:py-3 bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-2xl border border-purple-200/50 text-xs sm:text-sm text-purple-800 text-center max-w-[280px] sm:max-w-xs"
+                className={`px-3 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-2xl text-xs sm:text-sm text-center max-w-[280px] sm:max-w-xs ${c.card} ${c.text}`}
               >
                 <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
-                  <Zap className="w-3 h-3 sm:w-4 sm:h-4 text-purple-600" />
+                  <Zap
+                    className="w-3 h-3 sm:w-4 sm:h-4"
+                    style={{ color: c.accent }}
+                  />
                   <p className="font-bold text-xs sm:text-sm">
                     أنا سراج، مساعدك الذكي
                   </p>
@@ -1055,7 +1174,7 @@ const HadithPage = () => {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="w-full bg-white/80 backdrop-blur-xl border-2 border-purple-200/50 rounded-2xl sm:rounded-3xl shadow-2xl p-4 sm:p-6 md:p-8 flex flex-col text-center transition-all duration-300 overflow-hidden"
+              className={`w-full rounded-2xl sm:rounded-3xl shadow-2xl p-4 sm:p-6 md:p-8 flex flex-col text-center transition-all duration-300 overflow-hidden ${c.card}`}
             >
               {/* Enhanced Header - Mobile Friendly */}
               <div className="flex flex-col sm:flex-row items-center justify-between w-full mb-6 sm:mb-8 gap-3 sm:gap-4">
@@ -1063,10 +1182,16 @@ const HadithPage = () => {
                   onClick={returnToPre}
                   whileHover={{ scale: 1.1, x: 5 }}
                   whileTap={{ scale: 0.9 }}
-                  className="flex items-center gap-2 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl shadow-xl bg-white/90 hover:bg-white transition-all duration-300"
+                  className={`flex items-center gap-2 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl shadow-xl transition-all duration-300 ${c.iconBtn}`}
                 >
-                  <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
-                  <span className="text-xs sm:text-sm font-medium text-purple-700">
+                  <ArrowLeft
+                    className="w-4 h-4 sm:w-5 sm:h-5"
+                    style={{ color: c.accent }}
+                  />
+                  <span
+                    className="text-xs sm:text-sm font-medium"
+                    style={{ color: c.accent }}
+                  >
                     رجوع
                   </span>
                 </motion.button>
@@ -1076,7 +1201,7 @@ const HadithPage = () => {
                     whileHover={{ scale: 1.05 }}
                     title="تحليل سريع"
                     onClick={handleQuickAnalysisClick}
-                    className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-[#7440E9] to-[#8B5CF6] hover:shadow-lg transition-all duration-200"
+                    className="ai-insights-btn flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-[#7440E9] to-[#8B5CF6] hover:shadow-lg transition-all duration-200"
                   >
                     <Zap className="w-3 h-3 sm:w-4 sm:h-4" />
                     <span className="hidden sm:inline">تحليل سريع</span>
@@ -1086,35 +1211,44 @@ const HadithPage = () => {
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     onClick={copyToClipboard}
-                    className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-white/90 hover:bg-white transition-all duration-300 shadow-lg"
+                    className={`p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-300 shadow-lg ${c.iconBtn}`}
                     title="نسخ"
                   >
-                    <Copy className="w-4 h-4 sm:w-5 sm:h-5 text-[#7440E9]" />
+                    <Copy
+                      className="w-4 h-4 sm:w-5 sm:h-5"
+                      style={{ color: c.accent }}
+                    />
                   </motion.button>
 
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     onClick={() => setIsShareModalOpen(true)}
-                    className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-white/90 hover:bg-white transition-all duration-300 shadow-lg"
+                    className={`share-btn p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-300 shadow-lg ${c.iconBtn}`}
                     title="مشاركة"
                   >
-                    <ShareIcon className="w-4 h-4 sm:w-5 sm:h-5 text-[#7440E9]" />
+                    <ShareIcon
+                      className="w-4 h-4 sm:w-5 sm:h-5"
+                      style={{ color: c.accent }}
+                    />
                   </motion.button>
 
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     onClick={handleBookmarkToggle}
-                    className={`p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-300 shadow-lg ${
+                    className={`bookmark-btn p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-300 shadow-lg ${
                       isBookmarked
                         ? "bg-gradient-to-r from-yellow-400 to-orange-400 text-white"
-                        : "bg-white/90 hover:bg-white"
+                        : c.iconBtn
                     }`}
                     title="حفظ"
                   >
                     <Bookmark
-                      className={`w-4 h-4 sm:w-5 sm:h-5 ${
-                        isBookmarked ? "fill-current" : "text-[#7440E9]"
-                      }`}
+                      className="w-4 h-4 sm:w-5 sm:h-5"
+                      style={
+                        isBookmarked
+                          ? { color: "#fff", fill: "#fff" }
+                          : { color: c.accent }
+                      }
                     />
                   </motion.button>
                 </div>
@@ -1124,12 +1258,12 @@ const HadithPage = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="w-full bg-gradient-to-br from-white/80 to-purple-50/80 rounded-2xl sm:rounded-3xl p-2 sm:p-6 md:p-8 mb-6 sm:mb-8 shadow-inner border border-purple-200/50"
+                className={`w-full rounded-2xl sm:rounded-3xl p-2 sm:p-6 md:p-8 mb-6 sm:mb-8 shadow-inner ${c.soft}`}
               >
                 <div className="relative">
                   <p
                     style={{ lineHeight: "2.5" }}
-                    className="prose max-w-none text-lg sm:text-xl md:text-2xl text-gray-800 leading-loose amiri-regular text-right relative z-10"
+                    className={`prose max-w-none text-lg sm:text-xl md:text-2xl leading-loose amiri-regular text-right relative z-10 ${c.text}`}
                   >
                     {hadithDetails?.hadeeth}
                   </p>
@@ -1139,7 +1273,7 @@ const HadithPage = () => {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.5 }}
-                      className="text-right text-xs sm:text-sm text-gray-500 mt-4 sm:mt-6 font-sans flex items-center gap-1.5 sm:gap-2 justify-end"
+                      className={`text-right text-xs sm:text-sm mt-4 sm:mt-6 font-sans flex items-center gap-1.5 sm:gap-2 justify-end ${c.sub}`}
                     >
                       <Users className="w-3 h-3 sm:w-4 sm:h-4" />
                       المحدث - {hadithDetails.attribution}
@@ -1153,7 +1287,9 @@ const HadithPage = () => {
                       transition={{ delay: 0.7 }}
                       className="text-right mt-4 sm:mt-6"
                     >
-                      <span className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-xl sm:rounded-2xl bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 font-semibold border border-green-200 shadow-sm">
+                      <span
+                        className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-xl sm:rounded-2xl font-semibold shadow-sm ${c.gradeBadge}`}
+                      >
                         <Shield className="w-3 h-3 sm:w-4 sm:h-4 inline ml-1.5 sm:ml-2" />
                         حكم الحديث : {hadithDetails.grade}
                       </span>
@@ -1197,7 +1333,7 @@ const HadithPage = () => {
                     >
                       {hadithDetails.words_meanings.map(({ word, meaning }) => (
                         <p key={word}>
-                          <strong className="text-purple-700">{word}:</strong>{" "}
+                          <strong style={{ color: c.accent }}>{word}:</strong>{" "}
                           {meaning}
                         </p>
                       ))}
@@ -1210,7 +1346,7 @@ const HadithPage = () => {
                         <Link
                           key={index}
                           to={`/hadiths/${hadithDetails.categories[index]}/page/1`}
-                          className="px-3 py-1 text-sm rounded-full bg-indigo-100 text-indigo-800 hover:bg-indigo-200 transition"
+                          className={`px-3 py-1 text-sm rounded-full transition ${c.chip}`}
                         >
                           {categoryName}
                         </Link>
@@ -1240,10 +1376,13 @@ const HadithPage = () => {
                     <BookA className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                   </div>
                   <div className="text-center sm:text-right">
-                    <h2 className="text-2xl sm:text-3xl font-bold text-[#7440E9]">
+                    <h2
+                      className="text-2xl sm:text-3xl font-bold"
+                      style={{ color: c.accent }}
+                    >
                       أحاديث مشابهة
                     </h2>
-                    <p className="text-gray-500 text-xs sm:text-sm mt-1">
+                    <p className={`text-xs sm:text-sm mt-1 ${c.sub}`}>
                       اكتشف أحاديث ذات صلة وثيقة
                     </p>
                   </div>
@@ -1254,10 +1393,16 @@ const HadithPage = () => {
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 1 }}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-full border border-purple-200/50"
+                    className={`inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full ${c.soft}`}
                   >
-                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-[#7440E9] rounded-full animate-pulse"></div>
-                    <span className="text-xs sm:text-sm font-medium text-[#7440E9]">
+                    <div
+                      className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full animate-pulse"
+                      style={{ backgroundColor: c.accent }}
+                    ></div>
+                    <span
+                      className="text-xs sm:text-sm font-medium"
+                      style={{ color: c.accent }}
+                    >
                       {similarHadiths.length} حديث مشابه
                     </span>
                   </motion.div>
@@ -1273,21 +1418,42 @@ const HadithPage = () => {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5, delay: index * 0.1 }}
-                      className="bg-white/80 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-purple-200/50 shadow-lg h-40 sm:h-48"
+                      className={`rounded-2xl sm:rounded-3xl p-4 sm:p-6 h-40 sm:h-48 ${c.card}`}
                     >
-                      <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-200 rounded-full animate-pulse"></div>
-                        <div className="flex-1">
-                          <div className="h-3 sm:h-4 bg-gray-200 rounded mb-1 sm:mb-2 animate-pulse"></div>
-                          <div className="h-2 sm:h-3 bg-gray-200 rounded w-2/3 animate-pulse"></div>
-                        </div>
-                      </div>
-                      <div className="space-y-2 sm:space-y-3">
-                        <div className="h-2 sm:h-3 bg-gray-200 rounded animate-pulse"></div>
-                        <div className="h-2 sm:h-3 bg-gray-200 rounded animate-pulse"></div>
-                        <div className="h-2 sm:h-3 bg-gray-200 rounded w-4/5 animate-pulse"></div>
-                        <div className="h-2 sm:h-3 bg-gray-200 rounded w-3/5 animate-pulse"></div>
-                      </div>
+                      {(() => {
+                        const ph = isNight ? "bg-[#2a2d35]" : "bg-gray-200";
+                        return (
+                          <>
+                            <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                              <div
+                                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full animate-pulse ${ph}`}
+                              ></div>
+                              <div className="flex-1">
+                                <div
+                                  className={`h-3 sm:h-4 rounded mb-1 sm:mb-2 animate-pulse ${ph}`}
+                                ></div>
+                                <div
+                                  className={`h-2 sm:h-3 rounded w-2/3 animate-pulse ${ph}`}
+                                ></div>
+                              </div>
+                            </div>
+                            <div className="space-y-2 sm:space-y-3">
+                              <div
+                                className={`h-2 sm:h-3 rounded animate-pulse ${ph}`}
+                              ></div>
+                              <div
+                                className={`h-2 sm:h-3 rounded animate-pulse ${ph}`}
+                              ></div>
+                              <div
+                                className={`h-2 sm:h-3 rounded w-4/5 animate-pulse ${ph}`}
+                              ></div>
+                              <div
+                                className={`h-2 sm:h-3 rounded w-3/5 animate-pulse ${ph}`}
+                              ></div>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </motion.div>
                   ))}
                 </div>
@@ -1321,15 +1487,25 @@ const HadithPage = () => {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="text-center py-12 sm:py-16 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl sm:rounded-3xl border border-purple-200/50 mx-4 sm:mx-0"
+                  className={`text-center py-12 sm:py-16 rounded-2xl sm:rounded-3xl mx-4 sm:mx-0 ${c.card}`}
                 >
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
-                    <BookA className="w-10 h-10 sm:w-12 sm:h-12 text-[#7440E9]" />
+                  <div
+                    className="w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6"
+                    style={{ backgroundColor: `${c.accent}1f` }}
+                  >
+                    <BookA
+                      className="w-10 h-10 sm:w-12 sm:h-12"
+                      style={{ color: c.accent }}
+                    />
                   </div>
-                  <h4 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2 sm:mb-3">
+                  <h4
+                    className={`text-lg sm:text-xl font-semibold mb-2 sm:mb-3 ${c.text}`}
+                  >
                     لا توجد أحاديث مشابهة
                   </h4>
-                  <p className="text-gray-500 text-xs sm:text-sm max-w-md mx-auto mb-4 sm:mb-6 px-4">
+                  <p
+                    className={`text-xs sm:text-sm max-w-md mx-auto mb-4 sm:mb-6 px-4 ${c.sub}`}
+                  >
                     جرب البحث عن أحاديث أخرى أو استكشف الفئات المختلفة للعثور
                     على محتوى مشابه
                   </p>
@@ -1356,7 +1532,6 @@ const HadithPage = () => {
                     className="inline-flex items-center gap-2 sm:gap-3 px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-[#7440E9] to-[#8B5CF6] text-white rounded-xl sm:rounded-2xl font-medium shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group text-sm sm:text-base"
                   >
                     <span>عرض جميع الأحاديث</span>
-                    <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
                   </Link>
                 </motion.div>
               )}
@@ -1381,24 +1556,39 @@ const HadithPage = () => {
                 <Dialog.Panel
                   as={motion.div}
                   transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                  className="relative z-10 w-full max-w-2xl bg-white/90 rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-purple-200/50"
+                  className={`relative z-10 w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col overflow-hidden ${c.modal}`}
                 >
-                  <div className="flex items-center justify-between p-4 border-b border-purple-200/30">
-                    <h3 className="font-bold text-lg text-purple-800 flex items-center gap-2">
-                      <SparklesIcon className="w-6 h-6 text-purple-500" />
+                  <div
+                    className={`flex items-center justify-between p-4 border-b ${c.divider}`}
+                  >
+                    <h3
+                      className={`font-bold text-lg flex items-center gap-2 ${c.text}`}
+                    >
+                      <SparklesIcon
+                        className="w-6 h-6"
+                        style={{ color: c.accent }}
+                      />
                       <span>تحليل سريع للحديث</span>
                     </h3>
                     <button
                       onClick={() => setIsAnalysisModalOpen(false)}
-                      className="p-2 rounded-full text-gray-500 hover:bg-black/10 transition-colors"
+                      className={`p-2 rounded-full hover:bg-black/10 transition-colors ${c.sub}`}
                     >
                       <XMarkIcon className="w-5 h-5" />
                     </button>
                   </div>
-                  <div className="p-6 text-right text-sm md:text-base  leading-loose text-gray-700 max-h-[60vh] overflow-y-auto">
+                  <div
+                    className={`p-6 text-right text-sm md:text-base leading-loose max-h-[60vh] overflow-y-auto ${c.text}`}
+                  >
                     {isAnalysisLoading ? (
                       <div className="flex justify-center items-center h-24">
-                        <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                        <div
+                          className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin"
+                          style={{
+                            borderColor: c.accent,
+                            borderTopColor: "transparent",
+                          }}
+                        ></div>
                       </div>
                     ) : (
                       analysisShort
@@ -1451,19 +1641,25 @@ const HadithPage = () => {
                 maxWidth: 400,
                 width: "100%",
                 padding: 24,
-                background: "#fff",
+                background: isNight ? "#212328" : "#fff",
                 borderRadius: 18,
-                boxShadow: "0 4px 32px #e3d8fa",
+                border: isNight ? "1px solid #2a2d35" : "none",
+                boxShadow: isNight
+                  ? "0 4px 32px rgba(0,0,0,0.5)"
+                  : "0 4px 32px #e3d8fa",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="font-bold text-lg text-purple-800 mb-4">
+              <h3
+                className="font-bold text-lg mb-4"
+                style={{ color: c.accent }}
+              >
                 تسجيل الدخول مطلوب
               </h3>
-              <p className="text-gray-700 mb-6 text-center">
+              <p className={`mb-6 text-center ${c.text}`}>
                 يجب تسجيل الدخول لاستخدام ميزة التحليل السريع للأحاديث.
               </p>
               <button

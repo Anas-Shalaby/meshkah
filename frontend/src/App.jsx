@@ -15,6 +15,7 @@ import "./styles/ramadan-override.css";
 
 // Components
 import Navbar, { NAV_RAIL_WIDTH_CLASS } from "./components/Navbar";
+import LandingTopNavbar from "./components/LandingTopNavbar";
 import SEO from "./components/SEO";
 import PublicCards from "./components/PublicCards";
 import SharedCard from "./components/SharedCard";
@@ -144,13 +145,18 @@ function AppContent() {
           {/* SEO Component */}
           <SEO metadata={websiteMetadata} />
 
-          {/* Navbar with Glass Effect — مخفي على صفحات تسجيل الدخول والتسجيل */}
-          {!hideLayoutChrome && <Navbar />}
+          {/* Navbar rail + fixed top navbar — مخفيان على صفحات تسجيل الدخول والتسجيل */}
+          {!hideLayoutChrome && (
+            <>
+              <Navbar />
+              <LandingTopNavbar />
+            </>
+          )}
 
-          {/* Main Content — مساحة للشريط العلوي (جوال) والشريط الأيمن (سطح المكتب) */}
+          {/* Main Content — مساحة للشريط العلوي والجانب الأيمن */}
           <main
             className={`flex-1 font-almarai ${
-              hideLayoutChrome ? "" : `pt-14 lg:pt-0 ${NAV_RAIL_WIDTH_CLASS}`
+              hideLayoutChrome ? "" : `pt-20 pb-20 lg:pb-0 ${NAV_RAIL_WIDTH_CLASS}`
             }`}
             style={{ direction: "rtl" }}
           >

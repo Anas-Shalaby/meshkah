@@ -86,7 +86,9 @@ const DashboardWelcomeCard = memo(function DashboardWelcomeCard({
             className={`h-20 w-20 shrink-0 rounded-2xl object-cover shadow-md ${t.avatarBorder}`}
           />
         ) : (
-          <div className={`flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl shadow-md ${t.logoBox}`}>
+          <div
+            className={`flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl shadow-md ${t.logoBox}`}
+          >
             <img src="/logo.svg" alt="" className="h-12 w-12" />
           </div>
         )}
@@ -97,7 +99,9 @@ const DashboardWelcomeCard = memo(function DashboardWelcomeCard({
               <p className={`mb-1 text-sm font-semibold ${t.textAccent}`}>
                 {greeting}، {user?.username}
               </p>
-              <h1 className={`mb-2 text-xl font-bold sm:text-2xl ${t.textHeading}`}>
+              <h1
+                className={`mb-2 text-xl font-bold sm:text-2xl ${t.textHeading}`}
+              >
                 مرحباً بك في مشكاة
               </h1>
               <p className={`text-sm leading-relaxed ${t.textBody}`}>
@@ -107,23 +111,24 @@ const DashboardWelcomeCard = memo(function DashboardWelcomeCard({
             </>
           ) : (
             <>
-              <h1 className={`mb-2 text-xl font-bold sm:text-2xl ${t.textHeading}`}>
+              <h1
+                className={`mb-2 text-xl font-bold sm:text-2xl ${t.textHeading}`}
+              >
                 مرحباً بك في مشكاة
               </h1>
               <p className={`mb-3 text-sm leading-relaxed ${t.textBody}`}>
                 منصة للمخيمات التعليمية وختمات الكتب وحديث اليوم — ابدأ رحلتك
                 الآن.
               </p>
-              <Link
-                to="/login"
-                className={t.primaryBtn}
-              >
+              <Link to="/login" className={t.primaryBtn}>
                 <Sparkles className="h-4 w-4" />
                 تسجيل الدخول
               </Link>
             </>
           )}
-          <p className={`mt-3 flex items-center justify-center gap-2 text-xs sm:justify-start ${t.textMuted}`}>
+          <p
+            className={`mt-3 flex items-center justify-center gap-2 text-xs sm:justify-start ${t.textMuted}`}
+          >
             <Calendar className={`h-3.5 w-3.5 ${t.textAccent}`} />
             {today}
           </p>
@@ -149,7 +154,9 @@ const DashboardCampsSection = memo(function DashboardCampsSection({
       className={`${t.card} p-4 sm:p-5`}
     >
       <div className="mb-4 flex items-center justify-between">
-        <h2 className={`flex items-center gap-2 text-base font-bold ${t.textHeading}`}>
+        <h2
+          className={`flex items-center gap-2 text-base font-bold ${t.textHeading}`}
+        >
           <GraduationCap className={`h-5 w-5 ${t.sectionIcon}`} />
           {title}
         </h2>
@@ -196,10 +203,7 @@ const DashboardStatsRow = memo(function DashboardStatsRow({ t }) {
       </h2>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {PLATFORM_STATS.map((s) => (
-          <div
-            key={s.label}
-            className={t.statCard}
-          >
+          <div key={s.label} className={t.statCard}>
             <p className={t.statValue}>{s.value}</p>
             <p className={t.statLabel}>{s.label}</p>
           </div>
@@ -217,7 +221,9 @@ const DashboardJourneysPromo = memo(function DashboardJourneysPromo({ t }) {
       className={`${t.card} p-4 sm:p-5`}
     >
       <div className="mb-3 flex items-center justify-between">
-        <h2 className={`flex items-center gap-2 text-base font-bold ${t.textHeading}`}>
+        <h2
+          className={`flex items-center gap-2 text-base font-bold ${t.textHeading}`}
+        >
           <BookOpen className={`h-5 w-5 ${t.sectionIcon}`} />
           ختمات الكتب
         </h2>
@@ -237,19 +243,28 @@ const DashboardJourneysPromo = memo(function DashboardJourneysPromo({ t }) {
   );
 });
 
-const DashboardDailyHadithSection = memo(
-  function DashboardDailyHadithSection() {
-    return (
-      <motion.div {...fadeIn} transition={{ delay: 0.2 }}>
-        <DailyHadithWidget />
-      </motion.div>
-    );
-  },
-);
+const DashboardDailyHadithSection = memo(function DashboardDailyHadithSection({
+  t,
+}) {
+  return (
+    <motion.div {...fadeIn} transition={{ delay: 0.2 }}>
+      <DailyHadithWidget themeOverride={t} />
+    </motion.div>
+  );
+});
 
 const HomeDashboard = () => {
   const { isNight } = useTheme();
-  const t = getDashboardTheme(isNight);
+  const t = useMemo(() => getDashboardTheme(isNight), [isNight]);
+  const connectedTheme = useMemo(
+    () => ({
+      ...t,
+      card: "rounded-none border-0 bg-transparent shadow-none backdrop-blur-0",
+      socialCard: "p-5",
+      cardInnerGlow: "hidden",
+    }),
+    [t],
+  );
   const { user, isAuthenticated } = useAuth();
   const { unreadCount } = useNotificationContext();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -288,38 +303,56 @@ const HomeDashboard = () => {
   const openNotifications = () => setNotificationsOpen(true);
 
   return (
-    <div
-      className={`${t.page} font-cairo`}
-      dir="rtl"
-    >
-      <div className="mx-auto max-w-7xl px-4 py-6 lg:py-8">
+    <div className={`${t.page} font-cairo`} dir="rtl">
+      <div className="mx-auto w-full max-w-[1560px] px-4 py-6 lg:px-8 lg:py-8">
         {isAuthenticated ? (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-            <div className="space-y-5 lg:col-span-8">
-              <DashboardWelcomeCard
-                t={t}
-                isAuthenticated={isAuthenticated}
-                user={user}
-                avatarUrl={avatarUrl}
-                greeting={greeting}
-                today={today}
-                unreadCount={unreadCount}
-                onOpenLearning={openLearning}
-                onOpenNotifications={openNotifications}
-              />
-              <DashboardCampsSection
-                t={t}
-                title="مخيماتي"
-                emptyText="لم تنضم إلى مخيم بعد."
-                showAllLink
-                enrolledOnly
-                camps={camps}
-                loadingCamps={loadingCamps}
-              />
-              <DashboardDailyHadithSection />
-            </div>
-            <div className="lg:col-span-4">
-              <DashboardSocialColumn />
+          <div
+            className={`mx-auto w-full overflow-hidden rounded-[2rem] border shadow-2xl backdrop-blur-xl ${
+              isNight
+                ? "border-white/[0.1] bg-[#36363c]/90 shadow-black/20"
+                : "border-purple-200/60 bg-white/55 shadow-purple-200/40"
+            }`}
+          >
+            <div
+              className={`grid grid-cols-1 gap-0 lg:grid-cols-12 ${
+                isNight
+                  ? "divide-y divide-white/[0.08] lg:divide-x-reverse lg:divide-x lg:divide-y-0"
+                  : "divide-y divide-purple-200/60 lg:divide-x-reverse lg:divide-x lg:divide-y-0"
+              }`}
+            >
+              <div
+                className={`divide-y p-3 sm:p-4 lg:col-span-8 lg:p-5 xl:col-span-8 ${
+                  isNight ? "divide-white/[0.08]" : "divide-purple-200/60"
+                }`}
+              >
+                <DashboardWelcomeCard
+                  t={connectedTheme}
+                  isAuthenticated={isAuthenticated}
+                  user={user}
+                  avatarUrl={avatarUrl}
+                  greeting={greeting}
+                  today={today}
+                  unreadCount={unreadCount}
+                  onOpenLearning={openLearning}
+                  onOpenNotifications={openNotifications}
+                />
+                <DashboardCampsSection
+                  t={connectedTheme}
+                  title="مخيماتي"
+                  emptyText="لم تنضم إلى مخيم بعد."
+                  showAllLink
+                  enrolledOnly
+                  camps={camps}
+                  loadingCamps={loadingCamps}
+                />
+                <DashboardDailyHadithSection t={connectedTheme} />
+              </div>
+              <div className="p-3 sm:p-4 lg:col-span-4 lg:p-5 xl:col-span-4">
+                <DashboardSocialColumn
+                  themeOverride={connectedTheme}
+                  connected
+                />
+              </div>
             </div>
           </div>
         ) : (

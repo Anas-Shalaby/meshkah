@@ -360,7 +360,7 @@ const QuranCampDetailsPage = () => {
   if (error || !camp) {
     return (
       <div
-        className={`min-h-screen ${
+        className={`camp-details-page min-h-screen ${
           isRamadanThemeActive
             ? "ramadan-bg-gradient"
             : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"
@@ -445,7 +445,7 @@ const QuranCampDetailsPage = () => {
 
   return (
     <div
-      className={`min-h-screen ${
+      className={`camp-details-page min-h-screen ${
         isRamadanThemeActive
           ? "ramadan-bg-gradient"
           : "bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50"
@@ -847,7 +847,7 @@ const QuranCampDetailsPage = () => {
       </div>
 
       {/* Main Content Section - Conditional Rendering */}
-      <div className="py-12 sm:py-16 md:py-20 px-3 sm:px-4 md:px-6 lg:px-8 bg-gradient-to-br from-[#F7F6FB] via-[#F3EDFF] to-[#E9E4F5]">
+      <div className="camp-details-content py-12 sm:py-16 md:py-20 px-3 sm:px-4 md:px-6 lg:px-8 bg-gradient-to-br from-[#F7F6FB] via-[#F3EDFF] to-[#E9E4F5]">
         {camp && (
           <div className="max-w-7xl mx-auto mb-8">
             <CampBreadcrumbs

@@ -271,7 +271,7 @@ const HadithVerificationPage = () => {
   };
 
   return (
-    <div className={`min-h-screen font-[Cairo,Amiri,sans-serif] ${t.page}`}>
+    <div className={`theme-aware-page min-h-screen font-[Cairo,Amiri,sans-serif] ${t.page}`}>
       <SEO
         title="التحقق من صحة الأحاديث - مشكاة الأحاديث"
         description="تحقق من صحة الأحاديث النبوية الشريفة ومعرفة درجتها (صحيح، حسن، ضعيف، موضوع)"

@@ -24,6 +24,8 @@ import {
   AlertCircle,
   ArrowUp,
   X,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import SEO from "../components/SEO";
 import CampPublicCard from "../components/CampPublicCard";
@@ -37,11 +39,21 @@ import RamadanFloatingElements from "../components/ramadan/RamadanFloatingElemen
 import "../styles/quran-camps.css";
 import FullPageLoadingScreen from "../components/FullPageLoadingScreen";
 import { useTheme } from "../context/ThemeContext";
-import { getDashboardTheme } from "../components/home/dashboardTheme";
+import { Player } from "@lottiefiles/react-lottie-player";
+import heroLottieData from "../assets/lottie/books.json";
+
+// ——— Framer Motion presets ———
+const staggerContainer = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.08, delayChildren: 0.05 } },
+};
+const fadeUp = {
+  hidden: { opacity: 0, y: 24 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } },
+};
 
 const QuranCampsPage = () => {
   const { isNight } = useTheme();
-  const t = getDashboardTheme(isNight);
   const { isRamadanThemeActive, loading: themeLoading } = useRamadanTheme();
 
   const [camps, setCamps] = useState([]);
@@ -84,7 +96,7 @@ const QuranCampsPage = () => {
           `${import.meta.env.VITE_API_URL}/quran-camps`,
           {
             headers: token ? { "x-auth-token": token } : undefined,
-          }
+          },
         );
         const data = await response.json();
         setCamps(data.data || []);
@@ -126,7 +138,7 @@ const QuranCampsPage = () => {
           durationFilter,
           tagsFilter,
           searchQuery,
-        })
+        }),
       );
     } catch (_) {}
   }, [filter, difficultyFilter, durationFilter, tagsFilter, searchQuery]);
@@ -137,7 +149,7 @@ const QuranCampsPage = () => {
       const suggestions = camps
         .flatMap((camp) => [camp.name, camp.surah_name, ...(camp.tags || [])])
         .filter((item) =>
-          item?.toLowerCase().includes(searchQuery.toLowerCase())
+          item?.toLowerCase().includes(searchQuery.toLowerCase()),
         )
         .slice(0, 5);
       setSearchSuggestions([...new Set(suggestions)]);
@@ -211,7 +223,7 @@ const QuranCampsPage = () => {
             return false;
           const hasTag = camp.tags.some(
             (tag) =>
-              tag && tag.trim().toLowerCase() === tagsFilter.toLowerCase()
+              tag && tag.trim().toLowerCase() === tagsFilter.toLowerCase(),
           );
           if (!hasTag) return false;
         }
@@ -267,7 +279,7 @@ const QuranCampsPage = () => {
           setDisplayedCamps((prev) => {
             const nextBatch = filteredCamps.slice(
               0,
-              prev.length + itemsPerPage
+              prev.length + itemsPerPage,
             );
             setHasMore(nextBatch.length < filteredCamps.length);
             return nextBatch;
@@ -440,13 +452,115 @@ const QuranCampsPage = () => {
     return Array.from(tagsSet).sort();
   }, [camps]);
 
+  // ——— Flat theme tokens (dark reference / flat light counterpart) ———
+  const ACCENT = isNight ? "#9e98db" : "#7440E9";
+  const GOLD = "#ffc107";
+  const ui = isNight
+    ? {
+        page: "bg-[#1a1c22]",
+        card: "bg-[#212328] border border-gray-800",
+        text: "text-[#e0e0e0]",
+        sub: "text-[#a0a0a0]",
+        faint: "text-[#6b6b73]",
+        input:
+          "bg-[#1a1c22] border border-gray-800 text-[#e0e0e0] placeholder-[#6b6b73] focus:border-[#9e98db] focus:ring-2 focus:ring-[#9e98db]/30",
+        pillInactive:
+          "text-[#a0a0a0] hover:text-[#e0e0e0] hover:bg-white/[0.04] border border-transparent",
+        chipInactive: "bg-white/5 text-[#a0a0a0]",
+        segment: "bg-[#1a1c22] border border-gray-800",
+        divider: "border-gray-800",
+        ctaBorder: "border border-[#9e98db]/30 bg-[#212328]",
+        onAccent: "#1a1c22",
+      }
+    : {
+        page: "bg-[#f4f4f7]",
+        card: "bg-white border border-gray-200",
+        text: "text-[#24242c]",
+        sub: "text-gray-500",
+        faint: "text-gray-400",
+        input:
+          "bg-[#f1f1f5] border border-gray-200 text-[#24242c] placeholder-gray-400 focus:border-[#7440E9] focus:ring-2 focus:ring-[#7440E9]/25",
+        pillInactive:
+          "text-gray-500 hover:text-[#24242c] hover:bg-black/[0.03] border border-transparent",
+        chipInactive: "bg-black/5 text-gray-500",
+        segment: "bg-[#f1f1f5] border border-gray-200",
+        divider: "border-gray-200",
+        ctaBorder: "border border-[#7440E9]/25 bg-white",
+        onAccent: "#ffffff",
+      };
+
+  const pillActiveStyle = {
+    backgroundColor: `${ACCENT}26`,
+    color: ACCENT,
+    borderColor: `${ACCENT}66`,
+  };
+  const primaryBtnStyle = { backgroundColor: ACCENT, color: ui.onAccent };
+
+  const statusTabs = [
+    { id: "all", label: "الكل", icon: BookOpen, count: camps.length },
+    {
+      id: "early_registration",
+      label: "قريباً",
+      icon: Clock3,
+      count: getFilteredCampsCount("early_registration"),
+    },
+    {
+      id: "active",
+      label: "نشط",
+      icon: Play,
+      count: getFilteredCampsCount("active"),
+    },
+    {
+      id: "completed",
+      label: "منتهي",
+      icon: CheckCircle,
+      count: getFilteredCampsCount("completed"),
+    },
+  ];
+
+  const typeTabs = [
+    { id: "all", label: "كل الأنواع", icon: BookOpen },
+    { id: "quran", label: "مخيمات قرآن", icon: Book },
+    { id: "hadith", label: "مخيمات حديث", icon: Sparkles },
+  ];
+
+  const heroStats = [
+    {
+      icon: BookOpen,
+      value: camps.length,
+      label: "مخيم متاح",
+      color: ACCENT,
+    },
+    {
+      icon: Users,
+      value: camps.reduce((sum, camp) => sum + camp.enrolled_count, 0),
+      label: "مشترك",
+      color: ACCENT,
+    },
+    {
+      icon: Zap,
+      value: getFilteredCampsCount("active"),
+      label: "مخيم نشط",
+      color: GOLD,
+    },
+  ];
+
+  const advancedFilterCount = [
+    difficultyFilter !== "all" ? 1 : 0,
+    durationFilter !== "all" ? 1 : 0,
+    tagsFilter !== "all" ? 1 : 0,
+  ].reduce((a, b) => a + b, 0);
+
   if (loading) {
     return <FullPageLoadingScreen message="جاري تحميل المخيمات ..." />;
   }
 
   if (error) {
     return (
-      <div className={`flex min-h-screen items-center justify-center px-4 ${t.page}`}>
+      <div
+        className={`flex min-h-screen items-center justify-center px-4 font-cairo ${ui.page}`}
+        dir="rtl"
+      >
         <SEO
           title="حدث خطأ - المخيمات القرآنية"
           description="حدث خطأ أثناء تحميل المخيمات القرآنية"
@@ -454,68 +568,40 @@ const QuranCampsPage = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center max-w-md mx-auto p-8 bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-red-100"
+          className={`mx-auto max-w-md rounded-2xl p-8 text-center ${ui.card}`}
         >
-          <motion.div
-            initial={{ scale: 0, rotate: -180 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-            className="w-24 h-24 bg-gradient-to-br from-red-100 to-red-200 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg"
-          >
-            <AlertCircle className="w-12 h-12 text-red-600" />
-          </motion.div>
-          <motion.h2
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="text-3xl font-bold text-gray-900 mb-3"
-          >
-            حدث خطأ
-          </motion.h2>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="text-gray-600 mb-2 text-lg"
-          >
-            {error}
-          </motion.p>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6 }}
-            className="text-gray-500 mb-8 text-sm"
-          >
+          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-red-500/10">
+            <AlertCircle className="h-10 w-10 text-red-500" />
+          </div>
+          <h2 className={`mb-3 text-2xl font-bold ${ui.text}`}>حدث خطأ</h2>
+          <p className={`mb-2 text-lg ${ui.sub}`}>{error}</p>
+          <p className={`mb-8 text-sm ${ui.faint}`}>
             يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى
-          </motion.p>
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7 }}
-            className="flex gap-4 justify-center"
-          >
+          </p>
+          <div className="flex justify-center gap-3">
             <motion.button
               onClick={() => {
                 setError(null);
                 setLoading(true);
                 window.location.reload();
               }}
-              className="px-6 py-3 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700 transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
-              whileHover={{ scale: 1.05, y: -2 }}
-              whileTap={{ scale: 0.95 }}
+              className="inline-flex items-center gap-2 rounded-xl px-6 py-3 font-semibold transition hover:opacity-90"
+              style={primaryBtnStyle}
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
             >
-              <ArrowRight className="w-5 h-5 rotate-180" />
+              <ArrowRight className="h-5 w-5 rotate-180" />
               إعادة المحاولة
             </motion.button>
             <motion.button
               onClick={() => (window.location.href = "/")}
-              className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-all shadow-lg hover:shadow-xl"
-              whileHover={{ scale: 1.05, y: -2 }}
-              whileTap={{ scale: 0.95 }}
+              className={`rounded-xl px-6 py-3 font-semibold transition ${ui.segment} ${ui.text}`}
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
             >
               العودة للرئيسية
             </motion.button>
-          </motion.div>
+          </div>
         </motion.div>
       </div>
     );
@@ -523,9 +609,10 @@ const QuranCampsPage = () => {
 
   return (
     <div
-      className={`min-h-screen ${
-        isRamadanThemeActive ? "ramadan-bg-gradient" : t.page
-      }`}
+      dir="rtl"
+      className={`camps-page min-h-screen font-almarai ${
+        isRamadanThemeActive ? "ramadan-bg-gradient" : ui.page
+      } ${ui.text}`}
     >
       <SEO
         title="المخيمات القرآنية - مشكاة الأحاديث"
@@ -540,180 +627,141 @@ const QuranCampsPage = () => {
       {/* Floating Elements */}
       {isRamadanThemeActive && <RamadanFloatingElements />}
 
-      {/* Hero Section */}
-      <div
-        className={`relative py-12 sm:py-16 md:py-20 lg:py-24 px-4 sm:px-6 lg:px-8 overflow-hidden ${
+      {/* ——— Hero Section (clean, typography-focused) ——— */}
+      <section
+        className={`px-4 sm:px-6 lg:px-8 py-14 sm:py-20 ${
           isRamadanThemeActive ? "ramadan-hero-section pt-32 md:pt-28" : ""
         }`}
       >
-        {/* Background Pattern */}
-        <div className={`absolute inset-0 ${isNight ? "bg-[#242428]/40" : "bg-gradient-to-br from-purple-100/30 via-blue-100/20 to-indigo-100/30"}`} />
-        <div
-          className="absolute inset-0 opacity-40"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23059669' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }}
-        ></div>
-
-        <div className="max-w-7xl mx-auto relative">
-          <div className="text-center">
-            <h1
+        <div className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-2 lg:gap-16">
+          {/* ——— Text column (right side in RTL) ——— */}
+          <div className="text-center lg:text-right">
+            <motion.h1
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
               style={{ lineHeight: "1.2" }}
-              className={`mb-4 px-4 text-3xl font-bold sm:mb-6 sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl ${isNight ? t.heroTitle : "bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 bg-clip-text text-transparent"}`}
+              className={`mb-4 text-3xl font-bold sm:mb-6 sm:text-4xl md:text-5xl lg:text-6xl ${ui.text}`}
             >
               المخيمات القرآنية
-            </h1>
+            </motion.h1>
 
-            <p className={`mx-auto mb-6 max-w-4xl px-4 text-base leading-relaxed sm:mb-8 sm:text-lg md:text-xl lg:text-2xl ${t.textBody}`}>
+            <motion.p
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className={`mx-auto mb-10 max-w-2xl text-base leading-relaxed sm:text-lg md:text-xl lg:mx-0 ${ui.sub}`}
+            >
               انضم إلى رحلة تعمق في القرآن الكريم مع مخيمات مكثفة تجمع بين
-              <span className={`font-semibold ${t.textAccent}`}>
+              <span className="font-semibold" style={{ color: ACCENT }}>
                 {" "}
                 القراءة والحفظ والتفسير
               </span>
-            </p>
+            </motion.p>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-4xl mx-auto mb-8 sm:mb-12 px-4">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className={`rounded-2xl p-4 shadow-xl transition-all duration-300 group hover:shadow-2xl sm:p-6 lg:p-8 ${isNight ? "border border-white/10 bg-[#242428]/95" : "border border-purple-100 bg-white/90 backdrop-blur-xl"}`}
-                whileHover={{ y: -4 }}
-              >
-                <div className="flex items-center justify-center mb-3 sm:mb-4">
+            <motion.div
+              variants={staggerContainer}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5"
+            >
+              {heroStats.map((stat, i) => {
+                const Icon = stat.icon;
+                return (
                   <motion.div
-                    className="p-2 sm:p-3 bg-purple-100 rounded-full group-hover:bg-purple-200 transition-colors"
-                    whileHover={{ rotate: 360 }}
-                    transition={{ duration: 0.6 }}
+                    key={i}
+                    variants={fadeUp}
+                    whileHover={{ y: -4 }}
+                    className={`rounded-2xl p-5 text-right sm:p-6 ${ui.card}`}
                   >
-                    <BookOpen className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" />
+                    <span
+                      className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl"
+                      style={{ backgroundColor: `${stat.color}1f` }}
+                    >
+                      <Icon className="h-7 w-7" style={{ color: stat.color }} />
+                    </span>
+                    <p
+                      className="text-3xl font-bold sm:text-4xl"
+                      style={{ color: stat.color }}
+                    >
+                      {stat.value}
+                    </p>
+                    <p
+                      className={`mt-1 text-sm font-medium sm:text-base ${ui.sub}`}
+                    >
+                      {stat.label}
+                    </p>
                   </motion.div>
-                </div>
-                <motion.p
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.4 }}
-                  className={`mb-1 text-2xl font-bold sm:mb-2 sm:text-3xl ${t.textHeading}`}
-                >
-                  {camps.length}
-                </motion.p>
-                <p className={`text-sm font-medium sm:text-base ${t.textBody}`}>
-                  مخيم متاح
-                </p>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className={`rounded-2xl p-4 shadow-xl transition-all duration-300 group hover:shadow-2xl sm:p-6 lg:p-8 ${isNight ? "border border-white/10 bg-[#242428]/95" : "border border-blue-100 bg-white/90 backdrop-blur-xl"}`}
-                whileHover={{ y: -4 }}
-              >
-                <div className="flex items-center justify-center mb-3 sm:mb-4">
-                  <motion.div
-                    className="p-2 sm:p-3 bg-blue-100 rounded-full group-hover:bg-blue-200 transition-colors"
-                    whileHover={{ rotate: 360 }}
-                    transition={{ duration: 0.6 }}
-                  >
-                    <Users className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
-                  </motion.div>
-                </div>
-                <motion.p
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.5 }}
-                  className={`mb-1 text-2xl font-bold sm:mb-2 sm:text-3xl ${t.textHeading}`}
-                >
-                  {camps.reduce((sum, camp) => sum + camp.enrolled_count, 0)}
-                </motion.p>
-                <p className={`text-sm font-medium sm:text-base ${t.textBody}`}>
-                  مشترك
-                </p>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className={`rounded-2xl p-4 shadow-xl transition-all duration-300 group hover:shadow-2xl sm:col-span-2 sm:p-6 lg:col-span-1 lg:p-8 ${isNight ? "border border-white/10 bg-[#242428]/95" : "border border-indigo-100 bg-white/90 backdrop-blur-xl"}`}
-                whileHover={{ y: -4 }}
-              >
-                <div className="flex items-center justify-center mb-3 sm:mb-4">
-                  <motion.div
-                    className="p-2 sm:p-3 bg-indigo-100 rounded-full group-hover:bg-indigo-200 transition-colors"
-                    whileHover={{ rotate: 360 }}
-                    transition={{ duration: 0.6 }}
-                  >
-                    <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-600" />
-                  </motion.div>
-                </div>
-                <motion.p
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.6 }}
-                  className={`mb-1 text-2xl font-bold sm:mb-2 sm:text-3xl ${t.textHeading}`}
-                >
-                  {getFilteredCampsCount("active")}
-                </motion.p>
-                <p className={`text-sm font-medium sm:text-base ${t.textBody}`}>
-                  مخيم نشط
-                </p>
-              </motion.div>
-            </div>
+                );
+              })}
+            </motion.div>
           </div>
-        </div>
-      </div>
 
-      {/* Enhanced Search and Filter Section */}
-      <div
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8 sm:mb-12"
-        id="camps"
-      >
-        {/* Search Bar */}
-        <div className={`mb-6 rounded-2xl p-4 shadow-2xl sm:mb-8 sm:rounded-3xl sm:p-6 lg:p-8 ${t.panel}`}>
-          <div className="flex flex-col gap-4 sm:gap-6">
-            {/* Search Input */}
-            <div className="w-full">
-              <div className="relative z-50">
-                <Search className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5 pointer-events-none z-10" />
-                {searchQuery && (
-                  <motion.button
-                    initial={{ opacity: 0, scale: 0 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    onClick={() => {
-                      setSearchQuery("");
-                      setShowSuggestions(false);
-                    }}
-                    className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors z-10 p-1 rounded-full hover:bg-gray-100"
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                  >
-                    <X className="w-4 h-4" />
-                  </motion.button>
-                )}
-                <input
-                  type="text"
-                  placeholder="ابحث عن مخيم، سورة، أو وصف..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onFocus={() =>
-                    setShowSuggestions(searchSuggestions.length > 0)
-                  }
-                  onBlur={() =>
-                    setTimeout(() => setShowSuggestions(false), 200)
-                  }
-                  className={`relative z-10 w-full px-4 py-3 pr-10 text-base sm:rounded-2xl sm:py-4 sm:pr-12 sm:text-lg ${t.searchInput}`}
-                  aria-label="البحث في المخيمات"
-                />
-                {/* Search Suggestions */}
+          {/* ——— Visual column (Lottie, left side in RTL) ——— */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="flex items-center justify-center"
+          >
+            <motion.div
+              animate={{ y: [-8, 8, -8] }}
+              transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
+              className="w-full max-w-md lg:max-w-lg"
+            >
+              <Player
+                autoplay
+                loop
+                src={heroLottieData}
+                style={{ width: "100%", height: "auto" }}
+              />
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ——— Command Bar: Search + Filters ——— */}
+      <div className="mx-auto mb-8 max-w-7xl px-4 sm:px-6 lg:px-8" id="camps">
+        <div className={`rounded-2xl p-4 sm:p-5 ${ui.card}`}>
+          {/* Top row: search + controls */}
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            {/* Search input */}
+            <div className="relative z-50 flex-1">
+              <Search
+                className="pointer-events-none absolute right-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2"
+                style={{ color: ACCENT }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setShowSuggestions(false);
+                  }}
+                  className={`absolute left-3 top-1/2 z-10 -translate-y-1/2 rounded-full p-1 transition ${ui.faint} hover:opacity-80`}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+              <input
+                type="text"
+                placeholder="ابحث عن مخيم، سورة، أو وصف..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setShowSuggestions(searchSuggestions.length > 0)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                style={{ colorScheme: isNight ? "dark" : "light" }}
+                className={`relative z-10 w-full rounded-xl py-3 pr-11 pl-10 text-base outline-none transition ${ui.input}`}
+                aria-label="البحث في المخيمات"
+              />
+              {/* Search Suggestions */}
+              <AnimatePresence>
                 {showSuggestions && searchSuggestions.length > 0 && (
                   <motion.div
-                    initial={{ opacity: 0, y: -10 }}
+                    initial={{ opacity: 0, y: -8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className={t.suggestDropdown}
-                    style={{ zIndex: 9999 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    className={`absolute left-0 right-0 top-full z-[9999] mt-2 overflow-hidden rounded-xl ${ui.card}`}
                   >
                     {searchSuggestions.map((suggestion, idx) => (
                       <button
@@ -722,449 +770,302 @@ const QuranCampsPage = () => {
                           setSearchQuery(suggestion);
                           setShowSuggestions(false);
                         }}
-                        className="w-full text-right px-4 py-3 hover:bg-purple-50 transition-colors text-sm text-gray-700 border-b border-gray-100 z-[9999] last:border-b-0 relative"
+                        className={`flex w-full items-center gap-2 border-b px-4 py-3 text-right text-sm transition last:border-b-0 ${ui.divider} ${ui.text} hover:bg-white/[0.04]`}
                       >
-                        <Search className="w-4 h-4 inline-block ml-2 text-gray-400" />
+                        <Search className="h-4 w-4" style={{ color: ACCENT }} />
                         {suggestion}
                       </button>
                     ))}
                   </motion.div>
                 )}
-              </div>
-              {searchQuery && (
-                <motion.p
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-sm text-gray-600 mt-2 px-2"
-                >
-                  وجدنا {filteredCamps.length} مخيم
-                  {filteredCamps.length !== 1 ? "ات" : ""} لـ "{searchQuery}"
-                </motion.p>
-              )}
+              </AnimatePresence>
             </div>
 
-            {/* Controls Row */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-              {/* Sort Dropdown */}
-              <div className="flex-1 sm:flex-none">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full sm:w-auto px-3 sm:px-4 py-2 sm:py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-sm sm:text-base"
-                >
-                  <option value="newest">الأحدث</option>
-                  <option value="oldest">الأقدم</option>
-                  <option value="popular">الأكثر شعبية</option>
-                  <option value="name">الاسم</option>
-                  <option value="duration">المدة</option>
-                </select>
-              </div>
+            {/* Sort Dropdown */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{ colorScheme: isNight ? "dark" : "light" }}
+              className={`rounded-xl px-4 py-3 text-sm outline-none transition ${ui.input}`}
+            >
+              <option value="newest">الأحدث</option>
+              <option value="oldest">الأقدم</option>
+              <option value="popular">الأكثر شعبية</option>
+              <option value="name">الاسم</option>
+              <option value="duration">المدة</option>
+            </select>
 
-              {/* View Mode Toggle */}
-              <div className="flex bg-gray-100 rounded-xl p-1">
-                <button
-                  onClick={() => setViewMode("grid")}
-                  className={`p-2 rounded-lg transition-all ${
-                    viewMode === "grid"
-                      ? "bg-white shadow-sm"
-                      : "hover:bg-gray-200"
-                  }`}
-                >
-                  <div className="w-3 h-3 sm:w-4 sm:h-4 grid grid-cols-2 gap-0.5">
-                    <div className="bg-gray-600 rounded-sm"></div>
-                    <div className="bg-gray-600 rounded-sm"></div>
-                    <div className="bg-gray-600 rounded-sm"></div>
-                    <div className="bg-gray-600 rounded-sm"></div>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={`p-2 rounded-lg transition-all ${
-                    viewMode === "list"
-                      ? "bg-white shadow-sm"
-                      : "hover:bg-gray-200"
-                  }`}
-                >
-                  <div className="w-3 h-3 sm:w-4 sm:h-4 space-y-0.5">
-                    <div className="w-full h-0.5 bg-gray-600 rounded"></div>
-                    <div className="w-full h-0.5 bg-gray-600 rounded"></div>
-                    <div className="w-full h-0.5 bg-gray-600 rounded"></div>
-                  </div>
-                </button>
-              </div>
-
-              {/* Advanced Filters Toggle */}
+            {/* View Mode Toggle */}
+            <div className={`flex shrink-0 rounded-xl p-1 ${ui.segment}`}>
               <button
-                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                className={`flex items-center justify-center px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl transition-all text-sm sm:text-base font-semibold shadow-sm hover:shadow-md ${
-                  showAdvancedFilters
-                    ? "bg-purple-600 text-white"
-                    : "bg-purple-100 text-purple-700 hover:bg-purple-200"
-                }`}
+                onClick={() => setViewMode("grid")}
+                className="flex h-9 w-9 items-center justify-center rounded-lg transition"
+                style={
+                  viewMode === "grid"
+                    ? { backgroundColor: `${ACCENT}26`, color: ACCENT }
+                    : undefined
+                }
+                aria-label="عرض شبكي"
               >
-                <Filter className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">فلاتر متقدمة</span>
-                <span className="sm:hidden">فلاتر</span>
-                {showAdvancedFilters ? (
-                  <ChevronUp className="w-4 h-4 mr-2" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 mr-2" />
-                )}
-                {(difficultyFilter !== "all" ||
-                  durationFilter !== "all" ||
-                  tagsFilter !== "all") && (
-                  <span className="mr-2 px-2 py-0.5 bg-white/30 dark:bg-gray-800/30 rounded-full text-xs font-bold">
-                    {[
-                      difficultyFilter !== "all" ? 1 : 0,
-                      durationFilter !== "all" ? 1 : 0,
-                      tagsFilter !== "all" ? 1 : 0,
-                    ].reduce((a, b) => a + b, 0)}
-                  </span>
-                )}
+                <LayoutGrid
+                  className={`h-4 w-4 ${viewMode === "grid" ? "" : ui.faint}`}
+                />
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className="flex h-9 w-9 items-center justify-center rounded-lg transition"
+                style={
+                  viewMode === "list"
+                    ? { backgroundColor: `${ACCENT}26`, color: ACCENT }
+                    : undefined
+                }
+                aria-label="عرض قائمة"
+              >
+                <List
+                  className={`h-4 w-4 ${viewMode === "list" ? "" : ui.faint}`}
+                />
               </button>
             </div>
+
+            {/* Advanced Filters Toggle */}
+            <button
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className={`flex shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition ${
+                showAdvancedFilters ? "" : `${ui.segment} ${ui.text}`
+              }`}
+              style={showAdvancedFilters ? pillActiveStyle : undefined}
+            >
+              <Filter className="h-4 w-4" />
+              <span className="hidden sm:inline">فلاتر متقدمة</span>
+              <span className="sm:hidden">فلاتر</span>
+              {showAdvancedFilters ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+              {advancedFilterCount > 0 && (
+                <span
+                  className="rounded-full px-2 py-0.5 text-xs font-bold"
+                  style={{ backgroundColor: ACCENT, color: ui.onAccent }}
+                >
+                  {advancedFilterCount}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Result count */}
+          {searchQuery && (
+            <p className={`mt-3 px-1 text-sm ${ui.sub}`}>
+              وجدنا {filteredCamps.length} مخيم
+              {filteredCamps.length !== 1 ? "ات" : ""} لـ "{searchQuery}"
+            </p>
+          )}
+
+          {/* Quick status filters */}
+          <div
+            className={`mt-4 flex flex-wrap items-center gap-2 border-t pt-4 ${ui.divider}`}
+          >
+            {statusTabs.map(({ id, label, icon: TabIcon, count }) => {
+              const active = filter === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => setFilter(id)}
+                  className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                    active ? "" : ui.pillInactive
+                  }`}
+                  style={active ? pillActiveStyle : undefined}
+                >
+                  <TabIcon className="h-4 w-4" />
+                  <span>{label}</span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                      active ? "" : ui.chipInactive
+                    }`}
+                    style={
+                      active
+                        ? { backgroundColor: `${ACCENT}33`, color: ACCENT }
+                        : undefined
+                    }
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Type filters */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {typeTabs.map(({ id, label, icon: TabIcon }) => {
+              const active = typeFilter === id;
+              const count =
+                id === "all"
+                  ? camps.length
+                  : camps.filter((c) => (c.camp_type || "quran") === id).length;
+              return (
+                <button
+                  key={id}
+                  onClick={() => setTypeFilter(id)}
+                  className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition sm:text-sm ${
+                    active ? "" : ui.pillInactive
+                  }`}
+                  style={active ? pillActiveStyle : undefined}
+                >
+                  <TabIcon className="h-4 w-4" />
+                  <span>{label}</span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                      active ? "" : ui.chipInactive
+                    }`}
+                    style={
+                      active
+                        ? { backgroundColor: `${ACCENT}33`, color: ACCENT }
+                        : undefined
+                    }
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Advanced Filters */}
-          {showAdvancedFilters && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200 dark:border-gray-700"
-            >
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                {/* Difficulty Filter */}
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    <Zap className="w-4 h-4 text-purple-500" />
-                    مستوى الصعوبة
-                  </label>
-                  <select
-                    value={difficultyFilter}
-                    onChange={(e) => setDifficultyFilter(e.target.value)}
-                    className="w-full px-4 py-3 bg-gradient-to-br from-gray-50 to-white dark:from-gray-700 dark:to-gray-800 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-sm sm:text-base shadow-sm hover:shadow-md"
-                  >
-                    <option value="all">جميع المستويات</option>
-                    <option value="beginner">مبتدئ (7 أيام أو أقل)</option>
-                    <option value="intermediate">متوسط (8-14 يوم)</option>
-                    <option value="advanced">متقدم (أكثر من 14 يوم)</option>
-                  </select>
-                </div>
-
-                {/* Duration Filter */}
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    <Clock className="w-4 h-4 text-blue-500" />
-                    مدة المخيم
-                  </label>
-                  <select
-                    value={durationFilter}
-                    onChange={(e) => setDurationFilter(e.target.value)}
-                    className="w-full px-4 py-3 bg-gradient-to-br from-gray-50 to-white dark:from-gray-700 dark:to-gray-800 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-sm sm:text-base shadow-sm hover:shadow-md"
-                  >
-                    <option value="all">جميع المدد</option>
-                    <option value="short">قصير (7 أيام أو أقل)</option>
-                    <option value="medium">متوسط (8-14 يوم)</option>
-                    <option value="long">طويل (أكثر من 14 يوم)</option>
-                  </select>
-                </div>
-
-                {/* Tags Filter */}
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    <Sparkles className="w-4 h-4 text-indigo-500" />
-                    العلامات التوضيحية
-                  </label>
-                  <select
-                    value={tagsFilter}
-                    onChange={(e) => setTagsFilter(e.target.value)}
-                    className="w-full px-4 py-3 bg-gradient-to-br from-gray-50 to-white dark:from-gray-700 dark:to-gray-800 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-sm sm:text-base shadow-sm hover:shadow-md"
-                  >
-                    <option value="all">جميع العلامات</option>
-                    {getAllUniqueTags.map((tag) => (
-                      <option key={tag} value={tag}>
-                        {tag}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Clear Filters */}
-                <div className="flex items-end sm:col-span-2 lg:col-span-3">
-                  <button
-                    onClick={() => {
-                      setSearchQuery("");
-                      setDifficultyFilter("all");
-                      setDurationFilter("all");
-                      setTagsFilter("all");
-                      setFilter("all");
-                      setTypeFilter("all");
-                    }}
-                    className="w-full px-4 py-3 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-200 rounded-xl hover:from-gray-200 hover:to-gray-300 dark:hover:from-gray-600 dark:hover:to-gray-500 transition-all font-semibold text-sm sm:text-base shadow-sm hover:shadow-md flex items-center justify-center gap-2"
-                  >
-                    <X className="w-4 h-4" />
-                    مسح جميع الفلاتر
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </div>
-
-        {/* Camp Type Filter (multi-type system) */}
-        <div className="relative mb-4 px-4">
-          <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-2 shadow-md border border-white/50">
-            <div className="flex flex-wrap justify-center gap-2">
-              {[
-                { id: "all", label: "كل الأنواع", icon: BookOpen },
-                { id: "quran", label: "مخيمات قرآن", icon: Book },
-                { id: "hadith", label: "مخيمات حديث", icon: Sparkles },
-              ].map(({ id, label, icon: TypeIcon }) => (
-                <motion.button
-                  key={id}
-                  onClick={() => setTypeFilter(id)}
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.96 }}
-                  className={`px-4 py-2 rounded-xl font-semibold text-sm flex items-center gap-2 transition-all ${
-                    typeFilter === id
-                      ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg"
-                      : "bg-white/80 text-gray-700 hover:bg-purple-50"
-                  }`}
+          <AnimatePresence initial={false}>
+            {showAdvancedFilters && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+                className="overflow-hidden"
+              >
+                <div
+                  className={`mt-4 grid grid-cols-1 gap-4 border-t pt-4 sm:grid-cols-2 lg:grid-cols-3 ${ui.divider}`}
                 >
-                  <TypeIcon className="w-4 h-4" />
-                  <span>{label}</span>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                      typeFilter === id
-                        ? "bg-white/20 text-white"
-                        : "bg-purple-100 text-purple-700"
-                    }`}
-                  >
-                    {id === "all"
-                      ? camps.length
-                      : camps.filter((c) => (c.camp_type || "quran") === id)
-                          .length}
-                  </span>
-                </motion.button>
-              ))}
-            </div>
-          </div>
-        </div>
+                  {/* Difficulty Filter */}
+                  <div className="space-y-2">
+                    <label
+                      className={`flex items-center gap-2 text-sm font-semibold ${ui.text}`}
+                    >
+                      <Zap className="h-4 w-4" style={{ color: ACCENT }} />
+                      مستوى الصعوبة
+                    </label>
+                    <select
+                      value={difficultyFilter}
+                      onChange={(e) => setDifficultyFilter(e.target.value)}
+                      style={{ colorScheme: isNight ? "dark" : "light" }}
+                      className={`w-full rounded-xl px-4 py-3 text-sm outline-none transition ${ui.input}`}
+                    >
+                      <option value="all">جميع المستويات</option>
+                      <option value="beginner">مبتدئ (7 أيام أو أقل)</option>
+                      <option value="intermediate">متوسط (8-14 يوم)</option>
+                      <option value="advanced">متقدم (أكثر من 14 يوم)</option>
+                    </select>
+                  </div>
 
-        {/* Status Filter Tabs - Enhanced Design */}
-        <div className="relative mb-6 sm:mb-8 px-4">
-          {/* Background Container with Glassmorphism */}
-          <div className="bg-white/60 z-10 relative backdrop-blur-xl rounded-2xl sm:rounded-3xl p-2 sm:p-3 shadow-xl border border-white/50">
-            <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
-              {/* All Filter */}
-              <motion.button
-                onClick={() => setFilter("all")}
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
-                className={`relative px-4 py-2.5 sm:px-6 sm:py-3 lg:px-7 lg:py-3.5 rounded-xl font-semibold transition-all duration-300 text-sm sm:text-base flex items-center gap-2 ${
-                  filter === "all"
-                    ? "bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 text-white shadow-2xl shadow-purple-500/50"
-                    : "bg-white/80 text-gray-700 hover:bg-purple-50/80 hover:text-purple-700 backdrop-blur-sm shadow-md border border-gray-200/50"
-                }`}
-              >
-                {filter === "all" && (
-                  <motion.div
-                    layoutId="activeFilter"
-                    className="absolute inset-0 bg-purple-600 rounded-xl -z-0"
-                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                  />
-                )}
-                <span className="relative z-10 flex items-center gap-2">
-                  <BookOpen
-                    className={`w-4 h-4 ${
-                      filter === "all" ? "text-white" : "text-gray-500"
-                    }`}
-                  />
-                  <span>الكل</span>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                      filter === "all"
-                        ? "bg-white/20 text-white"
-                        : "bg-purple-100 text-purple-700"
-                    }`}
-                  >
-                    {camps.length}
-                  </span>
-                </span>
-              </motion.button>
+                  {/* Duration Filter */}
+                  <div className="space-y-2">
+                    <label
+                      className={`flex items-center gap-2 text-sm font-semibold ${ui.text}`}
+                    >
+                      <Clock className="h-4 w-4" style={{ color: ACCENT }} />
+                      مدة المخيم
+                    </label>
+                    <select
+                      value={durationFilter}
+                      onChange={(e) => setDurationFilter(e.target.value)}
+                      style={{ colorScheme: isNight ? "dark" : "light" }}
+                      className={`w-full rounded-xl px-4 py-3 text-sm outline-none transition ${ui.input}`}
+                    >
+                      <option value="all">جميع المدد</option>
+                      <option value="short">قصير (7 أيام أو أقل)</option>
+                      <option value="medium">متوسط (8-14 يوم)</option>
+                      <option value="long">طويل (أكثر من 14 يوم)</option>
+                    </select>
+                  </div>
 
-              {/* Early Registration Filter */}
-              <motion.button
-                onClick={() => setFilter("early_registration")}
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
-                className={`relative px-4 py-2.5 sm:px-6 sm:py-3 lg:px-7 lg:py-3.5 rounded-xl font-semibold transition-all duration-300 text-sm sm:text-base flex items-center gap-2 ${
-                  filter === "early_registration"
-                    ? "bg-gradient-to-r from-blue-500 via-blue-600 to-cyan-500 text-white shadow-2xl shadow-blue-500/50"
-                    : "bg-white/80 text-gray-700 hover:bg-blue-50/80 hover:text-blue-700 backdrop-blur-sm shadow-md border border-gray-200/50"
-                }`}
-              >
-                {filter === "early_registration" && (
-                  <motion.div
-                    layoutId="activeFilter"
-                    className="absolute inset-0 bg-gradient-to-r from-blue-500 via-blue-600 to-cyan-500 rounded-xl -z-0"
-                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                  />
-                )}
-                <span className="relative z-10 flex items-center gap-2">
-                  <Clock3
-                    className={`w-4 h-4 ${
-                      filter === "early_registration"
-                        ? "text-white"
-                        : "text-blue-500"
-                    }`}
-                  />
-                  <span>قريباً</span>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                      filter === "early_registration"
-                        ? "bg-white/20 text-white"
-                        : "bg-blue-100 text-blue-700"
-                    }`}
-                  >
-                    {getFilteredCampsCount("early_registration")}
-                  </span>
-                </span>
-              </motion.button>
+                  {/* Tags Filter */}
+                  <div className="space-y-2">
+                    <label
+                      className={`flex items-center gap-2 text-sm font-semibold ${ui.text}`}
+                    >
+                      <Sparkles className="h-4 w-4" style={{ color: ACCENT }} />
+                      العلامات التوضيحية
+                    </label>
+                    <select
+                      value={tagsFilter}
+                      onChange={(e) => setTagsFilter(e.target.value)}
+                      style={{ colorScheme: isNight ? "dark" : "light" }}
+                      className={`w-full rounded-xl px-4 py-3 text-sm outline-none transition ${ui.input}`}
+                    >
+                      <option value="all">جميع العلامات</option>
+                      {getAllUniqueTags.map((tag) => (
+                        <option key={tag} value={tag}>
+                          {tag}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-              {/* Active Filter */}
-              <motion.button
-                onClick={() => setFilter("active")}
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
-                className={`relative px-4 py-2.5 sm:px-6 sm:py-3 lg:px-7 lg:py-3.5 rounded-xl font-semibold transition-all duration-300 text-sm sm:text-base flex items-center gap-2 ${
-                  filter === "active"
-                    ? " bg-purple-600 text-white shadow-2xl shadow-purple-500/50"
-                    : "bg-white/80 text-gray-700 hover:bg-purple-50/80 hover:text-purple-700 backdrop-blur-sm shadow-md border border-gray-200/50"
-                }`}
-              >
-                {filter === "active" && (
-                  <motion.div
-                    layoutId="activeFilter"
-                    className="absolute inset-0 bg-purple-600 rounded-xl -z-0"
-                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                  />
-                )}
-                <span className="relative z-10 flex items-center gap-2">
-                  <Play
-                    className={`w-4 h-4 ${
-                      filter === "active" ? "text-white" : "text-purple-500"
-                    }`}
-                  />
-                  <span>نشط</span>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                      filter === "active"
-                        ? "bg-white/20 text-white"
-                        : "bg-purple-100 text-purple-700"
-                    }`}
-                  >
-                    {getFilteredCampsCount("active")}
-                  </span>
-                </span>
-              </motion.button>
-
-              {/* Completed Filter */}
-              <motion.button
-                onClick={() => setFilter("completed")}
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
-                className={`relative px-4 py-2.5 sm:px-6 sm:py-3 lg:px-7 lg:py-3.5 rounded-xl font-semibold transition-all duration-300 text-sm sm:text-base flex items-center gap-2 ${
-                  filter === "completed"
-                    ? "bg-gradient-to-r from-gray-600 via-gray-700 to-slate-600 text-white shadow-2xl shadow-gray-500/50"
-                    : "bg-white/80 text-gray-700 hover:bg-gray-50/80 hover:text-gray-800 backdrop-blur-sm shadow-md border border-gray-200/50"
-                }`}
-              >
-                {filter === "completed" && (
-                  <motion.div
-                    layoutId="activeFilter"
-                    className="absolute inset-0 bg-gradient-to-r from-gray-600 via-gray-700 to-slate-600 rounded-xl -z-0"
-                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                  />
-                )}
-                <span className="relative z-10 flex items-center gap-2">
-                  <CheckCircle
-                    className={`w-4 h-4 ${
-                      filter === "completed" ? "text-white" : "text-gray-500"
-                    }`}
-                  />
-                  <span>منتهي</span>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                      filter === "completed"
-                        ? "bg-white/20 text-white"
-                        : "bg-gray-100 text-gray-700"
-                    }`}
-                  >
-                    {getFilteredCampsCount("completed")}
-                  </span>
-                </span>
-              </motion.button>
-            </div>
-          </div>
+                  {/* Clear Filters */}
+                  <div className="flex items-end sm:col-span-2 lg:col-span-3">
+                    <button
+                      onClick={() => {
+                        setSearchQuery("");
+                        setDifficultyFilter("all");
+                        setDurationFilter("all");
+                        setTagsFilter("all");
+                        setFilter("all");
+                        setTypeFilter("all");
+                      }}
+                      className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition ${ui.segment} ${ui.text} hover:opacity-90`}
+                    >
+                      <X className="h-4 w-4" />
+                      مسح جميع الفلاتر
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
-      {/* Camps Grid */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 sm:pb-20">
+      {/* ——— Camps Grid / List ——— */}
+      <div className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 sm:pb-20 lg:px-8">
         {filteredCamps.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-center py-12 sm:py-20 empty-state"
+            className={`empty-state rounded-2xl py-16 text-center ${ui.card}`}
           >
-            <motion.div
-              initial={{ scale: 0, rotate: -180 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-              className="w-24 h-24 sm:w-32 sm:h-32 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg"
+            <div
+              className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-2xl"
+              style={{ backgroundColor: `${ACCENT}1a` }}
             >
-              <BookOpen className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400" />
-            </motion.div>
-            <motion.h3
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-3"
-            >
+              <BookOpen className="h-12 w-12" style={{ color: ACCENT }} />
+            </div>
+            <h3 className={`mb-3 text-xl font-bold sm:text-2xl ${ui.text}`}>
               لا توجد مخيمات
-            </motion.h3>
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="text-gray-600 text-base sm:text-lg mb-2"
-            >
+            </h3>
+            <p className={`mb-2 text-base sm:text-lg ${ui.sub}`}>
               {filter === "all"
                 ? "لا توجد مخيمات متاحة حالياً"
                 : `لا توجد مخيمات في فئة "${getStatusText(filter)}"`}
-            </motion.p>
+            </p>
             {(searchQuery ||
               filter !== "all" ||
               difficultyFilter !== "all" ||
               durationFilter !== "all" ||
               tagsFilter !== "all") && (
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.5 }}
-                className="text-gray-500 text-sm sm:text-base mb-8"
-              >
+              <p className={`mb-8 text-sm sm:text-base ${ui.faint}`}>
                 جرب تغيير الفلاتر أو البحث
-              </motion.p>
+              </p>
             )}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
-              className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4"
-            >
+            <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
               {(searchQuery ||
                 filter !== "all" ||
                 difficultyFilter !== "all" ||
@@ -1178,143 +1079,162 @@ const QuranCampsPage = () => {
                     setTagsFilter("all");
                     setFilter("all");
                   }}
-                  className="px-6 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
-                  whileHover={{ scale: 1.05, y: -2 }}
-                  whileTap={{ scale: 0.95 }}
+                  className={`flex items-center gap-2 rounded-xl px-6 py-3 font-semibold transition ${ui.segment} ${ui.text}`}
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
                 >
-                  <X className="w-4 h-4" />
+                  <X className="h-4 w-4" />
                   مسح جميع الفلاتر
                 </motion.button>
               )}
               <motion.button
                 onClick={() => window.location.reload()}
-                className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-2 rounded-xl px-6 py-3 font-semibold transition hover:opacity-90"
+                style={primaryBtnStyle}
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
               >
-                <ArrowRight className="w-4 h-4 rotate-180" />
+                <ArrowRight className="h-4 w-4 rotate-180" />
                 تحديث الصفحة
               </motion.button>
-            </motion.div>
+            </div>
           </motion.div>
         ) : (
           <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+            <div
               className={
                 viewMode === "grid"
-                  ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8"
-                  : "space-y-4 sm:space-y-6"
+                  ? "grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+                  : "space-y-4 sm:space-y-5"
               }
             >
-              <AnimatePresence mode="wait">
-                {displayedCamps.map((camp, index) => (
+              {displayedCamps.map((camp, index) => (
+                <motion.div
+                  key={camp.id}
+                  initial={{ opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-50px" }}
+                  transition={{
+                    duration: 0.45,
+                    delay: (index % itemsPerPage) * 0.05,
+                    ease: "easeOut",
+                  }}
+                >
                   <CampPublicCard
-                    key={camp.id}
                     camp={camp}
                     index={index}
                     searchQuery={searchQuery}
                   />
-                ))}
-              </AnimatePresence>
-            </motion.div>
-            {hasMore && (
-              <div className="flex justify-center mt-8">
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex items-center gap-2 text-gray-600"
-                >
-                  <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-sm">جاري تحميل المزيد...</span>
                 </motion.div>
+              ))}
+            </div>
+            {hasMore && (
+              <div className="mt-8 flex justify-center">
+                <div className={`flex items-center gap-2 ${ui.sub}`}>
+                  <div
+                    className="h-6 w-6 animate-spin rounded-full border-2 border-t-transparent"
+                    style={{
+                      borderColor: `${ACCENT}`,
+                      borderTopColor: "transparent",
+                    }}
+                  />
+                  <span className="text-sm">جاري تحميل المزيد...</span>
+                </div>
               </div>
             )}
           </>
         )}
       </div>
 
-      {/* Enhanced Call to Action */}
-      <div className="bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-600 py-12 sm:py-16 lg:py-20 relative overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-0 left-0 w-64 h-64 sm:w-96 sm:h-96 bg-white/10 rounded-full -translate-x-32 sm:-translate-x-48 -translate-y-32 sm:-translate-y-48"></div>
-          <div className="absolute bottom-0 right-0 w-64 h-64 sm:w-96 sm:h-96 bg-white/10 rounded-full translate-x-32 sm:translate-x-48 translate-y-32 sm:translate-y-48"></div>
-        </div>
-
-        <div className="max-w-6xl mx-auto text-center px-4 sm:px-6 lg:px-8 relative">
-          <div className="mb-6 sm:mb-8">
-            <div className="inline-flex items-center space-x-2 bg-white/20 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-full text-xs sm:text-sm font-medium mb-4 sm:mb-6 backdrop-blur-md shadow-lg border border-white/20">
-              <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span>انضم إلى رحلة التعلم</span>
-            </div>
-
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-white mb-4 sm:mb-6">
-              ابدأ رحلتك القرآنية اليوم
-            </h2>
-            <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-purple-100 mb-8 sm:mb-12 max-w-4xl mx-auto leading-relaxed">
-              انضم إلى مجتمع من المتعلمين المتحمسين للتعمق في كتاب الله
-              <br />
-              <span className="text-white font-semibold">
-                واستكشف كنوز القرآن الكريم
+      {/* ——— Call to Action (flat, professional) ——— */}
+      <div className="px-4 pb-16 sm:px-6 lg:px-8">
+        <div
+          className={`mx-auto max-w-6xl overflow-hidden rounded-3xl px-6 py-12 sm:px-10 sm:py-16 ${ui.ctaBorder}`}
+        >
+          <div className="text-center">
+            <div className="mb-6">
+              <span
+                className="mb-5 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-medium sm:text-sm"
+                style={pillActiveStyle}
+              >
+                <Sparkles className="h-4 w-4" style={{ color: GOLD }} />
+                <span>انضم إلى رحلة التعلم</span>
               </span>
-            </p>
-          </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 mb-8 sm:mb-12">
-            <Link
-              to="#camps"
-              className="inline-flex items-center px-6 py-3 sm:px-8 sm:py-4 bg-white text-purple-600 rounded-xl sm:rounded-2xl font-bold text-sm sm:text-base lg:text-lg hover:bg-gray-100 transition-all duration-300 shadow-2xl hover:shadow-3xl transform hover:scale-105"
-            >
-              <BookOpen className="w-4 h-4 sm:w-6 sm:h-6 mr-2 sm:mr-3" />
-              استكشف المخيمات
-              <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
-            </Link>
-
-            <button className="inline-flex items-center px-6 py-3 sm:px-8 sm:py-4 bg-white/20 text-white rounded-xl sm:rounded-2xl font-bold text-sm sm:text-base lg:text-lg hover:bg-white/30 transition-all duration-300 backdrop-blur-md shadow-lg border border-white/20">
-              <Play className="w-4 h-4 sm:w-6 sm:h-6 mr-2 sm:mr-3" />
-              شاهد الفيديو التعريفي
-            </button>
-          </div>
-
-          {/* Features */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 max-w-4xl mx-auto">
-            <div className="text-center">
-              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/20 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4 backdrop-blur-md shadow-lg border border-white/20">
-                <Shield className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">
-                آمن ومضمون
-              </h3>
-              <p className="text-purple-100 text-sm sm:text-base">
-                بيئة تعليمية آمنة ومضمونة
+              <h2
+                className={`mb-4 text-2xl font-bold sm:text-3xl md:text-4xl lg:text-5xl ${ui.text}`}
+              >
+                ابدأ رحلتك القرآنية اليوم
+              </h2>
+              <p
+                className={`mx-auto mb-8 max-w-3xl text-base leading-relaxed sm:text-lg md:text-xl ${ui.sub}`}
+              >
+                انضم إلى مجتمع من المتعلمين المتحمسين للتعمق في كتاب الله
+                <br />
+                <span className="font-semibold" style={{ color: ACCENT }}>
+                  واستكشف كنوز القرآن الكريم
+                </span>
               </p>
             </div>
 
-            <div className="text-center">
-              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/20 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4 backdrop-blur-md shadow-lg border border-white/20">
-                <Crown className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">
-                جودة عالية
-              </h3>
-              <p className="text-purple-100 text-sm sm:text-base">
-                محتوى عالي الجودة ومتخصص
-              </p>
+            {/* Action Buttons */}
+            <div className="mb-12 flex flex-col items-center justify-center gap-4 sm:flex-row">
+              <Link
+                to="#camps"
+                className="inline-flex items-center gap-2 rounded-xl px-7 py-3.5 text-sm font-bold transition hover:opacity-90 sm:text-base"
+                style={primaryBtnStyle}
+              >
+                <BookOpen className="h-5 w-5" />
+                استكشف المخيمات
+                <ArrowRight className="h-4 w-4 rotate-180" />
+              </Link>
+
+              <button
+                className={`inline-flex items-center gap-2 rounded-xl px-7 py-3.5 text-sm font-bold transition sm:text-base ${ui.segment} ${ui.text} hover:opacity-90`}
+              >
+                <Play className="h-5 w-5" style={{ color: ACCENT }} />
+                شاهد الفيديو التعريفي
+              </button>
             </div>
 
-            <div className="text-center sm:col-span-2 lg:col-span-1">
-              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/20 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4 backdrop-blur-md shadow-lg border border-white/20">
-                <Globe className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">
-                متاح للجميع
-              </h3>
-              <p className="text-purple-100 text-sm sm:text-base">
-                مجاني ومتاح للجميع
-              </p>
+            {/* Features */}
+            <div className="mx-auto grid max-w-4xl grid-cols-1 gap-6 sm:grid-cols-3">
+              {[
+                {
+                  icon: Shield,
+                  title: "آمن ومضمون",
+                  desc: "بيئة تعليمية آمنة ومضمونة",
+                },
+                {
+                  icon: Crown,
+                  title: "جودة عالية",
+                  desc: "محتوى عالي الجودة ومتخصص",
+                },
+                {
+                  icon: Globe,
+                  title: "متاح للجميع",
+                  desc: "مجاني ومتاح للجميع",
+                },
+              ].map(({ icon: FeatureIcon, title, desc }, i) => (
+                <div
+                  key={i}
+                  className={`rounded-2xl p-6 text-center ${ui.card}`}
+                >
+                  <div
+                    className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl"
+                    style={{ backgroundColor: `${ACCENT}1f` }}
+                  >
+                    <FeatureIcon
+                      className="h-7 w-7"
+                      style={{ color: ACCENT }}
+                    />
+                  </div>
+                  <h3 className={`mb-1.5 text-lg font-bold ${ui.text}`}>
+                    {title}
+                  </h3>
+                  <p className={`text-sm ${ui.sub}`}>{desc}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -1328,12 +1248,13 @@ const QuranCampsPage = () => {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0 }}
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            className="fixed bottom-8 left-8 z-50 p-4 bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-full shadow-2xl hover:shadow-purple-500/50 transition-all backdrop-blur-md border-2 border-white/20"
+            className="fixed bottom-8 left-8 z-50 flex h-12 w-12 items-center justify-center rounded-full shadow-xl transition"
+            style={primaryBtnStyle}
             whileHover={{ scale: 1.1, y: -4 }}
             whileTap={{ scale: 0.9 }}
             aria-label="التمرير للأعلى"
           >
-            <ArrowUp className="w-6 h-6" />
+            <ArrowUp className="h-6 w-6" />
           </motion.button>
         )}
       </AnimatePresence>

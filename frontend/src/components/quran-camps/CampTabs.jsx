@@ -169,7 +169,7 @@ const CampTabs = ({
   };
 
   return (
-    <div className="bg-white rounded-xl sm:rounded-2xl p-2 sm:p-1.5 lg:p-2 shadow-lg border border-gray-100 mb-3 sm:mb-4 lg:mb-8">
+    <div className="camp-tabs-nav bg-white rounded-xl sm:rounded-2xl p-2 sm:p-1.5 lg:p-2 shadow-lg border border-gray-100 mb-3 sm:mb-4 lg:mb-8 dark:border-white/10 dark:bg-[#242428] dark:shadow-[0_16px_40px_rgba(0,0,0,0.35)]">
       {/* Mobile: Grid Layout */}
       <div className="grid grid-cols-3 sm:grid-cols-4 lg:hidden gap-1.5 sm:gap-2">
         {tabs.map((tab) => (
@@ -184,8 +184,8 @@ const CampTabs = ({
               data-tour={`${tab.id}-tab`}
               className={`flex focus:outline-none focus-visible:outline-2 focus-visible:outline-[#7440E9] focus-visible:outline-offset-2 focus:ring-0 focus-visible:ring-0 flex-col items-center justify-center p-2 sm:p-2.5 rounded-lg font-medium transition-all duration-300 active:scale-95 relative w-full ${
                 activeTab === tab.id
-                  ? "text-[#7440E9] bg-[#7440E9]/10 shadow-sm"
-                  : "text-gray-600 active:text-gray-800 active:bg-gray-50"
+                  ? "text-[#7440E9] bg-[#7440E9]/10 shadow-sm dark:bg-[#7440E9]/20 dark:text-[#c4b5fd]"
+                  : "text-gray-600 active:text-gray-800 active:bg-gray-50 dark:text-zinc-300 dark:active:bg-[#34343a] dark:active:text-zinc-100"
               }`}
               aria-label={tab.label}
               aria-selected={activeTab === tab.id}
@@ -195,7 +195,7 @@ const CampTabs = ({
               <div className="relative">
                 <tab.icon className="w-5 h-5 sm:w-5 sm:h-5 flex-shrink-0 mb-1" />
                 {tab.badge !== undefined && tab.badge > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#7440E9] text-white text-[10px] rounded-full font-semibold flex items-center justify-center border-2 border-white">
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#7440E9] text-white text-[10px] rounded-full font-semibold flex items-center justify-center border-2 border-white dark:border-[#242428]">
                     {tab.badge}
                   </span>
                 )}
@@ -230,8 +230,8 @@ const CampTabs = ({
               data-tour={`${tab.id}-tab`}
               className={`flex-1 focus:outline-none focus-visible:outline-2 focus-visible:outline-[#7440E9] focus-visible:outline-offset-2 focus:ring-0 focus-visible:ring-0 flex items-center justify-center px-3 lg:px-8 xl:px-20 py-2.5 lg:py-3 rounded-xl font-medium transition-all duration-300 whitespace-nowrap active:scale-95 relative ${
                 activeTab === tab.id
-                  ? "text-[#7440E9] bg-[#7440E9]/10 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  ? "text-[#7440E9] bg-[#7440E9]/10 shadow-sm dark:bg-[#7440E9]/20 dark:text-[#c4b5fd]"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-zinc-300 dark:hover:bg-[#34343a] dark:hover:text-zinc-100"
               }`}
               aria-label={tab.label}
               aria-selected={activeTab === tab.id}
